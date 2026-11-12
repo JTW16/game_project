@@ -1,0 +1,79 @@
+using System.Collections;
+using UnityEngine.SceneManagement;
+
+namespace ParryRL.Tests
+{
+    /// <summary>테스트 공통: 튜닝 파일을 무시하고 기본값으로 프로토타입 씬을 연다.</summary>
+    public static class TestScene
+    {
+        public static IEnumerator LoadPrototype()
+        {
+            // 사용자가 F1 패널로 바꿔 저장한 값이 테스트 기대값을 흔들지 않도록
+            GameTuning.UseDefaultsForTests();
+            GameTuning.Current.startDamageScale = 1f; // 규칙 테스트의 데미지 기준은 성장 전 배율 1 — 초반 배율(0.7)은 따로 검증
+            ParryRL.PortalTransition.PlayEffects = false; // 문은 바로 넘어간다 — 포탈 연출은 따로 검증
+            PlayerSession.Reset(); // 앞선 테스트가 이어받던 상태가 새 씬에 새지 않게
+            UnityEngine.Time.timeScale = 1f; // 앞선 테스트(게임오버·히트스탑)가 시간을 멈춘 채 끝나도 영향이 없게
+            SceneManager.LoadScene("Prototype");
+            yield return null;
+            yield return null;
+            SetAttackSkillFree(false); // 게이지 규칙 테스트의 기준은 "A 스킬·대시가 게이지를 쓴다" — 공짜 설정은 따로 검증
+            SetMoveSkillFree(false);
+            SetMoveSkillCharges(1); // 기존 규칙 테스트는 대시 1회 기준 — 2회 충전은 따로 검증
+        }
+
+        /// <summary>한 판(런)을 시작한 상태로 플레이 씬을 연다. enterRooms가 있으면 그 종류의 방들을 거쳐 온 것처럼 방 번호를 올린다.</summary>
+        public static IEnumerator LoadRun(params ParryRL.RoomType[] enterRooms) => LoadRun(false, enterRooms);
+
+        /// <param name="bossEntrance">true면 보스방에서 실제 게임처럼 플레이어가 앞으로 나올 때까지 기다렸다 등장 연출을 한다 (기본은 바로 싸움)</param>
+        public static IEnumerator LoadRun(bool bossEntrance, params ParryRL.RoomType[] enterRooms)
+        {
+            ParryRL.RoomController.BossWaitsForPlayer = bossEntrance;
+            ParryRL.BossController.PlayEntrance = bossEntrance;
+            GameTuning.UseDefaultsForTests();
+            GameTuning.Current.startDamageScale = 1f; // 규칙 테스트의 데미지 기준은 성장 전 배율 1 — 초반 배율(0.7)은 따로 검증
+            ParryRL.PortalTransition.PlayEffects = false; // 문은 바로 넘어간다 — 포탈 연출은 따로 검증
+            PlayerSession.Reset();
+            UnityEngine.Time.timeScale = 1f;
+            ParryRL.RunState.Begin();
+            foreach (var type in enterRooms) ParryRL.RunState.Enter(type);
+            SceneManager.LoadScene("Prototype");
+            yield return null;
+            yield return null;
+        }
+
+        /// <summary>사당(대기) 씬을 연다.</summary>
+        public static IEnumerator LoadHub()
+        {
+            GameTuning.UseDefaultsForTests();
+            GameTuning.Current.startDamageScale = 1f; // 규칙 테스트의 데미지 기준은 성장 전 배율 1 — 초반 배율(0.7)은 따로 검증
+            ParryRL.PortalTransition.PlayEffects = false; // 문은 바로 넘어간다 — 포탈 연출은 따로 검증
+            PlayerSession.Reset();
+            UnityEngine.Time.timeScale = 1f;
+            SceneManager.LoadScene("Hub");
+            yield return null;
+            yield return null;
+        }
+
+        public static void SetMoveSkillCharges(int charges)
+        {
+            var combat = UnityEngine.Object.FindAnyObjectByType<PlayerCombat>();
+            typeof(PlayerCombat).GetField("moveSkillCharges", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                .SetValue(combat, charges);
+        }
+
+        public static void SetMoveSkillFree(bool free)
+        {
+            var combat = UnityEngine.Object.FindAnyObjectByType<PlayerCombat>();
+            typeof(PlayerCombat).GetField("moveSkillFree", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                .SetValue(combat, free);
+        }
+
+        public static void SetAttackSkillFree(bool free)
+        {
+            var combat = UnityEngine.Object.FindAnyObjectByType<PlayerCombat>();
+            typeof(PlayerCombat).GetField("attackSkillFree", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                .SetValue(combat, free);
+        }
+    }
+}

@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ca21b0786583f434dbbd8e8d009a94dc, type: 3}
+  m_Name: shrineFloorSet
+  m_EditorClassIdentifier: ParryRL::ParryRL.FloorSet
+  zoneName: shrine
+  top:
+  - {fileID: 21300000, guid: ac56efc39f3f5475cb017a5b7bce0ae0, type: 3}
+  fill:
+  - {fileID: 21300000, guid: c01c58ba8f80c4be6915c93fc4491751, type: 3}
+  - {fileID: 21300000, guid: 1d6c463f9405c4dcea1e07ad7dcf3bd9, type: 3}
+  - {fileID: 21300000, guid: 17a97e24ad34c4a5bba2e965d6a2f9e3, type: 3}
+  - {fileID: 21300000, guid: 5ad6fae4f09eb4a0baca70741fc1ccab, type: 3}
+  - {fileID: 21300000, guid: f768b44ed90c94f74b294dc0b97b89ad, type: 3}
+  platL: []
+  platM: []
+  platR: []
+  unitScale: 1
+  fillDarken: 0

@@ -1,0 +1,58 @@
+# Unity가 다시 만드는 캐시·임시 파일
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+
+# IDE가 만드는 프로젝트 파일 (Unity가 다시 생성)
+.vs/
+.vscode/
+.idea/
+*.csproj
+*.sln
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+
+# 빌드·크래시 산출물
+*.apk
+*.aab
+*.unitypackage
+sysinfo.txt
+crashlytics-buildtype.txt
+
+# Unity Recorder 녹화 영상 — 용량이 커서 저장소에 넣지 않는다 (로컬에만 보관)
+/[Rr]ecordings/
+
+# OS
+.DS_Store
+Thumbs.db
+__pycache__/
+
+# 효과음 미리 듣기 파일 (SfxTests가 만든다)
+/Captures/sfx/
+
+# 게임 글꼴 (온글잎 재건사) — 라이선스상 글꼴 파일 재배포 금지(OFL 아님, 임베딩은 허용). 각자 받아서 이 경로에 둔다.
+/Assets/Resources/Fonts/*.ttf
+/Assets/Resources/Fonts/*.ttf.meta
+/Assets/Resources/Fonts/*.otf
+/Assets/Resources/Fonts/*.otf.meta
+
+# 뱀서 시험판: 테스트가 매번 다시 찍는 캡처 (커밋할 화면은 docs/screenshots/에 JPG로)
+/Captures/survivor/
+# Unity Test Framework가 남기는 임시 씬
+/Assets/InitTestScene*

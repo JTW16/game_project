@@ -1,0 +1,254 @@
+using System.Collections;
+using System.Linq;
+using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.TestTools;
+
+namespace ParryRL.Tests
+{
+    /// <summary>몬스터 공격 모양 — 근접 베기(몸에서 뻗음) / 원거리 투사체 (기획서 3.1·7장).</summary>
+    public class EnemyTests
+    {
+        private PlayerDefense _defense;
+        private PlayerParty _party;
+        private SkillGauge _gauge;
+        private EnemyController _melee;
+        private EnemyController _ranged;
+
+        private static GameTuning T => GameTuning.Current;
+        private Vector2 PlayerPos => _defense.transform.position;
+
+        [UnitySetUp]
+        public IEnumerator SetUp()
+        {
+            yield return TestScene.LoadPrototype();
+            _defense = Object.FindAnyObjectByType<PlayerDefense>();
+            _party = _defense.GetComponent<PlayerParty>();
+            _gauge = _defense.GetComponent<SkillGauge>();
+            var enemies = Object.FindObjectsByType<EnemyController>();
+            foreach (var e in enemies) e.enabled = false;
+            _melee = enemies.First(e => e.Kind == EnemyKind.Melee);
+            _ranged = enemies.First(e => e.Kind == EnemyKind.Ranged);
+            Place(_melee, 15f);
+            Place(_ranged, -15f);
+            T.heavyChance = 0f; // 기본은 일반 공격만 (반응시간 기준 검사)
+            yield return new WaitForSeconds(0.3f); // 착지
+        }
+
+        private void Place(EnemyController enemy, float dx)
+        {
+            var pos = new Vector3(PlayerPos.x + dx, enemy.transform.localScale.y * 0.5f, 0f);
+            enemy.transform.position = pos;
+            enemy.GetComponent<Rigidbody2D>().position = pos;
+            Physics2D.SyncTransforms();
+        }
+
+        private static IEnumerator WaitForAttack(System.Action<EnemyAttack> found, float timeout = 5f)
+        {
+            float t = 0f;
+            EnemyAttack attack = null;
+            while (attack == null && t < timeout)
+            {
+                attack = Object.FindAnyObjectByType<EnemyAttack>();
+                t += Time.deltaTime;
+                if (attack == null) yield return null;
+            }
+            Assert.IsNotNull(attack, "공격이 나와야 함");
+            found(attack);
+        }
+
+        /// <summary>예비 모션이 시작될 때까지 기다린다 (몸이 커지기 시작).</summary>
+        private IEnumerator WaitForWindup()
+        {
+            float t = 0f;
+            while (_melee.transform.localScale.x <= 1.001f && t < 5f) { t += Time.deltaTime; yield return null; }
+            Assert.Less(t, 5f, "예비 모션 시작");
+        }
+
+        private void MovePlayerTo(float x)
+        {
+            var p = new Vector2(x, PlayerPos.y);
+            _defense.transform.position = p;
+            _defense.GetComponent<Rigidbody2D>().position = p;
+            Physics2D.SyncTransforms();
+        }
+
+        [UnityTest]
+        public IEnumerator 근접몬스터는_몸앞에서_한번에_벤다_투사체가_아님()
+        {
+            _melee.enabled = true;
+            Place(_melee, 2f);
+            yield return WaitForWindup();
+            MovePlayerTo(_melee.transform.position.x - 4f); // 사거리 밖으로 비켜서 베기가 끝까지 뻗는 걸 본다
+
+            EnemyAttack slash = null;
+            yield return WaitForAttack(a => slash = a);
+            Assert.IsTrue(slash.IsSlash, "근접 공격은 베기");
+            Assert.AreSame(_melee, slash.Source);
+            float frontEdge = _melee.transform.position.x - _melee.HalfWidth; // 플레이어가 왼쪽
+            Assert.AreEqual(frontEdge, slash.SlashAnchor.x, 1e-3f, "몸 앞면에 붙어서 시작");
+
+            yield return new WaitForSeconds(0.08f);
+            Assert.IsTrue(slash != null, "다 뻗은 뒤 잠깐 남는다");
+            float length = slash.transform.localScale.x;
+            Assert.AreEqual(2.9f - _melee.HalfWidth, length, 1e-3f, "0.08초 안에 끝까지 — 한 번에 삭");
+            float nearEnd = slash.transform.position.x + length * 0.5f;
+            Assert.AreEqual(frontEdge, nearEnd, 1e-3f, "몬스터 쪽 끝은 그대로 — 날아가지 않는다");
+        }
+
+        [UnityTest]
+        public IEnumerator 근접_일반공격도_느낌표가_뜨고_느낌표를_보고_바로_누르면_막힌다()
+        {
+            GameTuning.Current.heavyChance = 0f; // 일반 공격만
+            _melee.enabled = true;
+            Place(_melee, 1.6f);
+            yield return WaitForWindup();
+            float windupStart = Time.time;
+            Assert.AreEqual(0, _melee.PressCueCount, "예비 모션 시작 직후에는 아직 빨갛게 안 바뀐다");
+            var icon = Object.FindAnyObjectByType<PressCueIcon>();
+            Assert.IsNotNull(icon, "예비 모션이 시작되면 노란 느낌표가 먼저 뜬다");
+            Assert.IsFalse(icon.IsRed);
+
+            // 느낌표가 뜰 때까지 기다린 뒤 그 즉시 패링을 누른다 ("빨간 느낌표가 보이면 누르면 된다")
+            float t = 0f;
+            while (_melee.PressCueCount == 0 && t < 3f) { t += Time.deltaTime; yield return null; }
+            Assert.AreEqual(1, _melee.PressCueCount, "일반 공격에도 느낌표");
+            Assert.IsTrue(icon.IsRed, "같은 느낌표가 빨갛게 바뀐다");
+            float waited = Time.time - windupStart;
+            Assert.Greater(waited, GameTuning.Current.meleeNormalReaction - GameTuning.Current.defenseActiveTime, "베기 직전에 뜬다");
+            Assert.Less(waited, GameTuning.Current.meleeNormalReaction, "베기 전에 뜬다");
+
+            Assert.IsTrue(_defense.TryActivate());
+            yield return new WaitForSeconds(0.6f);
+            Assert.AreEqual(100, _party.Hp, "느낌표를 보고 바로 눌렀으니 막혀서 피해가 없다");
+        }
+
+        [UnityTest]
+        public IEnumerator 근접_강공격도_노란_느낌표로_시작해_베기_직전에_빨갛게_바뀐다_하나만()
+        {
+            GameTuning.Current.heavyOnly = true;
+            _melee.enabled = true;
+            Place(_melee, 1.6f);
+            yield return WaitForWindup();
+            yield return new WaitForSeconds(0.1f);
+            var icon = Object.FindAnyObjectByType<PressCueIcon>();
+            Assert.IsNotNull(icon, "노란 느낌표로 시작");
+            Assert.IsFalse(icon.IsRed);
+            Assert.AreEqual(1, Object.FindObjectsByType<PressCueIcon>().Length, "느낌표는 하나뿐");
+            float t = 0f;
+            while (_melee.PressCueCount == 0 && t < 3f) { t += Time.deltaTime; yield return null; }
+            yield return new WaitForSeconds(0.12f);
+            Assert.IsTrue(icon.IsRed, "베기 직전에 빨갛게");
+            Assert.AreEqual(1, Object.FindObjectsByType<PressCueIcon>().Length, "여전히 하나");
+            // 베기가 나가고 나면 느낌표는 사라진다
+            yield return new WaitForSeconds(0.8f);
+            Assert.AreEqual(0, Object.FindObjectsByType<PressCueIcon>().Length, "베기 뒤에는 사라진다");
+        }
+
+        [UnityTest]
+        public IEnumerator 근접_공격_도중_플레이어가_반대편으로_가도_따라_돌거나_움직이지_않고_그자리에서_벤다()
+        {
+            GameTuning.Current.heavyChance = 0f;
+            _melee.enabled = true;
+            Place(_melee, 1.6f); // 플레이어가 왼쪽, 몬스터는 오른쪽
+            yield return WaitForWindup();
+            float xAtStart = _melee.transform.position.x;
+            float dirAtStart = _melee.Facing;
+            Assert.Less(dirAtStart, 0f, "플레이어(왼쪽)를 향해 시작");
+
+            // 예비 모션 도중 플레이어가 몬스터 반대편(오른쪽 뒤)으로 가 버린다
+            MovePlayerTo(xAtStart + 3f);
+            yield return new WaitForSeconds(0.3f);
+            Assert.AreEqual(xAtStart, _melee.transform.position.x, 1e-3f, "공격 도중 몬스터는 따라 움직이지 않는다");
+            Assert.AreEqual(dirAtStart, _melee.Facing, "공격 도중 방향이 바뀌지 않는다");
+
+            EnemyAttack slash = null;
+            yield return WaitForAttack(a => slash = a);
+            Assert.IsTrue(slash.IsSlash);
+            float frontEdge = xAtStart - _melee.HalfWidth;
+            Assert.AreEqual(frontEdge, slash.SlashAnchor.x, 1e-3f, "처음 향한 쪽(왼쪽) 앞면에서 벤다 — 플레이어를 따라 오른쪽으로 돌지 않는다");
+            Assert.AreEqual(dirAtStart, _melee.Facing);
+        }
+
+        [UnityTest]
+        public IEnumerator 근접_베기는_대시로_피해도_끊기지_않고_끝까지_뻗는다_맞지는_않는다()
+        {
+            // 대시 중(무적)인 플레이어 앞에 베기를 낸다
+            var motor = _defense.GetComponent<PlayerMotor>();
+            motor.Dash(-1);
+            Vector2 anchor = new(PlayerPos.x + 1.2f, PlayerPos.y);
+            var slash = EnemyAttack.SpawnSlash(_melee, AttackType.Normal, anchor, -1f, 1.2f, 45f, 2.9f - _melee.HalfWidth, Color.red, 10);
+            yield return new WaitForSeconds(0.15f);
+            Assert.IsTrue(slash != null, "대시로 지나가도 베기는 사라지지 않는다");
+            Assert.AreEqual(100, _party.Hp, "무적 대시 중이라 맞지는 않는다");
+            Assert.AreEqual(2.9f - _melee.HalfWidth, slash.transform.localScale.x, 0.05f, "끝까지 다 뻗는다 (회색으로 흐려지며 멈추지 않는다)");
+            yield return new WaitForSeconds(0.5f);
+            Assert.IsTrue(slash == null, "다 뻗은 뒤 평소처럼 사라진다");
+        }
+
+        [UnityTest]
+        public IEnumerator 근접베기_반응시간은_예비모션_길이()
+        {
+            _melee.enabled = true;
+            Place(_melee, 2f);
+            yield return WaitForWindup();
+            float windupStart = Time.time;
+            MovePlayerTo(_melee.transform.position.x - 2.6f + 0.01f); // 사거리 끝
+
+            EnemyAttack slash = null;
+            yield return WaitForAttack(a => slash = a);
+            float spawned = Time.time;
+            while (_party.Hp == 100 && Time.time - windupStart < 2f) yield return null;
+            Assert.Less(_party.Hp, 100, "사거리 끝에 선 플레이어에게 닿는다");
+            Assert.LessOrEqual(Time.time - spawned, 0.08f, "베기가 나오면 거의 바로 닿는다");
+            Assert.That(Time.time - windupStart, Is.InRange(T.meleeNormalReaction - 0.03f, T.meleeNormalReaction + 0.1f),
+                "예비 모션 시작부터 맞기까지 ≈ 반응시간");
+        }
+
+        [UnityTest]
+        public IEnumerator 근접베기를_패링하면_부서지고_플레이어_반격이_닿는다()
+        {
+            _melee.enabled = true;
+            Place(_melee, 2f);
+            EnemyAttack slash = null;
+            yield return WaitForAttack(a => slash = a);
+            Assert.IsTrue(_defense.TryActivate());
+            yield return new WaitForSecondsRealtime(0.45f);
+
+            Assert.AreEqual(100, _party.Hp);
+            Assert.AreEqual(1, _gauge.Value, "패링 성공");
+            Assert.IsTrue(slash == null, "패링하면 베기가 부서짐");
+            Assert.AreEqual(0.7f, _melee.HpRatio, 1e-4f, "바짝 붙은 근접 몬스터라 플레이어 반격(사거리 1.8)이 닿는다 — 30");
+        }
+
+        [UnityTest]
+        public IEnumerator 원거리몬스터는_그대로_투사체()
+        {
+            T.godMode = true;
+            _ranged.enabled = true;
+            Place(_ranged, -7f);
+            EnemyAttack shot = null;
+            yield return WaitForAttack(a => shot = a);
+            Assert.IsFalse(shot.IsSlash);
+            float x0 = shot.transform.position.x;
+            yield return new WaitForSeconds(0.1f);
+            if (shot != null) Assert.Greater(shot.transform.position.x, x0, "플레이어 쪽으로 날아감");
+        }
+
+        [UnityTest]
+        public IEnumerator 기절하면_예비모션중인_공격이_취소된다()
+        {
+            _melee.enabled = true;
+            GameTuning.Current.heavyOnly = true; // 예비 모션을 길게
+            Place(_melee, 2f);
+            float t = 0f;
+            while (_melee.transform.localScale.x <= 1.001f && t < 5f) { t += Time.deltaTime; yield return null; }
+            Assert.Less(t, 5f, "예비 모션 시작");
+
+            _melee.Stun(0.8f);
+            Assert.AreEqual(1f, _melee.transform.localScale.x, 1e-4f, "몸 크기 원래대로 (공격 취소)");
+            yield return new WaitForSeconds(0.6f);
+            Assert.AreEqual(0, Object.FindObjectsByType<EnemyAttack>().Length, "기절 중엔 공격이 안 나감");
+        }
+    }
+}

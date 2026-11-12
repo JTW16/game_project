@@ -1,0 +1,245 @@
+﻿using UnityEngine;
+
+namespace ParryRL
+{
+    /// <summary>좌우 이동 / 2단 고정 높이 점프 / 대시(이동 스킬용).</summary>
+    [RequireComponent(typeof(Rigidbody2D), typeof(BoxCollider2D))]
+    public class PlayerMotor : MonoBehaviour
+    {
+        // 걷기 속도는 캐릭터별 — GameTuning (F1 캐릭터 탭). 궁수가 플레이어보다 빠르다.
+
+        [Header("점프 (2단, 누르는 시간과 무관한 고정 높이 — 공중에서 한 번 더 누르면 그 자리에서 다시 솟는다)")]
+        [SerializeField] private float jumpVelocity = 7f;
+        [SerializeField] private int maxJumps = 2;
+
+        [SerializeField, Tooltip("떨어질 때 발이 발판 윗면보다 이만큼 아래까지는 올려 세워 준다 (발판 두께 0.4 안쪽)")] private float ledgeAssist = 0.35f;
+
+        [Header("대시")]
+        [SerializeField] private float dashDistance = 3f;
+        [SerializeField] private float dashDuration = 0.15f;
+
+        [Header("공격 내딛기 (플레이어 베기 때 몸이 칼을 따라 살짝 나아간다 — 무적 아님)")]
+        [SerializeField] private float lungeDistance = 0.45f;
+        [SerializeField] private float lungeDuration = 0.12f;
+
+        [SerializeField, Tooltip("바라보는 방향 표시용 (판정 없음)")] private Transform eye;
+
+        public int Facing { get; private set; } = 1;
+        public bool IsGrounded { get; private set; }
+        public bool IsDashing => _dashTimer > 0f;
+
+        /// <summary>이동 스킬 무적: 대시 중 + 끝난 뒤 여유 시간 (GameTuning).</summary>
+        public bool IsDashInvulnerable =>
+            GameTuning.Current.dashInvulnerable && (IsDashing || Time.time - _dashEndTime < GameTuning.Current.dashInvulnerableExtra);
+
+        private float _dashEndTime = float.NegativeInfinity;
+
+        /// <summary>지금 나와 있는 캐릭터의 걷기 속도.</summary>
+        public float MoveSpeed => _party != null ? GameTuning.Current.MoveSpeed(_party.Current.kind) : GameTuning.Current.playerMoveSpeed;
+
+        /// <summary>방어 모션(제자리) 중에는 걷기 입력을 막는다.</summary>
+        public bool MovementLocked { get; set; }
+
+        public float HorizontalInput => _h;
+
+        private Rigidbody2D _rb;
+        private PlayerParty _party;
+        private BoxCollider2D _collider;
+        private float _gravityScale;
+        private float _h;
+        private int _jumpsLeft;
+        private float _dashTimer;
+        private float _dashDir;
+        private float _dashSpeed;
+        private float _afterimageTimer;
+        private SpriteRenderer _sr;
+        private PlayerSprite _sprite;
+        private Collider2D _dropCollider;
+        private float _lungeTimer;
+        private int _lungeDir;
+        private float _dropTimer;
+        private readonly Collider2D[] _groundHits = new Collider2D[4];
+
+        private void Awake()
+        {
+            _rb = GetComponent<Rigidbody2D>();
+            _party = GetComponent<PlayerParty>();
+            _collider = GetComponent<BoxCollider2D>();
+            _sr = GetComponent<SpriteRenderer>();
+            _sprite = GetComponent<PlayerSprite>();
+            _gravityScale = _rb.gravityScale;
+            _jumpsLeft = maxJumps;
+        }
+
+        private void Update()
+        {
+            if (GameManager.InputBlocked)
+            {
+                _h = 0f;
+                return;
+            }
+
+            _h = Controls.Horizontal;
+            if (_h != 0f && !MovementLocked && !IsDashing) SetFacing(_h);
+
+            if (_dropTimer > 0f)
+            {
+                _dropTimer -= Time.deltaTime;
+                if (_dropTimer <= 0f) EndDrop();
+            }
+
+            // ↓ + 점프: 발판 위에 서 있으면 점프 대신 발판을 통과해 내려간다
+            if (Input.GetKeyDown(Controls.Jump) && Input.GetKey(Controls.Down) && !IsDashing && TryDropThrough()) { }
+            else if (Input.GetKeyDown(Controls.Jump) && _jumpsLeft > 0 && !IsDashing)
+            {
+                _jumpsLeft--;
+                var v = _rb.linearVelocity;
+                v.y = jumpVelocity;
+                _rb.linearVelocity = v;
+                Sfx.Play(SfxId.Jump);
+            }
+        }
+
+        private void FixedUpdate()
+        {
+            IsGrounded = CheckGround();
+            if (IsGrounded && _rb.linearVelocity.y <= 0.01f) _jumpsLeft = maxJumps;
+
+            if (_lungeTimer > 0f && !IsDashing)
+            {
+                // 빠르게 나가 감속하는 짧은 내딛기 (거리 = lungeDistance)
+                _lungeTimer -= Time.fixedDeltaTime;
+                float k = Mathf.Clamp01(_lungeTimer / lungeDuration);
+                _rb.linearVelocity = new Vector2(_lungeDir * lungeDistance / lungeDuration * 2f * k, _rb.linearVelocity.y);
+                return;
+            }
+
+            if (IsDashing)
+            {
+                _dashTimer -= Time.fixedDeltaTime;
+                _rb.linearVelocity = new Vector2(_dashDir * _dashSpeed, 0f);
+
+                _afterimageTimer -= Time.fixedDeltaTime;
+                if (_afterimageTimer <= 0f)
+                {
+                    _afterimageTimer = 0.03f;
+                    if (_sprite == null || !_sprite.TrySpawnAfterimage())
+                        Fx.Afterimage(transform.position, transform.localScale, _sr.color, 0.18f, _sr.sprite, _sr.flipX);
+                }
+
+                if (_dashTimer <= 0f)
+                {
+                    _dashEndTime = Time.time;
+                    _rb.gravityScale = _gravityScale;
+                    _rb.linearVelocity = new Vector2(_dashDir * MoveSpeed, 0f);
+                }
+                return;
+            }
+
+            float vx = MovementLocked ? 0f : _h * MoveSpeed;
+            _rb.linearVelocity = new Vector2(vx, _rb.linearVelocity.y);
+        }
+
+        private bool CheckGround()
+        {
+            Vector2 size = transform.localScale;
+            var center = new Vector2(transform.position.x, transform.position.y - size.y * 0.5f - 0.03f);
+            var filter = new ContactFilter2D { useTriggers = false };
+            int count = Physics2D.OverlapBox(center, new Vector2(size.x * 0.9f, 0.06f), 0f, filter, _groundHits);
+            bool rising = _rb.linearVelocity.y > 0.01f;
+            for (int i = 0; i < count; i++)
+            {
+                if (_groundHits[i] == _collider || _groundHits[i] == _dropCollider) continue;
+                // 올라가는 중에 발판을 통과하는 동안은 바닥으로 치지 않는다 (점프 횟수가 공짜로 돌아오지 않게)
+                bool oneWay = _groundHits[i].GetComponent<PlatformEffector2D>() != null;
+                if (rising && oneWay) continue;
+                if (oneWay)
+                {
+                    // 한쪽 통과 발판은 아래·옆에서 파고든 동안 물리 충돌이 꺼져 있어, 겹쳤다고 착지로 치면 착지 모션만 나오고 그대로 빠진다.
+                    // 발이 윗면에 살짝 못 미치면 올려 세우고(점프 높이에 간신히 닿는 층을 놓치지 않게), 그보다 아래면 착지가 아니다
+                    float gap = _groundHits[i].bounds.max.y - (transform.position.y - size.y * 0.5f);
+                    if (gap > OnPlatformTolerance)
+                    {
+                        if (gap > ledgeAssist) continue;
+                        StepUp(gap);
+                    }
+                }
+                return true;
+            }
+            return false;
+        }
+
+        private const float OnPlatformTolerance = 0.05f; // 발판에 서 있을 때 발이 윗면보다 낮아도 되는 정도 (물리 오차)
+
+        private void StepUp(float gap)
+        {
+            var pos = _rb.position + Vector2.up * (gap + 0.01f);
+            _rb.position = pos;
+            transform.position = pos;
+            _rb.linearVelocity = new Vector2(_rb.linearVelocity.x, 0f);
+        }
+
+        /// <summary>서 있는 곳이 얇은 발판(PlatformEffector2D)이면 잠깐 충돌을 꺼서 아래로 내려간다.</summary>
+        public bool TryDropThrough()
+        {
+            if (!IsGrounded || _dropTimer > 0f) return false;
+            Vector2 size = transform.localScale;
+            var center = new Vector2(transform.position.x, transform.position.y - size.y * 0.5f - 0.03f);
+            var filter = new ContactFilter2D { useTriggers = false };
+            int count = Physics2D.OverlapBox(center, new Vector2(size.x * 0.9f, 0.06f), 0f, filter, _groundHits);
+            for (int i = 0; i < count; i++)
+            {
+                if (_groundHits[i] == _collider || _groundHits[i].GetComponent<PlatformEffector2D>() == null) continue;
+                _dropCollider = _groundHits[i];
+                _dropTimer = 0.35f;
+                Physics2D.IgnoreCollision(_collider, _dropCollider, true);
+                IsGrounded = false;
+                _jumpsLeft = Mathf.Min(_jumpsLeft, maxJumps - 1); // 내려간 뒤엔 공중 점프 한 번 소모
+                return true;
+            }
+            return false;
+        }
+
+        private void EndDrop()
+        {
+            if (_dropCollider != null) Physics2D.IgnoreCollision(_collider, _dropCollider, false);
+            _dropCollider = null;
+        }
+
+        /// <summary>플레이어가 벨 때 칼을 따라 몸이 살짝 나아간다. 대시와 달리 무적이 아니고 중력도 그대로.</summary>
+        public void Lunge(int dir)
+        {
+            if (IsDashing) return;
+            _lungeDir = dir >= 0 ? 1 : -1;
+            _lungeTimer = lungeDuration;
+        }
+
+        public void SetFacing(float dir)
+        {
+            if (dir == 0f) return;
+            Facing = dir > 0f ? 1 : -1;
+            if (eye != null)
+            {
+                var p = eye.localPosition;
+                p.x = Mathf.Abs(p.x) * Facing;
+                eye.localPosition = p;
+            }
+        }
+
+        public void FaceTowards(float worldX)
+        {
+            float dx = worldX - transform.position.x;
+            if (Mathf.Abs(dx) > 0.01f) SetFacing(dx);
+        }
+
+        /// <param name="extraDistance">대시 거리 추가 (지금은 쓰는 곳 없음)</param>
+        public void Dash(int dir, float extraDistance = 0f)
+        {
+            _dashDir = dir;
+            _dashSpeed = (dashDistance + extraDistance) / dashDuration;
+            _dashTimer = dashDuration;
+            _afterimageTimer = 0f;
+            _rb.gravityScale = 0f;
+        }
+    }
+}
