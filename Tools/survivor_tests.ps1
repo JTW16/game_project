@@ -1,11 +1,14 @@
 ﻿# 뱀서류 시험판 — 씬 생성 + PlayMode 테스트(캡처 포함). 기존 게임 테스트(Tools\run_tests.ps1)와 따로 돈다.
 # 사용: powershell -ExecutionPolicy Bypass -File Tools\survivor_tests.ps1 [-SkipBuild] [-Filter ParryRL.Tests.SurvivorTests.Capture_Scenes] [-Player]
 #   -Player : 테스트 대신 시험판만 들어간 Windows 빌드를 만든다 (Builds\Survivor\GwimunSurvivor.exe)
+#   -Mac    : 테스트 대신 macOS 빌드 (Builds\SurvivorMac\GwimunSurvivor.app, Intel+Apple Silicon — Unity Hub의 Mac Build Support (Mono) 모듈 필요)
+#   둘 다 씬을 새로 만들지 않는다 — 새 그림을 넣었으면 먼저 그냥 한 번 돌려 씬을 만든다
 # 에디터가 이 프로젝트를 열고 있으면 배치 모드가 잠금으로 실패한다 — 에디터를 닫고 돌린다.
 param(
     [string]$Filter = "",
     [switch]$SkipBuild,
-    [switch]$Player
+    [switch]$Player,
+    [switch]$Mac
 )
 
 $unity = "C:\Program Files\Unity\Hub\Editor\6000.6.0f1\Editor\Unity.exe"
@@ -15,6 +18,14 @@ New-Item -ItemType Directory -Force $logDir | Out-Null
 
 function Show-Errors($log) {
     Select-String -Path $log -Pattern "error CS|warning CS|Exception" | ForEach-Object { $_.Line } | Sort-Object -Unique | Select-Object -First 40
+}
+
+if ($Mac) {
+    $p = Start-Process -FilePath $unity -ArgumentList @('-batchmode', '-quit', '-projectPath', "`"$project`"",
+        '-executeMethod', 'ParryRL.EditorTools.SurvivorSceneBuilder.BuildMac', '-logFile', "`"$logDir\sv_mac.log`"") -PassThru -Wait
+    Write-Output "mac build exit: $($p.ExitCode)"
+    Show-Errors "$logDir\sv_mac.log"
+    exit $p.ExitCode
 }
 
 if ($Player) {

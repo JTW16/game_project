@@ -441,5 +441,27 @@ namespace ParryRL.EditorTools
             Debug.Log($"[SurvivorSceneBuilder] 빌드 결과: {report.summary.result}, {report.summary.totalSize / (1024 * 1024)}MB");
             if (Application.isBatchMode && report.summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded) EditorApplication.Exit(1);
         }
+
+        /// <summary>
+        /// 시험판 macOS 빌드 (팀원용, Intel + Apple Silicon 범용). Unity Hub의 "Mac Build Support (Mono)" 모듈이 있어야 한다.
+        /// 아키텍처 설정 형식(UnityEditor.OSXStandalone)은 그 모듈에만 있어서, 모듈이 없는 PC에서도 컴파일되게 리플렉션으로 정한다.
+        /// </summary>
+        [MenuItem("Tools/ParryRL/뱀서 시험판 빌드 (macOS)")]
+        public static void BuildMac()
+        {
+            if (!File.Exists(ScenePath)) Build();
+            var settings = System.Type.GetType("UnityEditor.OSXStandalone.UserBuildSettings, UnityEditor.OSXStandalone.Extensions");
+            var arch = settings?.GetProperty("architecture", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+            if (arch != null)
+            {
+                arch.SetValue(null, System.Enum.Parse(arch.PropertyType, "x64ARM64"));
+                Debug.Log($"[SurvivorSceneBuilder] macOS 아키텍처: {arch.GetValue(null)}");
+            }
+            else Debug.LogWarning("[SurvivorSceneBuilder] macOS 아키텍처 설정을 찾지 못함 — 기본값으로 빌드");
+            var report = BuildPipeline.BuildPlayer(new[] { ScenePath }, "Builds/SurvivorMac/GwimunSurvivor.app",
+                BuildTarget.StandaloneOSX, BuildOptions.None);
+            Debug.Log($"[SurvivorSceneBuilder] macOS 빌드 결과: {report.summary.result}, {report.summary.totalSize / (1024 * 1024)}MB");
+            if (Application.isBatchMode && report.summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded) EditorApplication.Exit(1);
+        }
     }
 }
