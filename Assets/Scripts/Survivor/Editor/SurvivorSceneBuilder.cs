@@ -74,6 +74,8 @@ namespace ParryRL.EditorTools
             art.heroParry = Frames(hero, "hero_parry_");
             art.heroHurt = Frames(hero, "hero_hurt_");
             art.heroVictory = Frames(hero, "hero_victory_");
+            art.heroGiantSummon = Frames(hero, "hero_giantsummon_");
+            art.heroSummon = Frames(hero, "hero_summon_");
             art.heroHeight = HeroHeight;
             art.changgwi = Mob("Changgwi", "changgwi", 1.45f, 7f);
             art.dokkaebibul = Mob("Dokkaebibul", "dokkaebibul", 0.9f, 9f);
@@ -218,6 +220,23 @@ namespace ParryRL.EditorTools
             art.helperIcons = Frames(ui, "helpericon_");
             art.fxSummon = Frames(fx, "summon_");
             art.fxWard = Frames(fx, "ward_");
+            // S9
+            art.fxBind = Frames(fx, "bind_");
+            art.fxSlow = Frames(fx, "slow_");
+            art.fxTalismanBlast = Frames(fx, "talblast_");
+            art.fxCoreGet = Frames(fx, "coreget_");
+            art.titleEmblem = Frames(ui, "titleemblem_").FirstOrDefault();
+            art.panelLarge = Frames(ui, "panelbig_").FirstOrDefault();
+            art.settingsParts = Frames(ui, "setpart_");
+            // S10
+            art.storyPanels = Frames(ui, "story_");
+            art.gateDormant = Frames(props, "gate_0").FirstOrDefault();
+            art.gateActive = Frames(props, "gate_1").FirstOrDefault();
+            art.itemGourd = Frames(fx, "drop_0").FirstOrDefault();
+            art.itemThunder = Frames(fx, "drop_1").FirstOrDefault();
+            art.fxGateSpawn = Frames(fx, "gatespawn_");
+            art.fxGourdPull = Frames(fx, "gourdpull_");
+            art.fxThunderStrike = Frames(fx, "thunder_");
             var tiger = ImportCharacter($"{ArtRoot}/Helpers", "tiger", HeroHeight);
             var shaman = ImportCharacter($"{ArtRoot}/Helpers", "shaman", HeroHeight);
             art.tigerRun = Frames(tiger, "tiger_run_");
@@ -258,7 +277,8 @@ namespace ParryRL.EditorTools
         {
             if (!dark.Has) return dark;
             if (!SurvivorArt.Ok(dark.death)) dark.death = baseMob.death;
-            dark.attack = baseMob.attack;
+            // S9부터 짙은 변종 공격 그림이 따로 있다 — 없을 때만 원래 색 그림을 빌린다
+            if (!SurvivorArt.Ok(dark.attack)) dark.attack = baseMob.attack;
             return dark;
         }
 

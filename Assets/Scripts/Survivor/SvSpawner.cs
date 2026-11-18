@@ -4,7 +4,7 @@ using UnityEngine;
 namespace ParryRL.Survivor
 {
     /// <summary>
-    /// 화면 밖 둘레에서 적을 내보낸다. 시간이 갈수록 동시 수·체력이 오르고, 일정 시간마다 정예가 나온다. 모든 수치는 가안.
+    /// 퇴마사 가까운 귀문(<see cref="SvGates"/>, 화면 밖·가장자리)에서 적을 내보낸다 (4차 결정, 그 전엔 화면 밖 둘레). 시간이 갈수록 동시 수·체력이 오르고, 일정 시간마다 정예가 나온다. 모든 수치는 가안.
     /// </summary>
     public class SvSpawner : MonoBehaviour
     {
@@ -64,12 +64,8 @@ namespace ParryRL.Survivor
             var p = SvPlayer.Instance;
             if (!Running || p == null || BossSpawned) return;
             int n = waveBase + wavePerWatch * phase;
-            float r = SvView.Instance != null ? SvView.Instance.OffscreenRadius : 16f;
-            for (int i = 0; i < n && SvEnemy.Active.Count < maxAlive; i++)
-            {
-                Vector2 at = p.Position + SvGeom.FromAngle(360f / n * i) * (r + 1f);
-                Spawn(PickKind(), at);
-            }
+            // 경이 바뀌면 가까운 귀문들이 한꺼번에 토해 낸다
+            for (int i = 0; i < n && SvEnemy.Active.Count < maxAlive; i++) Spawn(PickKind(), GatePoint(p.Position));
         }
         public bool BossSpawned { get; private set; }
         public float BossAt => bossAt;
@@ -103,20 +99,20 @@ namespace ParryRL.Survivor
             while (_budget >= 1f && regular < TargetAlive)
             {
                 _budget -= 1f;
-                Spawn(PickKind(), RingPoint(p.Position));
+                Spawn(PickKind(), GatePoint(p.Position));
                 regular++;
             }
             if (!BossSpawned && SvGame.Elapsed >= bossAt) SpawnBoss();
             if (!BossSpawned && SvGame.Elapsed >= _nextElite)
             {
                 _nextElite += eliteInterval;
-                var elite = Spawn(SvEnemyKind.Elite, RingPoint(p.Position));
+                var elite = Spawn(SvEnemyKind.Elite, GatePoint(p.Position));
                 SvGame.Instance?.OnEliteAppeared(elite);
             }
             if (SvGame.Elapsed >= _nextPack)
             {
                 _nextPack = SvGame.Elapsed + packInterval;
-                if (SvEnemy.Active.Count < maxAlive) SpawnPack(RingPoint(p.Position));
+                if (SvEnemy.Active.Count < maxAlive) SpawnPack(GatePoint(p.Position));
             }
             RecycleFar(p.Position);
         }
@@ -127,8 +123,15 @@ namespace ParryRL.Survivor
             var p = SvPlayer.Instance;
             if (p == null || (Boss != null && Boss.isActiveAndEnabled)) return Boss;
             BossSpawned = true;
-            // 등장 컷신에서 카메라가 비출 수 있게 화면 가장자리쯤에 나온다
-            Boss = Spawn(SvEnemyKind.Boss, p.Position + SvGeom.FromAngle(Random.Range(20f, 160f)) * 8.5f);
+            // 가장 가까운 귀문에서 나온다 (등장 컷신의 카메라가 비출 수 있는 거리 안이면). 멀면 예전처럼 화면 가장자리쯤
+            int gi = NearestGate(p.Position, 6f, 18f);
+            Vector2 at = p.Position + SvGeom.FromAngle(Random.Range(20f, 160f)) * 8.5f;
+            if (gi >= 0)
+            {
+                at = SvGates.All[gi] + new Vector2(0f, -2.2f);
+                SvGates.MarkSpawn(gi);
+            }
+            Boss = Spawn(SvEnemyKind.Boss, at);
             SvGame.Instance?.OnBossAppeared(Boss);
             return Boss;
         }
@@ -149,6 +152,29 @@ namespace ParryRL.Survivor
             float r = Random.value;
             if (r < ghost) return SvEnemyKind.Dalgyal;
             return r < ghost + fire ? SvEnemyKind.Dokkaebibul : SvEnemyKind.Changgwi;
+        }
+
+        /// <summary>몹이 나올 자리: 고른 귀문 문턱 (귀문이 없으면 화면 밖 둘레).</summary>
+        public Vector2 GatePoint(Vector2 center)
+        {
+            float r = SvView.Instance != null ? SvView.Instance.OffscreenRadius : 16f;
+            int i = SvGates.Pick(center, r);
+            if (i < 0) return RingPoint(center);
+            SvGates.MarkSpawn(i);
+            return SvGates.Front(i);
+        }
+
+        private static int NearestGate(Vector2 center, float min, float max)
+        {
+            int best = -1;
+            float bd = max;
+            var all = SvGates.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                float d = (all[i] - center).magnitude;
+                if (d >= min && d <= bd) { bd = d; best = i; }
+            }
+            return best;
         }
 
         public Vector2 RingPoint(Vector2 center)
@@ -172,7 +198,7 @@ namespace ParryRL.Survivor
             {
                 var e = SvEnemy.Active[i];
                 if (e.IsBig || (e.Position - center).sqrMagnitude < r2) continue;
-                e.transform.position = RingPoint(center);
+                e.transform.position = GatePoint(center);
                 e.GetComponent<Rigidbody2D>().position = e.transform.position;
             }
         }

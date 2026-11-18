@@ -33,6 +33,16 @@ namespace ParryRL.Survivor
             _root = null;
         }
 
+        /// <summary>흡혼 호리병: 맵의 보석 전부가 퇴마사에게 빨려 온다 (튀는 중인 것도 다 떨어진 뒤 바로).</summary>
+        public static void PullAll()
+        {
+            foreach (var g in Live)
+            {
+                g._pulled = true;
+                g._pullSpeed = Mathf.Max(g._pullSpeed, 8f);
+            }
+        }
+
         public static SvGem Drop(Vector2 at, int value)
         {
             if (_root == null) _root = new GameObject("Gems").transform;

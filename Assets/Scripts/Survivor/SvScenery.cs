@@ -252,9 +252,14 @@ namespace ParryRL.Survivor
 
             Decals(origin);
 
+            // 이 칸에 든 귀문 (4차 결정) — 소품 무리보다 먼저, 무리는 귀문 둘레를 비운다
+            var gates = SvGates.All;
+            for (int i = 0; i < gates.Count; i++)
+                if (Mathf.FloorToInt(gates[i].x / chunk) == k.x && Mathf.FloorToInt(gates[i].y / chunk) == k.y) Gate(i, gates[i]);
+
             // 무리는 칸 가운데 근처에 (이웃 칸 무리와 붙지 않게)
             Vector2 at = origin + new Vector2(Range(0.3f, 0.7f), Range(0.3f, 0.7f)) * chunk;
-            if (at.magnitude > clearAtStart && SvBounds.Inside(at, 4f))
+            if (at.magnitude > clearAtStart && SvBounds.Inside(at, 4f) && !SvGates.Near(at, SvGates.KeepClear))
             {
                 bool s5 = SurvivorArt.Ok(_art.walls);
                 float r = R;
@@ -267,6 +272,27 @@ namespace ParryRL.Survivor
                 // 나머지 = 빈 들 (무리 없이 싸울 자리)
             }
             return root;
+        }
+
+        // ---------- 귀문 ----------
+
+        public int GateCount { get; private set; }
+
+        /// <summary>귀문 하나: 퇴마사는 지나갈 수 없고(점프로도), 뒤로 가면 반투명. 문빛은 몹이 나올 때 밝아진다.</summary>
+        private void Gate(int index, Vector2 at)
+        {
+            var sprite = _art.gateDormant != null ? _art.gateDormant : _art.titleEmblem;
+            if (sprite == null) return;
+            float h = SvGates.Height;
+            float w = Width(sprite, h);
+            var anchor = Stand(sprite, at, h, false, w * 0.75f, flatShadow: true, block: Box(at + new Vector2(0f, 0.3f), w * 0.55f, 0.7f));
+            var bb = anchor.GetComponentInChildren<SvBillboard>();
+            // S10 그림이 오기 전 대신 쓰는 메인 화면 귀문은 피벗이 가운데라 땅 위로 올린다
+            bb.Height = h * sprite.pivot.y / sprite.rect.height;
+            var glow = SvBillboard.CreateGlow(anchor, w * 1.25f, new Color(0.55f, 1f, 0.85f, 0.2f));
+            anchor.gameObject.AddComponent<SvGateView>().Set(index, bb.Renderer, glow, sprite, _art.gateActive);
+            anchor.name = $"Gate {index}";
+            GateCount++;
         }
 
         // ---------- 무리 ----------

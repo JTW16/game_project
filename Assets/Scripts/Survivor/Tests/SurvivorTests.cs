@@ -521,6 +521,156 @@ namespace ParryRL.Tests
             Game.Hud.ShowTitle(false);
         }
 
+        // ---------- 4차 결정: 정예 아이템 · 맵의 귀문 · 시작 컷씬 · S9 ----------
+
+        [UnityTest]
+        public IEnumerator Elite_Drops_An_Item_And_Gourd_Pulls_Every_Gem()
+        {
+            Game.Weapons.enabled = false;
+            Game.Progress.HoldLevelUps = true;
+            Game.Progress.MagnetRadius = 0.5f;
+            var elite = SpawnAt(SvEnemyKind.Elite, new Vector2(4f, 0f));
+            elite.GetComponent<SvEliteAttack>().enabled = false;
+            elite.TakeDamage(elite.Hp + 1, Vector2.right, 0f);
+            Assert.AreEqual(1, SvPickup.Live.Count, "정예가 아이템을 하나 떨궈야 한다");
+
+            // 멀리 흩어진 보석 → 호리병을 밟으면 전부 빨려 온다
+            for (int i = 0; i < 6; i++) SvGem.Drop(Player.Position + SvGeom.FromAngle(i * 60f) * 25f, 1);
+            var gourd = SvPickup.Drop(Player.Position + new Vector2(0.3f, 0f), SvPickupKind.Gourd);
+            yield return Wait(0.5f);
+            Assert.AreEqual(1, SvPickup.GourdUses, "밟으면 바로 써야 한다");
+            Assert.IsFalse(SvPickup.Live.Contains(gourd));
+            yield return Wait(0.25f);
+            yield return Capture("survivor_gourd");
+            float until = Time.time + 4f;
+            while (Time.time < until && SvGem.Live.Count > 0) yield return null;
+            Assert.AreEqual(0, SvGem.Live.Count, "맵의 보석이 전부 빨려 와야 한다");
+            Game.Progress.HoldLevelUps = false;
+        }
+
+        [UnityTest]
+        public IEnumerator Thunder_Clears_Onscreen_Small_Fry_And_Hurts_Elites()
+        {
+            Game.Weapons.enabled = false;
+            var near = new System.Collections.Generic.List<SvEnemy>();
+            for (int i = 0; i < 8; i++) near.Add(SpawnAt(i % 2 == 0 ? SvEnemyKind.Changgwi : SvEnemyKind.Dokkaebibul, SvGeom.FromAngle(i * 45f) * 4f));
+            var far = SpawnAt(SvEnemyKind.Changgwi, new Vector2(60f, 0f));
+            var elite = SpawnAt(SvEnemyKind.Elite, new Vector2(-3f, 2f));
+            elite.GetComponent<SvEliteAttack>().enabled = false;
+            int eliteMax = elite.MaxHp;
+            yield return null;
+            SvPickup.Use(SvPickupKind.Thunder);
+            Assert.AreEqual(8, SvPickup.LastThunderKills, "화면 안 잡몹은 모두 쓰러져야 한다");
+            Assert.AreEqual(1, SvPickup.LastThunderBig);
+            foreach (var e in near) Assert.IsFalse(e.isActiveAndEnabled && e.Hp > 0);
+            Assert.IsTrue(far.isActiveAndEnabled && far.Hp > 0, "화면 밖 적은 남는다");
+            Assert.IsTrue(elite.Hp > 0 && elite.Hp <= eliteMax - Mathf.RoundToInt(eliteMax * SvPickup.BigDamage) + 1, "정예는 체력 20%만");
+            yield return WaitReal(0.12f);
+            yield return Capture("survivor_thunder");
+        }
+
+        [UnityTest]
+        public IEnumerator Mobs_Come_Out_Of_Ghost_Gates()
+        {
+            Game.Weapons.enabled = false;
+            Assert.GreaterOrEqual(SvGates.All.Count, 30, "들판 곳곳에 귀문");
+            for (int k = 0; k < 20; k++)
+            {
+                Vector2 at = Game.Spawner.GatePoint(Player.Position);
+                int g = NearestGate(at);
+                Assert.Less((SvGates.All[g] - at).magnitude, 2.5f, "귀문 문턱에서 나와야 한다");
+                float d = (SvGates.All[g] - Player.Position).magnitude;
+                Assert.IsTrue(d >= 6f, $"퇴마사 바로 곁 귀문에서 나오면 안 된다 ({d})");
+            }
+            // 귀문 곁으로 가서: 문이 서 있고, 몹이 나오면 열린다
+            int gi = NearestGate(new Vector2(30f, 20f));
+            Teleport(SvGates.All[gi] + new Vector2(-3.5f, -5f));
+            yield return null;
+            yield return null;
+            SvGateView view = null;
+            foreach (var v in Object.FindObjectsByType<SvGateView>()) if (v.Index == gi) view = v;
+            Assert.IsNotNull(view, "가까운 칸에 귀문 그림이 서 있어야 한다");
+            yield return Capture("survivor_gate_idle");
+            for (int i = 0; i < 5; i++)
+            {
+                SvGates.MarkSpawn(gi);
+                var e = Game.Spawner.Spawn(i % 2 == 0 ? SvEnemyKind.Changgwi : SvEnemyKind.SmallDokkaebi, SvGates.Front(gi));
+                e.Speed = 0.6f;
+                yield return Wait(0.12f);
+            }
+            Assert.IsTrue(view.Open);
+            yield return Capture("survivor_gate_spawn");
+            // 퇴마사는 문을 지나갈 수 없다 (점프로도)
+            Vector2 inside = SvGates.All[gi] + new Vector2(0f, 0.3f);
+            Assert.IsTrue(SvScenery.Instance.Resolve(ref inside, Player.HurtRadius, true), "점프해도 귀문은 막는다");
+        }
+
+        private static int NearestGate(Vector2 at)
+        {
+            int best = 0;
+            for (int i = 1; i < SvGates.All.Count; i++)
+                if ((SvGates.All[i] - at).sqrMagnitude < (SvGates.All[best] - at).sqrMagnitude) best = i;
+            return best;
+        }
+
+        [UnityTest]
+        public IEnumerator Start_Plays_The_Story_Then_The_Run()
+        {
+            var intro = Game.Intro;
+            Assert.IsNotNull(intro);
+            bool was = SvGame.ShowIntro;
+            SvGame.ShowIntro = true;
+            Game.StartRun();
+            Assert.IsTrue(intro.Playing);
+            Assert.IsTrue(intro.UsingPanels, "S10 삽화 5장");
+            for (int page = 0; page < SvIntro.Lines.Length; page++)
+            {
+                float until = Time.unscaledTime + 3f;
+                while (Time.unscaledTime < until && intro.Page != page) yield return null;
+                Assert.AreEqual(page, intro.Page);
+                yield return WaitReal(1.6f);
+                Assert.IsTrue(intro.Shown.Length > 0, "글이 한 자씩 나와야 한다");
+                yield return Capture($"survivor_intro_{page}");
+                intro.TryNext(); // 글을 다 보이기
+                yield return null;
+                yield return null;
+                Assert.AreEqual(SvIntro.Lines[page], intro.Shown);
+                if (page == SvIntro.Lines.Length - 1) { intro.TrySkip(); break; }
+                intro.TryNext(); // 다음 장
+                yield return null;
+            }
+            float end = Time.unscaledTime + 2f;
+            while (Time.unscaledTime < end && intro.Playing) yield return null;
+            Assert.IsFalse(intro.Playing, "Esc로 끝난다");
+            Assert.IsFalse(Game.OnTitle, "이야기가 끝나면 판이 시작된다");
+            SvGame.ShowIntro = was;
+        }
+
+        [UnityTest]
+        public IEnumerator S9_Status_Art_Shows_On_Bound_And_Slowed_Enemies()
+        {
+            Game.Weapons.enabled = false;
+            var bound = SpawnAt(SvEnemyKind.Changgwi, new Vector2(2.5f, 0.5f));
+            var slowed = SpawnAt(SvEnemyKind.Dalgyal, new Vector2(-2.5f, 0.5f));
+            bound.Stun(3f, bind: true);
+            slowed.Slow(0.5f, 3f);
+            yield return Wait(0.3f);
+            Assert.IsTrue(bound.Bound);
+            Assert.IsTrue(bound.transform.Find("Status").gameObject.activeSelf, "묶인 적 발밑에 금줄");
+            Assert.IsTrue(slowed.transform.Find("Status").gameObject.activeSelf, "느려진 적 발밑에 안개");
+            var a = Game.Art;
+            Assert.IsTrue(SurvivorArt.Ok(a.heroGiantSummon) && a.heroGiantSummon.Length == 6, "S9 긴 봉 동작 6장");
+            Assert.IsTrue(SurvivorArt.Ok(a.heroSummon) && a.heroSummon.Length == 4);
+            Assert.AreEqual(6, a.bossP1.attack.Length);
+            Assert.AreEqual(4, a.bossSpines.Length);
+            Assert.AreEqual(4, a.bossCharge.Length);
+            Assert.AreNotSame(a.changgwi.attack, a.changgwiDark.attack, "짙은 변종은 제 공격 그림");
+            Assert.IsNotNull(a.gateDormant); Assert.IsNotNull(a.gateActive);
+            Assert.IsNotNull(a.itemGourd); Assert.IsNotNull(a.itemThunder);
+            Assert.IsTrue(SurvivorArt.Ok(a.fxThunderStrike) && SurvivorArt.Ok(a.fxGourdPull) && SurvivorArt.Ok(a.fxGateSpawn));
+            yield return Capture("survivor_status");
+        }
+
         // ---------- 밤·메뉴 ----------
 
         [UnityTest]

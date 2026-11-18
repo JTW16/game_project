@@ -124,6 +124,26 @@ namespace ParryRL.Survivor
         public Sprite[] fxSummon, fxWard;
         [Tooltip("조력자 기술 칸 아이콘: 산군 · 무녀")]
         public Sprite[] helperIcons;
+        [Header("S9 — 전용 동작 · 상태 · 메뉴 부품 (없으면 있는 그림으로 대신)")]
+        [Tooltip("퇴마사: 긴 봉 소환·내리찍기 6장 · 조력자 부르기 4장")]
+        public Sprite[] heroGiantSummon, heroSummon;
+        [Tooltip("묶임(진혼령 기절) · 느려짐(무녀 결계) — 적 발밑에 반복")]
+        public Sprite[] fxBind, fxSlow;
+        [Tooltip("폭렬부 폭발 · 핵심 비급 얻기 (여의주 빛기둥)")]
+        public Sprite[] fxTalismanBlast, fxCoreGet;
+        [Tooltip("메인 화면 귀문 (글자 없음) · 큰 패널")]
+        public Sprite titleEmblem, panelLarge;
+        [Tooltip("설정 부품: 슬라이더 홈 · 구슬 · 토글 끔 · 토글 켬 · 왼쪽 · 오른쪽 화살표 · 줄 바탕")]
+        public Sprite[] settingsParts;
+        [Header("S10 — 시작 컷씬 · 맵의 귀문 · 정예 아이템 (없으면 있는 그림으로 대신)")]
+        [Tooltip("시작 컷씬 삽화 5장 (불투명 16:9)")]
+        public Sprite[] storyPanels;
+        [Tooltip("맵의 귀문: 잠든 문 · 열린 문 (피벗 아래 가운데)")]
+        public Sprite gateDormant, gateActive;
+        [Tooltip("흡혼 호리병 · 벽력부")]
+        public Sprite itemGourd, itemThunder;
+        [Tooltip("귀문에서 요괴가 나옴 · 호리병 빨아들임 · 벽력부 벼락")]
+        public Sprite[] fxGateSpawn, fxGourdPull, fxThunderStrike;
         [Tooltip("종류 표식: 무기 · 비급 · 회복")]
         public Sprite[] emblems;
         [Tooltip("ui/icons3: 매의 눈 · 긴 봉 내리찍기")]

@@ -57,6 +57,11 @@ namespace ParryRL.Survivor
         }
 
         public bool Slowed => Time.time < _slowUntil;
+        public bool Bound => Time.time < _boundUntil && Stunned;
+        private float _boundUntil;
+        // 상태 그림 (S9): 묶임 = 금줄·부적, 느려짐 = 옥빛 안개와 유령 손 — 발밑에 반복
+        private SvBillboard _status;
+        private Sprite[] _statusFrames;
         private MeshRenderer _hitDisc;
         private SvMobArt _mob;
         private float _phase;
@@ -254,7 +259,7 @@ namespace ParryRL.Survivor
             ContactDamage = contactDamage;
             Exp = exp;
             _knock = Vector2.zero;
-            _stunUntil = _flashUntil = _surgeUntil = 0f;
+            _stunUntil = _flashUntil = _surgeUntil = _boundUntil = _slowUntil = 0f;
             _nextSurge = Time.time + Random.Range(1.5f, SurgeEvery);
             Holding = false;
             PoseOverride = null;
@@ -288,9 +293,11 @@ namespace ParryRL.Survivor
         /// <summary>테스트·연출용: 체력을 바로 정한다.</summary>
         public void SetHealth(int hp) => MaxHp = Hp = Mathf.Max(1, hp);
 
-        public void Stun(float seconds)
+        /// <summary>bind = 진혼령처럼 묶어 둔 기절 (발밑에 금줄 그림).</summary>
+        public void Stun(float seconds, bool bind = false)
         {
             _stunUntil = Mathf.Max(_stunUntil, Time.time + seconds);
+            if (bind) _boundUntil = Mathf.Max(_boundUntil, _stunUntil);
             GetComponent<SvEliteAttack>()?.Cancel();
         }
 
@@ -396,7 +403,37 @@ namespace ParryRL.Survivor
                     : walking ? _mob.move[(int)((Time.time + _phase) * _mob.moveFps) % _mob.move.Length] : _mob.idle;
             }
             if (_hover > 0f) Art.Height = _hover + Mathf.Sin(Time.time * 4f + _phase) * 0.08f;
+            UpdateStatus();
             _hitDisc.enabled = SvGame.ShowHitboxes;
+        }
+
+        private void UpdateStatus()
+        {
+            var art = SvGame.Instance != null ? SvGame.Instance.Art : null;
+            Sprite[] frames = null;
+            if (art != null && Hp > 0)
+            {
+                if (Bound && SurvivorArt.Ok(art.fxBind)) frames = art.fxBind;
+                else if (Slowed && SurvivorArt.Ok(art.fxSlow)) frames = art.fxSlow;
+            }
+            if (frames == null)
+            {
+                if (_status != null && _status.gameObject.activeSelf) _status.gameObject.SetActive(false);
+                return;
+            }
+            // 그림 칸 가운데가 발목쯤 오게: 칸 폭 = 몸 지름의 약 3배 (가안)
+            float w = Mathf.Max(1.3f, Radius * 3.4f);
+            if (_status == null) _status = SvBillboard.Create(transform, "Status", frames[0], Vector2.zero, 2);
+            if (_statusFrames != frames)
+            {
+                _statusFrames = frames;
+                _status.Renderer.sprite = frames[0];
+                _status.SetSize(new Vector2(w, w));
+            }
+            _status.gameObject.SetActive(true);
+            _status.Height = _hover + w * (frames == art.fxBind ? 0.12f : 0.1f);
+            _status.Renderer.sprite = frames[(int)((Time.time + _phase) * 9f) % frames.Length];
+            _status.Renderer.color = new Color(1f, 1f, 1f, frames == art.fxSlow ? 0.8f : 1f);
         }
 
         private void OnDisable() => Active.Remove(this);

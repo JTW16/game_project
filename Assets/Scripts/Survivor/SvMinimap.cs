@@ -47,6 +47,15 @@ namespace ParryRL.Survivor
             var home = UiKit.Image("Home", _map, new Color(1f, 0.85f, 0.55f, 0.5f));
             home.sprite = SvSprites.Circle;
             UiKit.Place(home.rectTransform, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(6f, 6f));
+            // 귀문 자리 (4차 결정): 옥빛 작은 마름모
+            foreach (var g in SvGates.All)
+            {
+                var dot = UiKit.Image("Gate", _map, new Color(0.55f, 1f, 0.85f, 0.75f));
+                dot.sprite = SvSprites.White;
+                UiKit.Place(dot.rectTransform, new Vector2(0.5f, 0.5f), ToMap(g), new Vector2(4f, 4f));
+                dot.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 45f);
+                GateDots++;
+            }
             _boss = Icon(_art != null ? _art.miniBoss : null, new Color(1f, 0.55f, 0.2f), 30f);
             _player = Icon(_art != null ? _art.miniPlayer : null, new Color(0.5f, 1f, 0.8f), 28f);
             var pe = _player.gameObject.AddComponent<Outline>();
@@ -74,6 +83,7 @@ namespace ParryRL.Survivor
         private Vector2 ToMap(Vector2 world) => world / (SvBounds.Half * 2f) * MapPx;
 
         public int EliteDots { get; private set; }
+        public int GateDots { get; private set; }
         public Vector2 PlayerDot => _player.anchoredPosition;
 
         private void LateUpdate()

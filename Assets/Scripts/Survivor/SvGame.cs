@@ -44,6 +44,9 @@ namespace ParryRL.Survivor
         public SvUltimate Ultimate { get; private set; }
         public SvHelpers Helpers { get; private set; }
         public SvCinematic Cinematic { get; private set; }
+        public SvIntro Intro { get; private set; }
+        /// <summary>메인 화면에서 "시작"을 누르면 시작 컷씬 (4차 결정). 테스트·벤치는 끈다.</summary>
+        public static bool ShowIntro { get; set; } = true;
         public SvMusic Music { get; private set; }
         /// <summary>컷신 중 (게임 시간 멈춤, 조작 막힘).</summary>
         public bool InCinematic { get; private set; }
@@ -68,6 +71,8 @@ namespace ParryRL.Survivor
             SvFx.Reset();
             SvProjectile.ResetPool();
             SvGem.ResetPool();
+            SvPickup.ResetPool();
+            SvGates.ResetRun();
             SvEnemyShot.ResetPool();
 
             if (!_settingsApplied)
@@ -101,6 +106,7 @@ namespace ParryRL.Survivor
             Hud = SvHud.Create();
             SvTooltip.Create();
             Cinematic = SvCinematic.Create(art);
+            Intro = SvIntro.Create(art);
             Music = SvMusic.Create();
 
             var view = FindAnyObjectByType<SvView>();
@@ -238,6 +244,8 @@ namespace ParryRL.Survivor
         public void ChooseCard(int i)
         {
             if (!_menu || i < 0 || i >= Offer.Count) return;
+            // 핵심 비급을 얻으면 발밑에서 여의주가 솟는다 (S9)
+            if (Offer[i].Kind == SvItemKind.Core && Art != null) SvFx.Anim(Art.fxCoreGet, Player.Position, 1.7f, 3.4f, 1.0f);
             Progress.Take(Offer[i], Player, Weapons);
             Sfx.Play(SfxId.UiConfirm);
             Hud.HideCards();
@@ -246,6 +254,19 @@ namespace ParryRL.Survivor
         }
 
         public void StartRun()
+        {
+            if (ShowIntro && !IsBench && Intro != null && !Intro.Playing)
+            {
+                // 이야기 먼저 (메인 화면 상태 그대로 게임 시간은 멈춤) → 끝나면 판 시작
+                Hud.Menus.ShowMain(false);
+                Sfx.Play(SfxId.UiConfirm);
+                StartCoroutine(Intro.Play(BeginRun));
+                return;
+            }
+            BeginRun();
+        }
+
+        private void BeginRun()
         {
             OnTitle = false;
             Hud.Menus.ShowMain(false);
@@ -327,6 +348,8 @@ namespace ParryRL.Survivor
             if (e.IsElite)
             {
                 SvGem.DropBig(e.Position, 50, boss: false);
+                // 4차 결정: 정예는 흡혼 호리병·벽력부 중 하나를 반반으로 떨군다
+                SvPickup.Drop(e.Position, SvPickup.RandomKind());
                 Hud.Popup("정예 처치!", new Color(0.8f, 0.65f, 1f));
                 Shake(0.25f, 0.3f);
                 SvView.Instance?.Punch(0.04f, 0.3f);

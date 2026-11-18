@@ -44,9 +44,13 @@ namespace ParryRL.Survivor
             _levels[id] = LevelOf(id) + 1;
         }
 
+        /// <summary>시연 영상·테스트용: 경험치는 차지만 레벨은 오르지 않는다 (카드 창이 끼어들지 않게).</summary>
+        public bool HoldLevelUps { get; set; }
+
         public void AddExp(int amount)
         {
             Exp += Mathf.Max(0, amount);
+            if (HoldLevelUps) { Exp = Mathf.Min(Exp, ExpToNext - 1); return; }
             while (Exp >= ExpToNext)
             {
                 Exp -= ExpToNext;

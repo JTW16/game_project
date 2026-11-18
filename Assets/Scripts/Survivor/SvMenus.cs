@@ -109,9 +109,19 @@ namespace ParryRL.Survivor
                 boss.preserveAspect = true;
                 UiKit.Place(boss.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(520f, 120f), new Vector2(900f, 600f));
             }
-            Label(_main, "귀문", 170, new Vector2(0.5f, 0.5f), menuAt + new Vector2(0f, 290f), new Vector2(900f, 210f), TextAnchor.MiddleCenter, new Color(0.86f, 0.95f, 0.9f));
-            Label(_main, "(가제)  ·  시험판", 30, new Vector2(0.5f, 0.5f), menuAt + new Vector2(0f, 165f), new Vector2(900f, 44f), TextAnchor.MiddleCenter, new Color(1f, 1f, 1f, 0.6f));
-            _mainList = new SvMenuList(_main, new Vector2(0.5f, 0.5f), menuAt + new Vector2(0f, 80f), 440f);
+            // S9 귀문 그림(글자 없음): 제목 위에 반쯤 열린 문, 제목은 문 아래 디딤돌에 걸치게
+            bool emblem = _art != null && _art.titleEmblem != null;
+            Vector2 drop = emblem ? new Vector2(0f, -70f) : Vector2.zero;
+            if (emblem)
+            {
+                var gate = UiKit.Image("Emblem", _main, Color.white);
+                gate.sprite = _art.titleEmblem;
+                gate.preserveAspect = true;
+                UiKit.Place(gate.rectTransform, new Vector2(0.5f, 0.5f), menuAt + new Vector2(0f, 345f), new Vector2(500f, 250f));
+            }
+            Label(_main, "귀문", 170, new Vector2(0.5f, 0.5f), menuAt + new Vector2(0f, 290f) + drop, new Vector2(900f, 210f), TextAnchor.MiddleCenter, new Color(0.86f, 0.95f, 0.9f));
+            Label(_main, "(가제)  ·  시험판", 30, new Vector2(0.5f, 0.5f), menuAt + new Vector2(0f, 165f) + drop, new Vector2(900f, 44f), TextAnchor.MiddleCenter, new Color(1f, 1f, 1f, 0.6f));
+            _mainList = new SvMenuList(_main, new Vector2(0.5f, 0.5f), menuAt + new Vector2(0f, 80f) + drop, 440f);
             _mainList.AddButton("시작", () => Game?.StartRun());
             _mainList.AddButton("설정", () => OpenSettings(() => ShowMain(true)));
             _mainList.AddButton("끝내기", () => SvGame.Quit());
@@ -457,7 +467,7 @@ namespace ParryRL.Survivor
             var db = new StringBuilder("<color=#9fd8c8>무기별 준 피해</color>\n");
             foreach (var kv in rows)
             {
-                string name = kv.Key switch { "slam" => "내려찍기", "counter" => "패링 반격", "ultimate" => "귀문봉인", "tiger" => "산군", "shaman" => "무녀", SvItems.Giant => "긴 봉 내리찍기", _ => SvItems.Get(kv.Key)?.Name ?? kv.Key };
+                string name = kv.Key switch { "slam" => "내려찍기", "counter" => "패링 반격", "ultimate" => "귀문봉인", "tiger" => "산군", "shaman" => "무녀", SvPickup.Source => "벽력부", SvItems.Giant => "긴 봉 내리찍기", _ => SvItems.Get(kv.Key)?.Name ?? kv.Key };
                 int bars = Mathf.Max(1, Mathf.RoundToInt(14f * kv.Value / max));
                 db.AppendLine($"{name}  <size=22><color=#888888>{kv.Value:N0}</color></size>\n<color=#7fc8b8>{new string('■', bars)}</color>");
             }

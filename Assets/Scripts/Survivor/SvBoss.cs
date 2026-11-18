@@ -134,12 +134,18 @@ namespace ParryRL.Survivor
                     if (Time.time >= _nextSpine) BeginSpines();
                     break;
                 case Mode.Spines:
+                    // S9 4장: 웅크림 0 → 가시를 곤두세우고 떤다 1 (준비 후반)
+                    if (SurvivorArt.Ok(_art?.bossSpines) && _art.bossSpines.Length >= 4)
+                        _enemy.PoseOverride = _art.bossSpines[_until - Time.time > spineWindup * 0.5f ? 0 : 1];
                     if (Time.time >= _until) FireSpines(p);
                     break;
                 case Mode.Transform:
                     TickTransform();
                     break;
                 case Mode.ChargeWindup:
+                    // S9 4장: 고개 숙임 0 → 땅을 박차려 웅크림 1
+                    if (SurvivorArt.Ok(_art?.bossCharge) && _art.bossCharge.Length >= 4)
+                        _enemy.PoseOverride = _art.bossCharge[_until - Time.time > chargeWindup * 0.45f ? 0 : 1];
                     if (Time.time >= _until) StartCharging();
                     break;
                 case Mode.Charging:
@@ -150,7 +156,9 @@ namespace ParryRL.Survivor
                     break;
             }
             if (State == Mode.Walk && Time.time < _spinePoseUntil && SurvivorArt.Ok(_art?.bossSpines) && !_paw.Busy)
-                _enemy.PoseOverride = _art.bossSpines[Mathf.Min(1, _art.bossSpines.Length - 1)];
+                _enemy.PoseOverride = _art.bossSpines.Length >= 4
+                    ? _art.bossSpines[_spinePoseUntil - Time.time > 0.25f ? 2 : 3]  // 쏜 직후 납작 → 회복
+                    : _art.bossSpines[Mathf.Min(1, _art.bossSpines.Length - 1)];
             else if (State == Mode.Walk && !_paw.Busy && _enemy.PoseOverride != null && IsMyPose(_enemy.PoseOverride))
                 _enemy.PoseOverride = null;
         }
@@ -256,7 +264,7 @@ namespace ParryRL.Survivor
             _chargeFrom = _enemy.Position;
             _chargeHit = false;
             _enemy.ForcedVelocity = _chargeDir * chargeSpeed;
-            if (SurvivorArt.Ok(_art?.bossCharge)) _enemy.PoseOverride = _art.bossCharge[Mathf.Min(1, _art.bossCharge.Length - 1)];
+            if (SurvivorArt.Ok(_art?.bossCharge)) _enemy.PoseOverride = _art.bossCharge[Mathf.Min(_art.bossCharge.Length >= 4 ? 2 : 1, _art.bossCharge.Length - 1)];
             Sfx.Play(SfxId.BossDash);
             HideLane();
         }
@@ -284,7 +292,8 @@ namespace ParryRL.Survivor
                 _enemy.ForcedVelocity = null;
                 _nextCharge = Time.time + chargeEvery;
                 Hold(Mode.Recover, 0.6f);
-                _enemy.PoseOverride = null;
+                // S9: 미끄러지며 멈추는 자세 (4장일 때) — Resume이 풀어 준다
+                _enemy.PoseOverride = SurvivorArt.Ok(_art?.bossCharge) && _art.bossCharge.Length >= 4 ? _art.bossCharge[3] : null;
                 Sfx.Play(SfxId.BossLand, 0.8f);
             }
         }

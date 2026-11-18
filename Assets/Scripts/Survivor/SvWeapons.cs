@@ -344,7 +344,7 @@ namespace ParryRL.Survivor
                 if (e == null || !e.isActiveAndEnabled) continue;
                 Hit(e, dmg, e.Position - at, bellKnock, SvItems.Bell);
                 // 진혼령: 울림에 맞은 적이 잠깐 묶인다 (보스 제외)
-                if (HasCore(SvItems.CoreBell) && e.isActiveAndEnabled && e.Hp > 0 && !e.IsBoss) e.Stun(0.8f);
+                if (HasCore(SvItems.CoreBell) && e.isActiveAndEnabled && e.Hp > 0 && !e.IsBoss) e.Stun(0.8f, bind: true);
             }
         }
 
@@ -365,7 +365,7 @@ namespace ParryRL.Survivor
         /// <summary>
         /// 바라보는 쪽(방향키로 겨눔)으로 거대한 혼백 봉이 나타나 일직선으로 내리찍힌다.
         /// 봉 그림(S6 giant_staff)이 먼저 뜨고, 땅에 닿는 순간 균열(line_crack)과 함께 판정.
-        /// 퇴마사는 패링 반격 동작(봉을 어깨 뒤로 → 스미어 → 앞으로 내리침)을 빌려 쓴다.
+        /// 퇴마사는 전용 동작(S9 giant_summon: 버팀 → 치켜듦 → 부적 충전 → 스미어 → 내리침 → 회복)을 쓰고, 없으면 패링 반격 동작을 빌린다.
         /// </summary>
         public void GiantSlam()
         {
@@ -374,7 +374,10 @@ namespace ParryRL.Survivor
             _giantDir = _player.Facing.sqrMagnitude > 0.01f ? _player.Facing.normalized : Vector2.right;
             var art = Art;
             float total = giantWindup + giantSwing;
-            if (art != null && SurvivorArt.Ok(art.heroParry) && art.heroParry.Length >= 6)
+            if (art != null && SurvivorArt.Ok(art.heroGiantSummon) && art.heroGiantSummon.Length >= 6)
+                // 프레임 리듬(첫 장 0.8 · 가운데 0.5 · 끝 1.7)으로 스미어(3)가 내리침 시작, 내리침(4)이 땅에 닿는 순간쯤에 온다
+                _player.PlayAction(art.heroGiantSummon, total * 1.7f, _giantDir, "giant");
+            else if (art != null && SurvivorArt.Ok(art.heroParry) && art.heroParry.Length >= 6)
             {
                 // 봉을 어깨 뒤로 들고 버팀(준비 동안) → 스미어 → 내리침(땅에 닿는 순간) → 회복.
                 // 프레임 리듬(첫 장 0.8 · 가운데 0.5 · 끝 1.7)에 맞춰 준비 장을 세 번 넣어 길게 잡는다
@@ -511,7 +514,9 @@ namespace ParryRL.Survivor
         public static void TalismanBurst(Vector2 at, int damage, SvEnemy except)
         {
             var art = Art;
-            if (art == null || !SvFx.Anim(art.fxTalismanBurst, at, 0.6f, 1.6f, 0.3f, Random.value < 0.5f))
+            // S9 폭렬부 폭발 (금빛 불·먹 파편·연기) → 없으면 S2 부적 터짐
+            if (art == null || (!SvFx.Anim(art.fxTalismanBlast, at, 0.7f, 3f, 0.42f, Random.value < 0.5f)
+                                && !SvFx.Anim(art.fxTalismanBurst, at, 0.6f, 1.6f, 0.3f, Random.value < 0.5f)))
                 SvFx.Ring(at, 0.3f, 1.4f, new Color(1f, 0.8f, 0.4f, 0.9f), 0.25f);
             int n = Physics2D.OverlapCircle(at, 1.4f, ContactFilter2D.noFilter, Hits);
             int dmg = Mathf.Max(1, damage / 2);

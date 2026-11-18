@@ -648,6 +648,103 @@ Character: a young Korean shaman woman (mudang) performing a gut ritual, same ch
 
 > 핵심 비급 카드는 보라·금이라 마젠타 배경이면 지우기 어렵다 → 이 두 장만 **초록(#00FF00)** 배경.
 
+## 6S9. S9 — 빌려 쓰는 동작 · 짙은 변종 공격 · 불가살이 프레임 · 상태 표시 · 메뉴 부품 (사용자가 "S9 진행"이라고 하면, 2026-11-19 추가)
+
+지금 게임에서 **그림이 없어 다른 그림을 빌려 쓰거나 비어 있는 곳**을 채운다. 규칙은 6장 맨 위 "밤새 한 번에 돌릴 때"와 같다 (순서 6S9-1 → 6S9-5). 동작 시트는 S7과 같은 **일관성 규칙**(6S7 맨 위)을 따른다 — 프레임마다 같은 키·옷·색·크기, 때리는 순간 스미어 프레임, 스미어는 먹 외곽선 + 평면 색(흐림 금지).
+
+### 6S9-1. 퇴마사 · `ArtSource/v2/hero/` (2장, HERO 블록 · `[SHEET]`, 참고 = `hero/base.png` + `hero/parry.png` + `hero/ref_staff_run_6.png`)
+
+지금 긴 봉 내리찍기(S)는 패링 반격 동작을, 조력자 부르기(W·E)는 부적 던지기 동작을 빌려 쓴다. 전용 동작을 뽑는다.
+
+| 파일 | 캔버스 | 프레임 | `{action}` |
+|---|---|---|---|
+| `giant_summon.png` | 3072x768 | 6 | summoning and slamming a giant spirit staff: 1 plants the feet wide, gripping the staff with both hands low, 2 raises the staff high overhead with both hands, body arched back, sleeves and robe blown upward, 3 holds at the very top, a glowing yellow talisman stuck to the staff (charging), eyes fierce, 4 SMEAR — swings the staff down in front as one big vertical ink-arc smear, 5 IMPACT — the staff slammed onto the ground far in front, knees bent deep, whole body thrown forward, sleeves flaring, 6 recover — rising, staff resting on the shoulder |
+| `summon.png` | 2048x768 | 4 | summoning a helper with a talisman: 1 draws a yellow talisman from the sash, staff hand steady, 2 holds the talisman up between two fingers in front of the face, chanting, 3 SMEAR — flicks it forward, the arm a fast ink smear, 4 follow-through, two fingers pointing forward, confident grin |
+
+### 6S9-2. 짙은 변종 공격 · `ArtSource/v2/yokai/<이름>_dark/` (4장, 각 요괴 블록 · `[SHEET]`, 배경 **#00FF00**)
+
+짙은 변종은 공격할 때 원래 색 공격 그림을 빌려 써서 색이 튄다. **원래 요괴의 `attack.png`(S7)와 똑같은 동작**을 짙은 변종 색으로 다시 뽑는다. 참고 = 그 변종의 `base.png`(색·디자인) + 원래 요괴의 `attack.png`(동작만).
+
+| 파일 | 캔버스 | 프레임 | `{action}` |
+|---|---|---|---|
+| `changgwi_dark/attack.png` | 2560x768 | 5 | same 5 frames as `yokai/changgwi/attack.png` (wind-up, lunge, SMEAR claw, claw down, recover hunched), in the dark variant colors |
+| `dokkaebibul_dark/attack.png` | 2560x768 | 5 | same 5 frames as `yokai/dokkaebibul/attack.png` (swell, grin flares, spits a small fireball, recoil, shrink), dark violet-blue flame, the fireball violet-white |
+| `dalgyal_dark/attack.png` | 2560x768 | 5 | same 5 frames as `yokai/dalgyal/attack.png` (hair lifts, spreads, lashes, fully extended, falls back), grey-violet dress, violet eye slits |
+| `small_dokkaebi_dark/attack.png` | 2560x768 | 5 | same 5 frames as `yokai/small_dokkaebi/attack.png` (club raised, hop, SMEAR club, smash, recover), dark slate-violet skin, iron-studded club |
+
+### 6S9-3. 불가살이 프레임 늘리기 · `ArtSource/v2/boss/bulgasari/` (4장, BULGASARI 블록 · `[SHEET]`, **기존 파일을 덮어쓴다**)
+
+S7에서 빠진 보스 동작. 보스는 크다 (캔버스 높이 1024, 프레임 칸 폭 약 900). 공격 준비 자세는 패링 신호라 **크고 과장되게**. 강공격 준비의 빨간 빛은 1페이즈만, 2페이즈는 **흰 섬광**. 참고 = 그 페이즈의 `base.png` + 덮어쓰기 전 같은 파일(동작 흐름만).
+
+| 파일 | 캔버스 | 프레임 | `{action}` |
+|---|---|---|---|
+| `p1_attack.png` | 5400x1024 | 6 | 1 rears up, one huge clawed paw raised with a RED glow around the paw (warning), 2 rears even higher, body twisted, 3 SMEAR — the paw smashing down as one big ink-arc smear, 4 IMPACT — paw slammed into the ground, chunks of earth flying, 5 heavy follow-through, head low, 6 recover |
+| `p2_attack.png` | 5400x1024 | 6 | phase 2: 1 rears up with both paws high and a WHITE flash on the body (warning), 2 higher, molten cracks blazing, 3 SMEAR — both paws crashing down, 4 IMPACT — double-paw slam, ground bursting, 5 follow-through, 6 recover |
+| `p1_spines.png` | 3600x1024 | 4 | 1 hunches down, 2 bristles every spike cluster outward, shaking, 3 spikes launched (clusters suddenly flatter, as if fired), 4 recover |
+| `p2_charge.png` | 3600x1024 | 4 | 1 lowers the head with the tusks forward, 2 digs in, crouched to charge, 3 SMEAR — charging at full speed, body stretched with a short ink speed-smear behind, 4 skidding to a stop, dust at the feet |
+
+### 6S9-4. 상태 · 기술 이펙트 · `ArtSource/v2/fx9/` (4장, 새 폴더 · `[FX_VIVID]`, 배경 #000000)
+
+| 파일 | 프레임 | 캔버스 | 모양 (반드시 지킬 것) | `{effect}` | `{colors}` | `{view}` |
+|---|---|---|---|---|---|---|
+| `bind.png` | 4 | 2048x512 | small, wraps around an enemy's ankles (about as wide as a person), loop | a binding seal (the "soul-calming bell" core skill): a straw geumjul rope with small white paper talismans circling and tightening around the feet, tiny bell marks and sparks, the enemy is held in place | jade green, cream white, brass gold | seen from the side, standing upright |
+| `slow.png` | 4 | 2048x512 | small, low to the ground around the feet, loop | slowed by the shaman's ward: heavy jade mist pooling around the feet with faint ghostly hands and drifting paper scraps pulling down | jade green, pale cyan, ink black | seen from the side, standing upright |
+| `talisman_blast.png` | 5 | 2560x512 | a round burst about twice the size of a person, standing | an exploding talisman (core skill): a yellow paper talisman bursts into a round blast of gold fire and ink, angular shards and burning paper scraps flying out, then smoke | gold, orange, ink black | seen from the side, standing upright |
+| `core_get.png` | 5 | 2560x512 | a tall narrow pillar around one person, standing | gaining a rare core technique: a violet-and-gold wish-pearl (yeouiju) rises from the ground in a swirl of gold cloud ribbons, flares bright, then scatters into gold sparks | violet, gold, cream white | seen from the side, standing upright |
+
+### 6S9-5. 메뉴 · `ArtSource/v2/ui/` (3장)
+
+| 파일 | 캔버스 | 내용 | 배경 |
+|---|---|---|---|
+| `title_emblem.png` | 2048x1024 | main menu emblem, **NO text, no letters at all** (the game writes the title "귀문" itself): a crooked ancient Korean wooden gate (the "ghost gate") half open, black ink beams wrapped in a straw geumjul rope with white paper talismans, a thin crack of eerie jade light glowing from inside, a few ghost-fires drifting around it, ink-splash edges so it sits on a dark menu background | #FF00FF |
+| `settings_parts.png` | 2048x1024 | separate pieces with wide gaps, no text: 1 a long horizontal slider track (dark ink groove with brass end caps), 2 a round jade bead slider knob, 3 a toggle in the OFF state (dark ink pill, brass rim, knob on the left), 4 the same toggle ON (jade fill, knob on the right), 5 a left arrow button (brass, ink outline), 6 a right arrow button, 7 a thin dark ink row backing strip with small brass ends (will be stretched) | #FF00FF |
+| `panel_large.png` | 1536x1024 | a large empty panel for pause and settings screens: very dark brown-black lacquered wood with a brass border and ornate brass corner pieces, plain flat center (it will be stretched — keep the center plain, corners decorated), no text | #FF00FF |
+
+## 6S10. S10 — 시작 컷씬 삽화 · 맵의 귀문 · 정예가 떨구는 아이템 (사용자가 "S10 진행"이라고 하면, 2026-11-19 추가)
+
+사용자 결정 2026-11-19: ① 게임을 시작하면 짧은 이야기 컷씬(평화로운 마을에 귀문이 열려 요괴가 쏟아지고, 퇴마사가 막는다) ② 맵 곳곳에 귀문이 서 있고 몹이 거기서 나온다 ③ 정예를 잡으면 **흡혼 호리병**(맵의 경험치를 전부 빨아들임) 또는 **벽력부**(화면 안 요괴를 벼락으로 쓸어버림)가 떨어진다. 규칙은 6장 맨 위 "밤새 한 번에 돌릴 때"와 같다 (순서 6S10-1 → 6S10-4).
+
+### `[ILLUST]` — 컷씬 삽화 틀 (S10에서 새로 씀)
+```text
+A wide cinematic story illustration (16:9) for the intro cutscene of a dark Korean folklore action game, in the same bold ink style as the attached reference sprites: thick black ink outlines, flat colors with hard angular ink shadows, limited palette, no soft airbrush, no photorealism.
+Scene: {scene}.
+Full-bleed picture that fills the whole canvas: no border, no frame, no comic panel gutters. Keep the bottom fifth calmer and darker (the game writes subtitles over it).
+Absolutely NO text, letters, numbers or readable symbols anywhere (talismans are blank or have abstract squiggles only). No red (red is reserved for enemy attack warnings) — use orange, gold, jade and violet instead.
+Any character or yokai that appears must match its attached reference sprite exactly (design, outfit, colors).
+```
+
+### 6S10-1. 시작 컷씬 · `ArtSource/v2/story/` (5장, 새 폴더 · `[ILLUST]`, 캔버스 1920x1080, 불투명 그림 그대로 — 배경 지우기 없음)
+
+다섯 장은 한 이야기다. **같은 마을·같은 귀문·같은 퇴마사**가 이어져야 한다. 귀문은 `ui/title_emblem.png`와 같은 디자인(기와지붕을 얹은 기울어진 나무 문, 금줄과 흰 종이, 문틈의 옥빛).
+
+| 파일 | 참고 이미지 | `{scene}` |
+|---|---|---|
+| `intro_1.png` | `props/village.png` · `props/jangseung.png` · `props/lights.png` | a peaceful mountain village at dusk: thatched-roof Korean houses, smoke from chimneys, warm lanterns being lit, two wooden jangseung guardian posts and a straw geumjul rope at the village entrance, small villager silhouettes and children walking home, rice paddies and pine hills, calm warm orange-gold sky. Peaceful, cozy, nostalgic |
+| `intro_2.png` | `ui/title_emblem.png` | the same village on a moonless night: behind the houses on the hill, an old crooked ghost gate (exactly the design of the reference) BURSTS open — the straw geumjul rope snaps, white paper talismans fly off, a blinding crack of jade light floods out across the dark fields, villagers in the foreground look up in fear with lanterns. Ominous, sudden |
+| `intro_3.png` | `yokai/changgwi/base.png` · `yokai/dokkaebibul/base.png` · `yokai/dalgyal/base.png` · `yokai/small_dokkaebi/base.png` · `ui/title_emblem.png` | a flood of yokai pouring out of the open gate and spilling over the fields toward the village: hunched changgwi ghosts, dokkaebibul ghost-fires, a long-haired dalgyal ghost, small club-swinging dokkaebi (all exactly as the references — same colors); far away across the dark fields, several MORE small ghost gates are cracking open with jade light. Villagers fleeing with lanterns. Chaotic, many small figures |
+| `intro_4.png` | `boss/bulgasari/p1_base.png` · `ui/title_emblem.png` | deep behind the largest gate, in the jade light and mist, the huge silhouette of Bulgasari (exactly the reference design: iron-plated bear-like body, elephant trunk and tusks, tiger-striped legs, spiked back) slowly opening glowing orange eyes. Mostly dark, the monster huge and only half visible. Dread |
+| `intro_5.png` | `hero/base.png` | the young exorcist hero (exactly the reference: wide black gat hat, grey-green robe, hooked wooden staff with a brass bell and cloth tie, yellow talismans at the sash) standing on a dirt road at the village entrance between the two jangseung posts, seen from a low heroic angle from behind-side, staff planted, a few yellow talismans fluttering around, facing the jade-lit horde of yokai approaching across the fields at night. Determined, heroic |
+
+### 6S10-2. 맵의 귀문 · `ArtSource/v2/props/` (1장, `[PROP]`, 참고 = `ui/title_emblem.png`)
+
+| 파일 | 캔버스 | 조각 | `{prop}` |
+|---|---|---|---|
+| `ghost_gate.png` | 2048x1024 | 2 | the ghost gate standing in a field, exactly the design of the reference (crooked tiled roof, black wooden posts, geumjul rope with white paper talismans, ink-splash cracks at the base) but WITHOUT the floating ghost-fires around it. 1 dormant: doors slightly ajar, a thin crack of jade light, 2 active: doors flung wide open, thick jade mist and faint ghostly hands spilling out over the threshold. Both the SAME size and position of posts so they can swap. Normal brightness (the game darkens it at night) |
+
+### 6S10-3. 정예가 떨구는 아이템 · `ArtSource/v2/items/` (1장, `[PROP]`)
+
+| 파일 | 캔버스 | 조각 | `{prop}` |
+|---|---|---|---|
+| `elite_drops.png` | 1536x768 | 2 | two magical pickup items, big and instantly readable at small size, very different silhouettes: 1 the "soul-drinking gourd": a fat jade-green calabash gourd bottle tied with a straw cord and a small white paper seal, its open mouth swirling with a violet-and-cyan vortex, 2 the "thunderbolt talisman": a large yellow paper talisman with abstract squiggle marks (no readable letters), crackling with jagged white-and-pale-cyan lightning bolts around its edges, a small brass bell tied to the top |
+
+### 6S10-4. 귀문·아이템 이펙트 · `ArtSource/v2/fx10/` (3장, 새 폴더 · `[FX_VIVID]`, 배경 #000000)
+
+| 파일 | 프레임 | 캔버스 | 모양 (반드시 지킬 것) | `{effect}` | `{colors}` | `{view}` |
+|---|---|---|---|---|---|---|
+| `gate_spawn.png` | 4 | 2048x512 | about as wide as a doorway, standing, bursting forward | yokai emerging from a ghost gate: a puff of jade mist pours out of a doorway with ghostly reaching hands and paper scraps, swells, then thins away | jade green, pale cyan, ink black | seen from the side, standing upright |
+| `gourd_pull.png` | 4 | 2048x512 | a wide spiral around one person, standing | the soul-drinking gourd activating: a huge spiral vortex of violet and cyan wind with tiny gem sparkles being sucked INWARD toward the center, tightening each frame, then a bright pop | violet, cyan, white | seen from the side, standing upright |
+| `thunder_strike.png` | 4 | 2048x1024 | a TALL narrow vertical bolt, from the very top of the cell down to the bottom | the thunderbolt talisman: a jagged lightning bolt strikes straight down from the sky onto one yokai, a burst of white sparks and burning paper scraps at the bottom, then a thin scorch and smoke | white, pale cyan, gold | seen from the side, standing upright |
+
 ## 7. 다 만든 뒤 (Claude가 할 일 — Codex는 하지 않음)
 
 - 배경 지우기 · 프레임 자르기 · 기준점 맞추기 · 게임 크기로 줄이기

@@ -33,6 +33,9 @@ CHARS = [
         ('parry', 'hero/parry.png', 6, 0.98),
         ('hurt', 'hero/hurt.png', 3, 1.0),
         ('victory', 'hero/victory.png', 4, 1.0),
+        # S9: 긴 봉 소환·내리찍기, 조력자 부르기 (빌려 쓰던 동작을 바꿈)
+        ('giantsummon', 'hero/giant_summon.png', 6, 1.08),
+        ('summon', 'hero/summon.png', 4, 1.0),
     ]),
     ('changgwi', 'Changgwi', 360, [
         ('base', 'yokai/changgwi/base.png', 1, 1.0),
@@ -62,34 +65,38 @@ CHARS = [
     ('changgwidark', 'ChanggwiDark', 360, [
         ('base', 'yokai/changgwi_dark/base.png', 1, 1.0, 'green'),
         ('move', 'yokai/changgwi_dark/move.png', 4, 1.0, 'green'),
+        ('attack', 'yokai/changgwi_dark/attack.png', 5, 0.95, 'green'),  # S9
         ('death', 'yokai/changgwi_dark/death.png', 3, 0.93),
     ]),
     ('dokkaebibuldark', 'DokkaebibulDark', 300, [
         ('base', 'yokai/dokkaebibul_dark/base.png', 1, 1.0, 'green'),
         ('move', 'yokai/dokkaebibul_dark/move.png', 4, 0.85, 'green'),
+        ('attack', 'yokai/dokkaebibul_dark/attack.png', 5, 0.85, 'green'),  # S9
         ('death', 'yokai/dokkaebibul_dark/death.png', 3, 0.7),
     ]),
     ('dalgyaldark', 'DalgyalDark', 380, [
         ('base', 'yokai/dalgyal_dark/base.png', 1, 1.0, 'green'),
         ('move', 'yokai/dalgyal_dark/move.png', 4, 1.0, 'green'),
+        ('attack', 'yokai/dalgyal_dark/attack.png', 5, 1.0, 'green'),  # S9
         ('death', 'yokai/dalgyal_dark/death.png', 3, 1.0),
     ]),
     ('smalldokkaebidark', 'SmallDokkaebiDark', 300, [
         ('base', 'yokai/small_dokkaebi_dark/base.png', 1, 1.0, 'green'),
         ('move', 'yokai/small_dokkaebi_dark/move.png', 4, 0.9, 'green'),
+        ('attack', 'yokai/small_dokkaebi_dark/attack.png', 5, 0.9, 'green'),  # S9
         ('death', 'yokai/small_dokkaebi_dark/death.png', 3, 0.9),
     ]),
     # 불가살이: 1페이즈 동작은 p1_*, 2페이즈는 p2_* (2페이즈가 더 크다), 변신·쓰러짐은 공통
     ('boss', 'Boss', 420, [
         ('p1base', 'boss/bulgasari/p1_base.png', 1, 1.0),
         ('p1walk', 'boss/bulgasari/p1_walk.png', 4, 1.0),
-        ('p1attack', 'boss/bulgasari/p1_attack.png', 3, 1.0),
-        ('p1spines', 'boss/bulgasari/p1_spines.png', 2, 1.0),
+        ('p1attack', 'boss/bulgasari/p1_attack.png', 6, 1.0),
+        ('p1spines', 'boss/bulgasari/p1_spines.png', 4, 1.15),
         ('transform', 'boss/bulgasari/transform.png', 4, 1.05),
         ('p2base', 'boss/bulgasari/p2_base.png', 1, 1.15),
         ('p2walk', 'boss/bulgasari/p2_walk.png', 4, 1.15),
-        ('p2attack', 'boss/bulgasari/p2_attack.png', 3, 1.15),
-        ('p2charge', 'boss/bulgasari/p2_charge.png', 2, 1.0),
+        ('p2attack', 'boss/bulgasari/p2_attack.png', 6, 1.15),
+        ('p2charge', 'boss/bulgasari/p2_charge.png', 4, 1.1),
         ('death', 'boss/bulgasari/death.png', 4, 1.0),
         ('entrance', 'boss/bulgasari/entrance.png', 4, 1.0),
     ]),
@@ -159,6 +166,15 @@ FX = [
     # S8
     ('summon', 'fx8/helper_summon.png', 4, 'auto', False, 512),
     ('ward', 'fx8/shaman_ward.png', 4, 'auto', False, 768),
+    # S9: 묶임(진혼령) · 느려짐(무녀 결계) · 폭렬부 폭발 · 핵심 비급 얻기
+    ('bind', 'fx9/bind.png', 4, 'auto', False, 512),
+    ('slow', 'fx9/slow.png', 4, 'auto', False, 512),
+    ('talblast', 'fx9/talisman_blast.png', 5, 'auto', False, 512),
+    ('coreget', 'fx9/core_get.png', 5, 'auto', False, 768),
+    # S10: 귀문에서 요괴가 나옴 · 흡혼 호리병 · 벽력부 벼락
+    ('gatespawn', 'fx10/gate_spawn.png', 4, 'auto', False, 512),
+    ('gourdpull', 'fx10/gourd_pull.png', 4, 'auto', False, 512),
+    ('thunder', 'fx10/thunder_strike.png', 4, 'auto', False, 768),
 ]
 
 # 한 장에 여러 개: 이름, 원본, 개수, 출력 폴더, 최대 크기
@@ -209,6 +225,13 @@ PIECES = [
     ('cardc', 'ui/card_core.png', 1, 'Ui', 768, 'autogreen'),
     ('corepart', 'ui/core_parts.png', 2, 'Ui', 256, 'autogreen'),
     ('helpericon', 'ui/helper_icons.png', 2, 'Ui', 256),
+    # S9: 메인 화면 귀문 · 설정 부품 7개 · 큰 패널
+    ('titleemblem', 'ui/title_emblem.png', 1, 'Ui', 1024),
+    ('setpart', 'ui/settings_parts.png', 7, 'Ui', 1024),
+    ('panelbig', 'ui/panel_large.png', 1, 'Ui', 1024),
+    # S10: 맵의 귀문(잠든 문 · 열린 문) · 정예 아이템(흡혼 호리병 · 벽력부 — 이펙트 폴더, 가운데 피벗)
+    ('gate', 'props/ghost_gate.png', 2, 'Props', 1024),
+    ('drop', 'items/elite_drops.png', 2, 'Fx', 384),
 ]
 
 FLOORS = [('ground/floor_a.png', 'Ground/floor_a.png', 1024)]
@@ -556,6 +579,22 @@ if __name__ == '__main__':
         im = Image.open(bg_src).convert('RGB')
         im.resize((1920, round(im.height * 1920 / im.width)), Image.LANCZOS).save(f'{DST}/Ui/menubg_0.png')
         print('ui menubg')
+    # 벽력부(S10)의 붉은 끈·무늬 → 갈색·주황 (빨강은 적 공격 경고 전용 — 설계서 5장)
+    drop = f'{DST}/Fx/drop_1.png'
+    if os.path.exists(drop):
+        a = np.array(Image.open(drop).convert('RGBA')).astype(np.float32)
+        r, g, b = a[..., 0], a[..., 1], a[..., 2]
+        red = (r > 90) & (r > g * 1.7) & (r > b * 1.5)
+        a[..., 1] = np.where(red, np.maximum(g, r * 0.55), g)
+        Image.fromarray(a.astype(np.uint8)).save(drop)
+        print('fx drop_1 빨강 → 주황')
+    # S10 시작 컷씬 삽화 (불투명 그림 그대로, 1600 폭으로)
+    for i in range(5):
+        src = f'{SRC}/story/intro_{i + 1}.png'
+        if os.path.exists(src):
+            im = Image.open(src).convert('RGB')
+            im.resize((1600, round(im.height * 1600 / im.width)), Image.LANCZOS).save(f'{DST}/Ui/story_{i}.png')
+            print('ui story', i)
     for src, dst, size in FLOORS:
         if not os.path.exists(f'{SRC}/{src}'):
             continue

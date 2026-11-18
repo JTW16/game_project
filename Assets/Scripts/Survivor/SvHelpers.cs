@@ -84,7 +84,7 @@ namespace ParryRL.Survivor
             _tigerT = 0f;
             _tigerHit.Clear();
             var art = Art;
-            _player.PlayAction(art != null ? art.heroThrow : null, 0.3f, _tigerDir);
+            _player.PlayAction(SummonPose(art), 0.4f, _tigerDir);
             Summon(_tigerFrom, art);
             if (art != null && SurvivorArt.Ok(art.tigerRun))
             {
@@ -160,7 +160,7 @@ namespace ParryRL.Survivor
             _shamanUntil = Time.time + shamanTime;
             _wardTickAt = Time.time;
             var art = Art;
-            _player.PlayAction(art != null ? art.heroThrow : null, 0.3f, _player.Facing);
+            _player.PlayAction(SummonPose(art), 0.4f, _player.Facing);
             Vector2 at = _wardAt + new Vector2(_player.Facing.x < 0f ? 1f : -1f, 0.4f);
             Summon(at, art);
             if (art != null && SurvivorArt.Ok(art.shamanDance))
@@ -226,6 +226,10 @@ namespace ParryRL.Survivor
         // ---------- 공통 ----------
 
         /// <summary>부적이 터지며 먹연기 속에서 나타나고 사라진다 (S8 소환 연기, 없으면 부적 터짐).</summary>
+        /// <summary>조력자 부르기 동작: S9 전용(부적을 꺼내 튕겨 보냄), 없으면 부적 던지기.</summary>
+        private static Sprite[] SummonPose(SurvivorArt art) =>
+            art == null ? null : SurvivorArt.Ok(art.heroSummon) ? art.heroSummon : art.heroThrow;
+
         private static void Summon(Vector2 at, SurvivorArt art)
         {
             if (art == null) return;
