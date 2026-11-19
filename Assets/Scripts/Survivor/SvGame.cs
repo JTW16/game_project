@@ -104,6 +104,7 @@ namespace ParryRL.Survivor
             SvDamageText.Create();
             SvHpBars.Create();
             Hud = SvHud.Create();
+            Player.Damaged += OnPlayerHurt;
             SvTooltip.Create();
             Cinematic = SvCinematic.Create(art);
             Intro = SvIntro.Create(art);
@@ -327,7 +328,8 @@ namespace ParryRL.Survivor
         public void OnEnemyKilled(SvEnemy e)
         {
             Kills++;
-            Ultimate.AddKill(e);
+            // 궁극기로 잡은 적은 도력을 채우지 않는다 (채우면 후반에 궁극기를 끝없이 이어 쓴다 — 2026-11-18 사용자 요청)
+            if (SvWeapons.KillSource != SvUltimate.Source) Ultimate.AddKill(e);
             if (e.IsBoss)
             {
                 SvGem.DropBig(e.Position, 200, boss: true);
@@ -372,6 +374,13 @@ namespace ParryRL.Survivor
             Hud.Flash(new Color(0.75f, 1f, 1f), 0.35f, 0.25f);
             Sfx.Play(SfxId.Parry);
             Hud.Popup("패링!", new Color(0.7f, 1f, 0.95f));
+        }
+
+        /// <summary>퇴마사가 맞았다: 맞은 걸 바로 알게 화면 테두리·체력 바·흔들림 (히트스탑은 쓰지 않는다 — 4장).</summary>
+        private void OnPlayerHurt(int amount)
+        {
+            Hud.Hurt(amount);
+            Shake(amount >= 20 ? 0.3f : 0.18f, 0.22f);
         }
 
         public void HitStop(float seconds) => _hitStopUntil = Mathf.Max(_hitStopUntil, Time.unscaledTime + seconds);

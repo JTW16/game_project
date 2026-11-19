@@ -742,6 +742,28 @@ namespace ParryRL.Tests
         }
 
         [UnityTest]
+        public IEnumerator Capture_Player_Hurt()
+        {
+            Game.Weapons.enabled = false;
+            Game.Progress.MagnetRadius = 0f;
+            for (int i = 0; i < 24; i++)
+            {
+                var e = Game.Spawner.Spawn(SvEnemyKind.Changgwi, Player.Position + SvGeom.FromAngle(i * 137.5f) * (2.5f + (i % 6) * 0.9f));
+                e.Speed = 0f;
+            }
+            float end = Time.realtimeSinceStartup + 0.3f;
+            while (Time.realtimeSinceStartup < end) yield return null;
+            yield return Capture("survivor_hurt_before");
+
+            Player.ClearInvulnerability();
+            Player.TakeDamage(15);
+            Assert.IsTrue(Player.Invulnerable, "맞은 직후 무적");
+            end = Time.realtimeSinceStartup + 0.05f; // 테두리가 가장 짙은 때
+            while (Time.realtimeSinceStartup < end) yield return null;
+            yield return Capture("survivor_hurt");
+        }
+
+        [UnityTest]
         public IEnumerator Capture_Menus_And_Night()
         {
             Game.Weapons.enabled = false;
@@ -866,6 +888,66 @@ namespace ParryRL.Tests
             Assert.IsFalse(enemyInside, "적도 담을 뚫지 못한다");
             Player.TryMove(Vector2.zero);
             yield return Capture("survivor_wall_block");
+        }
+
+        [UnityTest]
+        public IEnumerator Enemy_Walks_Around_Wall_To_Reach_Player()
+        {
+            Game.Progress.MagnetRadius = 0f;
+            Game.Weapons.enabled = false;
+            yield return null;
+            yield return null;
+            // 가장 긴 담 한가운데 바로 뒤에 퇴마사, 맞은편 한가운데에 적 — 비비지 말고 돌아 들어와야 한다
+            SvScenery.Block wall = default;
+            foreach (var b in SvScenery.Instance.AllBlocks())
+                if (b.Box && b.Half.x > wall.Half.x) wall = b;
+            Assert.IsTrue(wall.Box, "담·울타리");
+            Player.transform.position = new Vector3(wall.C.x, wall.C.y - wall.Half.y - 0.9f, 0f);
+            var e = Game.Spawner.Spawn(SvEnemyKind.Changgwi, new Vector2(wall.C.x, wall.C.y + wall.Half.y + 1.2f));
+            e.Speed = 3f;
+            yield return null;
+            float limit = (wall.Half.x * 2f + 8f) / e.Speed + 2f;
+            float end = Time.realtimeSinceStartup + limit, best = float.MaxValue;
+            while (Time.realtimeSinceStartup < end)
+            {
+                Player.TryMove(Vector2.zero);
+                best = Mathf.Min(best, Vector2.Distance(e.Position, Player.Position));
+                if (best < 1.2f) break;
+                yield return null;
+            }
+            yield return Capture("survivor_wall_detour");
+            Assert.Less(best, 1.2f, $"적이 담(폭 {wall.Half.x * 2f:0.0})을 돌아 퇴마사에게 닿는다 — 가장 가까이 {best:0.00}");
+        }
+
+        [UnityTest]
+        public IEnumerator Ultimate_Kills_Do_Not_Refill_Gauge()
+        {
+            Game.Weapons.enabled = false;
+            Game.Progress.MagnetRadius = 0f;
+            var list = new System.Collections.Generic.List<SvEnemy>();
+            for (int i = 0; i < 30; i++) list.Add(SpawnAt(SvEnemyKind.Changgwi, SvGeom.FromAngle(i * 12f) * (3f + i % 3)));
+            list.Add(SpawnAt(SvEnemyKind.Elite, new Vector2(4f, 0f)));
+            list[^1].TakeDamage(list[^1].Hp - 1, Vector2.zero, 0f); // 정예도 궁극기 한 방에 쓰러지게
+            Game.Ultimate.Fill();
+            Assert.IsTrue(Game.Ultimate.TryUltimate());
+            yield return WaitReal(0.9f);
+            Assert.IsTrue(list.TrueForAll(x => !x.isActiveAndEnabled), "다 쓰러졌다");
+            Assert.AreEqual(0f, Game.Ultimate.Gauge, "궁극기 처치(정예 포함)는 도력 0 — 무한 궁극기 방지");
+            // 다른 공격으로 잡으면 여전히 찬다
+            var e = SpawnAt(SvEnemyKind.Changgwi, new Vector2(2f, 0f));
+            SvWeapons.Hit(e, 999, Vector2.right, 0f, SvItems.Staff);
+            Assert.Greater(Game.Ultimate.Gauge, 0f);
+        }
+
+        [Test]
+        public void Exp_Requirement_Grows_Faster_At_High_Level()
+        {
+            Assert.AreEqual(8, SvProgress.ExpFor(1));
+            int gainEarly = SvProgress.ExpFor(6) - SvProgress.ExpFor(5);
+            int gainLate = SvProgress.ExpFor(16) - SvProgress.ExpFor(15);
+            Assert.Greater(gainLate, gainEarly * 2, "고레벨일수록 한 레벨에 더 많이 필요");
+            // 보석 값은 밤마다 최대 ×3 — 레벨 15의 요구량은 레벨 5의 3배보다 커야 고렙 느낌이 난다
+            Assert.Greater(SvProgress.ExpFor(15), SvProgress.ExpFor(5) * 3);
         }
 
         [UnityTest]
@@ -1207,6 +1289,31 @@ namespace ParryRL.Tests
             yield return WaitReal(0.4f);
             Player.TryJump();
             for (int i = 0; i < 5; i++) yield return Capture($"motion_jump_{i}", 960, 540);
+        }
+
+        [UnityTest]
+        public IEnumerator Capture_Staff_Swing_Levels()
+        {
+            Game.Weapons.enabled = false;
+            Game.Progress.MagnetRadius = 0f;
+            Player.MaxHp = 100000;
+            Player.Heal(100000);
+            for (int i = 0; i < 6; i++) SpawnAt(SvEnemyKind.Changgwi, SvGeom.FromAngle(i * 60f + 10f) * 2.6f).Speed = 0f;
+            foreach (int target in new[] { 4, 8 })
+            {
+                while (Game.Progress.LevelOf(SvItems.Staff) < target) Game.Progress.Take(SvItems.Get(SvItems.Staff), Player, Game.Weapons);
+                yield return WaitReal(1.2f);
+                yield return new WaitForFixedUpdate();
+                Game.Weapons.Swing();
+                Game.Weapons.enabled = true;
+                float t0 = Time.time;
+                for (int i = 0; i < 8; i++)
+                {
+                    yield return Capture($"staff_lv{target}_{i}", 960, 540);
+                    Debug.Log($"[Capture] staff_lv{target}_{i} t={Time.time - t0:0.000}");
+                }
+                Game.Weapons.enabled = false;
+            }
         }
 
         // ---------- S6·S7 연결 (3차 피드백) ----------

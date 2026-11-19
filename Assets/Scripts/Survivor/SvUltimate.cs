@@ -4,7 +4,7 @@ namespace ParryRL.Survivor
 {
     /// <summary>
     /// 궁극기 "귀문봉인" (D, 2026-11-10 사용자 요청 "화면 전체를 가릴 정도의 궁극기" — 가안).
-    /// 도력(0~100)이 차면 쓸 수 있다: 처치 +1 · 정예 처치 +10 · 패링 +15.
+    /// 도력(0~100)이 차면 쓸 수 있다: 처치 +1 · 정예 처치 +10 · 패링 +15. 궁극기로 잡은 적은 도력을 주지 않는다.
     /// 쓰면 잠깐 세상이 멈추고(퇴마사 자세 + 확대 + 번쩍임) 화면을 덮는 봉인진이 열린 뒤 빛기둥이 솟아,
     /// 화면 안의 잡몹은 거의 다 쓰러지고 정예·보스는 큰 피해를 입는다.
     /// </summary>
@@ -21,6 +21,9 @@ namespace ParryRL.Survivor
         [SerializeField] private float bossPercent = 0.12f;
         [Tooltip("멈춘 채 기를 모으는 시간 (초)")]
         [SerializeField] private float windup = 0.55f;
+
+        /// <summary>궁극기 피해 출처 이름 (무기별 피해 집계·도력 제외에 씀).</summary>
+        public const string Source = "ultimate";
 
         public float Gauge { get; private set; }
         public float MaxGauge => maxGauge;
@@ -118,7 +121,7 @@ namespace ParryRL.Survivor
                 var e = SvEnemy.Find(Hits[i]);
                 if (e == null || !e.isActiveAndEnabled) continue;
                 int dmg = e.IsBoss ? Mathf.RoundToInt(e.MaxHp * bossPercent) : e.IsElite ? Mathf.RoundToInt(eliteDamage * mul) : Mathf.RoundToInt(damage * mul);
-                SvWeapons.Hit(e, dmg, e.Position - at, 14f, "ultimate");
+                SvWeapons.Hit(e, dmg, e.Position - at, 14f, Source);
             }
         }
     }
