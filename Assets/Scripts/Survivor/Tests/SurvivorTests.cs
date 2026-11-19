@@ -537,7 +537,10 @@ namespace ParryRL.Tests
             // 멀리 흩어진 보석 → 호리병을 밟으면 전부 빨려 온다
             for (int i = 0; i < 6; i++) SvGem.Drop(Player.Position + SvGeom.FromAngle(i * 60f) * 25f, 1);
             var gourd = SvPickup.Drop(Player.Position + new Vector2(0.3f, 0f), SvPickupKind.Gourd);
-            yield return Wait(0.5f);
+            // 떨어질 때 무작위 방향으로 1.1 튀므로(줍는 거리 0.95 밖일 수 있음), 다 튄 뒤 그 자리로 가서 밟는다
+            yield return Wait(0.45f);
+            Teleport(gourd.Position);
+            yield return Wait(0.1f);
             Assert.AreEqual(1, SvPickup.GourdUses, "밟으면 바로 써야 한다");
             Assert.IsFalse(SvPickup.Live.Contains(gourd));
             yield return Wait(0.25f);

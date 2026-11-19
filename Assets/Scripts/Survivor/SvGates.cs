@@ -65,7 +65,9 @@ namespace ParryRL.Survivor
         public static int Pick(Vector2 center, float offscreen)
         {
             var all = All;
-            float lo = offscreen * 0.7f, hi = offscreen + 14f;
+            // 바깥 끝은 스포너가 "너무 멀어진 적"을 다시 놓는 거리(화면 밖 반경 × 1.7)보다 안쪽 —
+            // 그보다 멀면 막 나온 몹(꼬마 도깨비 떼)이 곧바로 다른 귀문으로 옮겨져 흩어진다
+            float lo = offscreen * 0.7f, hi = Mathf.Min(offscreen + 14f, offscreen * 1.55f);
             int count = 0, chosen = -1, nearest = -1;
             float best = float.MaxValue;
             for (int i = 0; i < all.Count; i++)
