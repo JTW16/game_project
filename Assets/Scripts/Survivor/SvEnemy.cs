@@ -259,6 +259,7 @@ namespace ParryRL.Survivor
             ContactDamage = contactDamage;
             Exp = exp;
             _knock = Vector2.zero;
+            _nextPath = 0f;
             _stunUntil = _flashUntil = _surgeUntil = _boundUntil = _slowUntil = 0f;
             _nextSurge = Time.time + Random.Range(1.5f, SurgeEvery);
             Holding = false;
@@ -334,13 +335,30 @@ namespace ParryRL.Survivor
             if (player != null && !player.Dead && !Stunned && !Holding)
             {
                 Vector2 to = player.Position - _rb.position;
-                if (to.sqrMagnitude > 0.0001f) v = to.normalized * Speed * SurgeFactor() * (Slowed ? _slowMul : 1f);
+                if (to.sqrMagnitude > 0.0001f) v = WalkDir(player.Position) * Speed * SurgeFactor() * (Slowed ? _slowMul : 1f);
             }
-            if (_blockedByProps && SvScenery.Instance != null) v = SvScenery.Instance.Steer(_rb.position, v, Radius);
+            if (_blockedByProps && SvScenery.Instance != null && !SvFlowField.Ready) v = SvScenery.Instance.Steer(_rb.position, v, Radius);
             _rb.linearVelocity = v + _knock;
             // 밀려나도 들판 밖으로는 나가지 않는다
             if (!SvBounds.Inside(_rb.position, 0.2f)) _rb.position = SvBounds.Clamp(_rb.position, 0.3f);
             _knock = Vector2.MoveTowards(_knock, Vector2.zero, 40f * Time.fixedDeltaTime);
+        }
+
+        // 길찾기 방향은 잠깐씩 재사용한다 (수백 마리가 매 물리 단계마다 시야를 재지 않게)
+        private const float PathEvery = 0.12f;
+        private Vector2 _pathDir;
+        private float _nextPath;
+
+        private Vector2 WalkDir(Vector2 target)
+        {
+            Vector2 straight = (target - _rb.position).normalized;
+            if (!_blockedByProps) return straight;
+            if (Time.time >= _nextPath || Time.time < _nextPath - PathEvery * 2f)
+            {
+                _pathDir = SvFlowField.Direction(_rb.position, target);
+                _nextPath = Time.time + PathEvery * (0.75f + Random.value * 0.5f);
+            }
+            return _pathDir.sqrMagnitude > 0.0001f ? _pathDir : straight;
         }
 
         // 달걀귀신 (가안): 몇 초마다 잠깐 미끄러지듯 빨라진다

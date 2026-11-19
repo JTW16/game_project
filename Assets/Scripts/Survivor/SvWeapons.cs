@@ -136,6 +136,8 @@ namespace ParryRL.Survivor
             if (_backSwingAt > 0f && Time.time >= _backSwingAt)
             {
                 _backSwingAt = -1f;
+                // 몸을 뒤로 돌려 친다 (전에는 궤적만 뒤에 나오고 몸은 앞을 본 채라 어색했다 — 2026-11-18 플레이 피드백)
+                if (Art != null && _comboLeft == 0) _player.PlayAction(Art.heroSwing, 0.26f, _backSwingDir);
                 SwingArc(_player.Position, _backSwingDir, SwingRadius * 0.85f, back: true);
             }
             if (_comboLeft > 0 && Time.time >= _comboAt) ComboSwing();
@@ -181,7 +183,8 @@ namespace ParryRL.Survivor
             // 핵심 비급 삼재격: 같은 쪽으로 두 번 더 (0.14초 간격, 마지막이 가장 크다)
             if (HasCore(SvItems.CoreStaff)) { _comboLeft = 2; _comboAt = Time.time + 0.14f; _comboDir = dir; }
             // 뒤쪽은 앞을 친 뒤 몸을 돌려 이어 치는 느낌으로 조금 늦게 (동시에 그리면 몸 위에서 X자로 엉킨다 — 2차 플레이 피드백)
-            if (SwingBack) { _backSwingAt = Time.time + 0.1f; _backSwingDir = -dir; }
+            // 앞 궤적이 거의 사라진 뒤에 나와야 두 초승달이 몸 둘레에서 겹치지 않는다 (2026-11-18 플레이 피드백 "어색함")
+            if (SwingBack) { _backSwingAt = Time.time + FrontTrailTime * 0.7f; _backSwingDir = -dir; }
         }
 
         /// <summary>삼재격 연타: 둘째는 뒤집은 궤적, 셋째는 범위 ×1.25 · 피해 ×1.5 + 짧은 멈춤.</summary>
@@ -204,6 +207,9 @@ namespace ParryRL.Survivor
             if (last) SvGame.Instance?.MicroStop(0.04f);
         }
 
+        /// <summary>앞 궤적 그림이 보이는 시간 (8단계는 크고 느리게).</summary>
+        private float FrontTrailTime => Lv(SvItems.Staff) >= 8 ? 0.24f : 0.18f;
+
         private void SwingArc(Vector2 at, Vector2 dir, float r, bool back = false, float dmgMul = 1f, bool flip = false)
         {
             float angle = SwingAngle;
@@ -215,10 +221,11 @@ namespace ParryRL.Survivor
                 : SurvivorArt.Ok(a.fxSlash1) ? a.fxSlash1 : a.fxSlash;
             // 궤적은 몸 앞쪽으로 밀어 그리고 퇴마사를 따라간다 — 달리며 휘둘러도 몸 위에 겹치거나 뒤에 남지 않고 "앞에서 촥" (사용자 피드백 2026-11-10)
             var follow = _player.transform;
-            Vector2 front = at + dir * r * 0.32f;
+            // 뒤쪽은 조금 더 밀어 그린다 (몸 위를 덮지 않게). 8단계의 곧은 칼바람(fxSweep)은 반원 궤적과 따로 놀아
+            // 몸 옆에 세로 막대처럼 보여서 뺐다 (2026-11-18 플레이 피드백) — 반원은 큰 궤적 하나로 보여 준다
+            Vector2 front = at + dir * r * (back ? 0.42f : 0.32f);
             bool drawn = a != null && SvFx.FlatAnim(trail, front, SvGeom.AngleOf(dir) + 180f, r * (lv >= 8 ? 2.1f : 1.8f) * (back ? 0.85f : 1f),
-                lv >= 8 ? 0.26f : back ? 0.15f : 0.18f, follow: follow, mirror: back || flip);
-            if (lv >= 8 && a != null && !back) SvFx.FlatAnim(a.fxSweep, at + dir * r * 0.85f, SvGeom.AngleOf(dir) + 90f, r * 3.4f, 0.3f, follow: follow);
+                back ? 0.15f : FrontTrailTime, follow: follow, mirror: back || flip);
             // 판정 부채꼴은 궤적 그림이 없을 때만 (있으면 뿌옇게 덮어 그림을 흐린다)
             if (!drawn) SvFx.Sector(at, dir, r, angle, new Color(0.75f, 1f, 0.85f, 0.45f), 0.16f, follow);
             int n = Physics2D.OverlapCircle(at, r + 1f, ContactFilter2D.noFilter, Hits);
@@ -558,6 +565,9 @@ namespace ParryRL.Survivor
         /// <summary>테스트용: 치명타 확률을 덮어쓴다 (null = 원래대로).</summary>
         public static float? CritOverride;
 
+        /// <summary>지금 처리 중인 피해의 출처 (Hit 안에서만 값이 있다).</summary>
+        public static string KillSource { get; private set; }
+
         public static void Hit(SvEnemy e, int damage, Vector2 knockDir, float knock, string source = null)
         {
             var art = Art;
@@ -572,7 +582,11 @@ namespace ParryRL.Survivor
             else if (art == null || !SvFx.Anim(art.fxHitSpark, e.Position, e.VisualHeight * 0.55f, e.IsBig ? 1.3f : 0.8f, 0.16f, Random.value < 0.5f))
                 SvFx.Spark(e.Position, e.VisualHeight * 0.55f, new Color(1f, 0.95f, 0.75f, 1f), 0.5f, 0.12f);
             Sfx.Play(SfxId.HitLight, 0.35f);
-            int dealt = e.TakeDamage(damage, knockDir, knock);
+            // 이 피해로 쓰러지면 처치 처리(OnEnemyKilled)가 무엇에 맞았는지 알 수 있게
+            KillSource = source;
+            int dealt;
+            try { dealt = e.TakeDamage(damage, knockDir, knock); }
+            finally { KillSource = null; }
             if (dealt <= 0) return;
             if (source != null) DamageBy[source] = (DamageBy.TryGetValue(source, out int v) ? v : 0) + dealt;
             SvDamageText.Show(e.Position, e.VisualHeight + 0.2f, dealt, source == "counter" || source == "slam", crit);

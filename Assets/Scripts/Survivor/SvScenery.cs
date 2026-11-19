@@ -94,7 +94,7 @@ namespace ParryRL.Survivor
         }
 
         /// <summary>
-        /// 적의 걸음: 바로 앞이 막혔으면 막힌 것을 따라 가까운 끝 쪽으로 돌아간다 (담 한가운데에 몰려 멈추지 않게).
+        /// 길찾기 지도(SvFlowField)가 없을 때의 적의 걸음: 바로 앞이 막혔으면 막힌 것을 따라 가까운 끝 쪽으로 돌아간다 (담 한가운데에 몰려 멈추지 않게).
         /// </summary>
         public Vector2 Steer(Vector2 pos, Vector2 v, float r)
         {

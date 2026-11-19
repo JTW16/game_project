@@ -452,9 +452,14 @@ namespace ParryRL.EditorTools
             if (!File.Exists(ScenePath)) Build();
             var settings = System.Type.GetType("UnityEditor.OSXStandalone.UserBuildSettings, UnityEditor.OSXStandalone.Extensions");
             var arch = settings?.GetProperty("architecture", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+            // -macArch ARM64 | x64 | x64ARM64 (기본 = 범용). 맥 런처는 이 맥 것만 빌드한다 —
+            // 범용은 Burst의 llvm-lipo로 둘을 합치는데, 일부 설치에선 그 파일에 실행 권한이 없어 빌드가 실패한다.
+            var args = System.Environment.GetCommandLineArgs();
+            int ai = System.Array.IndexOf(args, "-macArch");
+            string archName = ai >= 0 && ai + 1 < args.Length ? args[ai + 1] : "x64ARM64";
             if (arch != null)
             {
-                arch.SetValue(null, System.Enum.Parse(arch.PropertyType, "x64ARM64"));
+                arch.SetValue(null, System.Enum.Parse(arch.PropertyType, archName));
                 Debug.Log($"[SurvivorSceneBuilder] macOS 아키텍처: {arch.GetValue(null)}");
             }
             else Debug.LogWarning("[SurvivorSceneBuilder] macOS 아키텍처 설정을 찾지 못함 — 기본값으로 빌드");

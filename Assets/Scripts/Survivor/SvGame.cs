@@ -327,7 +327,8 @@ namespace ParryRL.Survivor
         public void OnEnemyKilled(SvEnemy e)
         {
             Kills++;
-            Ultimate.AddKill(e);
+            // 궁극기로 잡은 적은 도력을 채우지 않는다 (채우면 후반에 궁극기를 끝없이 이어 쓴다 — 2026-11-18 사용자 요청)
+            if (SvWeapons.KillSource != SvUltimate.Source) Ultimate.AddKill(e);
             if (e.IsBoss)
             {
                 SvGem.DropBig(e.Position, 200, boss: true);
