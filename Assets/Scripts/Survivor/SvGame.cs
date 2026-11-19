@@ -104,6 +104,7 @@ namespace ParryRL.Survivor
             SvDamageText.Create();
             SvHpBars.Create();
             Hud = SvHud.Create();
+            Player.Damaged += OnPlayerHurt;
             SvTooltip.Create();
             Cinematic = SvCinematic.Create(art);
             Intro = SvIntro.Create(art);
@@ -373,6 +374,13 @@ namespace ParryRL.Survivor
             Hud.Flash(new Color(0.75f, 1f, 1f), 0.35f, 0.25f);
             Sfx.Play(SfxId.Parry);
             Hud.Popup("패링!", new Color(0.7f, 1f, 0.95f));
+        }
+
+        /// <summary>퇴마사가 맞았다: 맞은 걸 바로 알게 화면 테두리·체력 바·흔들림 (히트스탑은 쓰지 않는다 — 4장).</summary>
+        private void OnPlayerHurt(int amount)
+        {
+            Hud.Hurt(amount);
+            Shake(amount >= 20 ? 0.3f : 0.18f, 0.22f);
         }
 
         public void HitStop(float seconds) => _hitStopUntil = Mathf.Max(_hitStopUntil, Time.unscaledTime + seconds);

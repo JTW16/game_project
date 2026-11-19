@@ -742,6 +742,28 @@ namespace ParryRL.Tests
         }
 
         [UnityTest]
+        public IEnumerator Capture_Player_Hurt()
+        {
+            Game.Weapons.enabled = false;
+            Game.Progress.MagnetRadius = 0f;
+            for (int i = 0; i < 24; i++)
+            {
+                var e = Game.Spawner.Spawn(SvEnemyKind.Changgwi, Player.Position + SvGeom.FromAngle(i * 137.5f) * (2.5f + (i % 6) * 0.9f));
+                e.Speed = 0f;
+            }
+            float end = Time.realtimeSinceStartup + 0.3f;
+            while (Time.realtimeSinceStartup < end) yield return null;
+            yield return Capture("survivor_hurt_before");
+
+            Player.ClearInvulnerability();
+            Player.TakeDamage(15);
+            Assert.IsTrue(Player.Invulnerable, "맞은 직후 무적");
+            end = Time.realtimeSinceStartup + 0.05f; // 테두리가 가장 짙은 때
+            while (Time.realtimeSinceStartup < end) yield return null;
+            yield return Capture("survivor_hurt");
+        }
+
+        [UnityTest]
         public IEnumerator Capture_Menus_And_Night()
         {
             Game.Weapons.enabled = false;

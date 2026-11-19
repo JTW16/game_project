@@ -32,6 +32,12 @@ namespace ParryRL.Survivor
         private RectTransform _cardRoot, _bossRoot;
         private readonly List<Card> _cards = new();
         private float _popupUntil, _fps, _bannerAt = -99f, _flashAt, _flashLen, _flashAlpha;
+        // 피격: 화면 가장자리 보랏빛 + 체력 바 하얗게 (빨강은 적 공격 경고 전용이라 쓰지 않는다 — 설계서 5장)
+        private Image _hurtEdge;
+        private float _hurtAt = -99f, _hurtStrength;
+        private const float HurtEdgeTime = 0.6f, HpBlinkTime = 0.25f;
+        private static readonly Color HurtEdgeColor = new(0.6f, 0.25f, 0.95f);
+        private static readonly Color HpGreen = new(0.36f, 0.72f, 0.5f);
         private SurvivorArt _art;
         private int _selected;
         private readonly List<Slot> _weaponSlots = new(), _passiveSlots = new();
@@ -93,6 +99,10 @@ namespace ParryRL.Survivor
             // 번쩍임은 맨 아래 (UI 글자는 가리지 않게)
             _flash = UiKit.Image("Flash", _root, new Color(1f, 1f, 1f, 0f));
             UiKit.Stretch(_flash.rectTransform);
+            _hurtEdge = UiKit.Image("HurtEdge", _root, new Color(HurtEdgeColor.r, HurtEdgeColor.g, HurtEdgeColor.b, 0f));
+            _hurtEdge.sprite = EdgeSprite();
+            _hurtEdge.raycastTarget = false;
+            UiKit.Stretch(_hurtEdge.rectTransform);
 
             // 얇은 UI (설계서 4장 "UI 줄이기", 신데리아 비교): 경험치 = 화면 맨 위 가는 띠, 레벨·처치 = 오른쪽 위 작은 글자
             var expBg = UiKit.Image("ExpBg", _root, new Color(0f, 0f, 0f, 0.55f));
@@ -129,7 +139,7 @@ namespace ParryRL.Survivor
             UiKit.Place(hpEdge.rectTransform, new Vector2(0.5f, 0f), new Vector2(0f, 122f), new Vector2(420f, 26f));
             var hpBg = UiKit.Image("HpBg", hpEdge.rectTransform, new Color(0.18f, 0.06f, 0.06f, 0.9f));
             UiKit.Stretch(hpBg.rectTransform, 3f);
-            _hpFill = Fill(hpBg.rectTransform, new Color(0.36f, 0.72f, 0.5f));
+            _hpFill = Fill(hpBg.rectTransform, HpGreen);
             _hp = UiKit.Text("Hp", hpEdge.rectTransform, 19, TextAnchor.MiddleCenter);
             UiKit.Stretch(_hp.rectTransform);
 
@@ -818,6 +828,38 @@ namespace ParryRL.Survivor
             _flashLen = seconds;
         }
 
+        /// <summary>맞았다: 화면 가장자리가 보랏빛으로 확 번졌다 빠지고, 체력 바가 하얗게 깜빡인다. 큰 피해일수록 진하게.</summary>
+        public void Hurt(int amount)
+        {
+            _hurtAt = Time.unscaledTime;
+            _hurtStrength = Mathf.Lerp(0.45f, 0.8f, Mathf.InverseLerp(5f, 25f, amount));
+            if (SvSettings.ReduceFlash) _hurtStrength *= 0.4f;
+            Flash(HurtEdgeColor, 0.12f, 0.12f);
+        }
+
+        /// <summary>가운데는 비고 가장자리로 갈수록 짙어지는 테두리 그림 (코드로 한 번만 만든다).</summary>
+        private static Sprite _edgeSprite;
+        private static Sprite EdgeSprite()
+        {
+            if (_edgeSprite != null) return _edgeSprite;
+            const int size = 128;
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
+            var px = new Color32[size * size];
+            for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                float u = (x + 0.5f) / size * 2f - 1f, v = (y + 0.5f) / size * 2f - 1f;
+                // 둥근 네모꼴 거리: 모서리까지 고르게 짙어지게
+                float d = Mathf.Pow(Mathf.Pow(Mathf.Abs(u), 4f) + Mathf.Pow(Mathf.Abs(v), 4f), 0.25f);
+                float a = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.7f, 1.05f, d));
+                px[y * size + x] = new Color32(255, 255, 255, (byte)(a * 255f));
+            }
+            tex.SetPixels32(px);
+            tex.Apply(false, true);
+            _edgeSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
+            return _edgeSprite;
+        }
+
         private void Update()
         {
             var g = SvGame.Instance;
@@ -833,6 +875,8 @@ namespace ParryRL.Survivor
             _watch.text = g.Boss != null && g.Boss.Hp > 0 ? "" : $"{watch.Name} {watch.Hanja}";
             _kills.text = $"처치 {g.Kills}";
             SetFill(_hpFill, p.Hp / (float)p.MaxHp);
+            float hb = (Time.unscaledTime - _hurtAt) / HpBlinkTime;
+            _hpFill.color = hb < 1f ? Color.Lerp(Color.white, HpGreen, hb * hb) : HpGreen;
             _hp.text = $"체력 {p.Hp} / {p.MaxHp}";
             var boss = g.Boss;
             bool bossOn = boss != null && boss.isActiveAndEnabled && boss.Hp > 0 && !g.Over;
@@ -913,6 +957,12 @@ namespace ParryRL.Survivor
             var fc = _flash.color;
             fc.a = ft < 1f ? _flashAlpha * (1f - ft) * (1f - ft) : 0f;
             _flash.color = fc;
+
+            // 피격 테두리: 0.05초에 확 번졌다가 천천히 빠진다
+            float ht = (Time.unscaledTime - _hurtAt) / HurtEdgeTime;
+            var hc = _hurtEdge.color;
+            hc.a = ht < 1f ? _hurtStrength * (ht < 0.08f ? ht / 0.08f : Mathf.Pow(1f - (ht - 0.08f) / 0.92f, 2f)) : 0f;
+            _hurtEdge.color = hc;
         }
     }
 }
