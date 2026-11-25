@@ -77,6 +77,12 @@ namespace ParryRL.Survivor
         /// <summary>그 무기의 핵심 비급을 가졌는가.</summary>
         public bool HasCore(string coreId) => LevelOf(coreId) > 0;
 
+        /// <summary>공용 6칸에 든 수 (봉을 뺀 무기 + 기술 수련).</summary>
+        public int SharedCount
+        {
+            get { int n = 0; foreach (var id in _order) if (SvItems.UsesShared(SvItems.Get(id))) n++; return n; }
+        }
+
         public int Count(SvItemKind kind)
         {
             int n = 0;

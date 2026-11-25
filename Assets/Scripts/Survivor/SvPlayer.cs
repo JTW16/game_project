@@ -80,14 +80,20 @@ namespace ParryRL.Survivor
         public bool Airborne => Height > 0f || _vy > 0f;
         public bool Slamming { get; private set; }
         public float SlamCooldownLeft => Mathf.Max(0f, _slamReadyAt - Time.time);
-        public float LeapCooldownLeft => Mathf.Max(0f, _leapReadyAt - Time.time);
-        public float LeapCooldown => LeapCooldownOverride ?? leapCooldown;
+        /// <summary>경공을 다시 쓸 수 있기까지 (충전이 남아 있으면 0).</summary>
+        public float LeapCooldownLeft => _leapUsed < SvSkills.LeapCharges ? 0f : Mathf.Max(0f, _leapReadyAt - Time.time);
+        /// <summary>경공 쿨타임 — 경공 수련으로 줄어든다 (2 · 5 · 7단계).</summary>
+        public float LeapCooldown => LeapCooldownOverride ?? leapCooldown * SvSkills.LeapCooldownMul;
+        /// <summary>남은 경공 충전 (수련 4단계부터 2회).</summary>
+        public int LeapChargesLeft => Mathf.Max(0, SvSkills.LeapCharges - _leapUsed);
         /// <summary>테스트용: 경공 쿨타임을 덮어쓴다 (null = 원래대로). 동작을 찍는 테스트는 여러 번 뛰므로 0으로 둔다.</summary>
         public static float? LeapCooldownOverride;
+        // 쓴 충전 수 · 다음 충전이 차는 때 (보법 무적 충전과 같은 방식)
+        private int _leapUsed;
         private float _leapReadyAt;
         /// <summary>테스트용: 경공 쿨타임을 비운다.</summary>
-        public void ResetLeapCooldown() => _leapReadyAt = 0f;
-        public float SlamCooldown => slamCooldown;
+        public void ResetLeapCooldown() { _leapUsed = 0; _leapReadyAt = 0f; }
+        public float SlamCooldown => slamCooldown * SvSkills.SlamCooldownMul;
         public int DashChargesLeft { get; private set; }
         public bool Dashing => Time.time < _dashUntil;
         public bool Invulnerable => (Dashing && _dashSafe) || Diving || Time.time < _invulUntil;
@@ -216,12 +222,13 @@ namespace ParryRL.Survivor
             if (Dead || Slamming || _jumpsUsed >= maxJumps) return false;
             if (_jumpsUsed == 0)
             {
-                if (Time.time < _leapReadyAt) return false;
-                _leapReadyAt = Time.time + LeapCooldown;
+                if (LeapChargesLeft <= 0) return false;
+                if (_leapUsed == 0) _leapReadyAt = Time.time + LeapCooldown;
+                _leapUsed++;
             }
             _jumpsUsed++;
             bool second = _jumpsUsed >= 2;
-            _vy = second ? leapVelocity : jumpVelocity;
+            _vy = second ? leapVelocity * SvSkills.LeapVelocityMul : jumpVelocity;
             _jumpAt = Time.time;
             _fallPeak = 0f;
             // 보법 끝에 이어 뛰면 그 힘을 타고 멀리 난다
@@ -244,7 +251,7 @@ namespace ParryRL.Survivor
             if (Dead || Slamming || Time.time < _dashReadyAt) return false;
             if (Airborne && Height > 0.05f)
             {
-                if (_airDashUsed >= airDashes) return false;
+                if (_airDashUsed >= airDashes + SvSkills.LeapExtraAirDash) return false;
                 _airDashUsed++;
                 _vy = Mathf.Max(_vy, 0f);
             }
@@ -274,7 +281,7 @@ namespace ParryRL.Survivor
             if (Dead || Slamming || SlamCooldownLeft > 0f) return false;
             Slamming = true;
             _airHoldUntil = 0f;
-            _slamReadyAt = Time.time + slamCooldown;
+            _slamReadyAt = Time.time + SlamCooldown;
             DivePower = 0f;
             Diving = false;
             if (Height <= 0f) { _vy = slamHop; SvSkillVfx.SlamGather(transform, 0.24f); }
@@ -416,6 +423,11 @@ namespace ParryRL.Survivor
             {
                 DashChargesLeft++;
                 _dashRechargeAt = Time.time + dashRecharge;
+            }
+            if (_leapUsed > 0 && Time.time >= _leapReadyAt)
+            {
+                _leapUsed--;
+                if (_leapUsed > 0) _leapReadyAt = Time.time + LeapCooldown;
             }
 
             // 높이는 판정과 무관한 그림 연출

@@ -55,6 +55,7 @@ namespace ParryRL.Tests
         [TearDown]
         public void Restore()
         {
+            SvSkills.LevelOverride = 0;
             SvPlayer.LeapCooldownOverride = null;
             Time.captureFramerate = 0;
             Time.timeScale = 1f;
