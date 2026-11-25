@@ -803,6 +803,24 @@ namespace ParryRL.Tests
         }
 
         [UnityTest]
+        public IEnumerator Background_Uses_Muted_Tone_But_Characters_Do_Not()
+        {
+            Assert.IsTrue(SvTone.Ready, "배경 톤 셰이더");
+            yield return null;
+            yield return null;
+            const string back = "Survivor/Backdrop";
+            Assert.AreEqual(back, SvFloor.Instance.GetComponent<MeshRenderer>().sharedMaterial.shader.name, "바닥");
+            int props = 0;
+            foreach (var r in Object.FindObjectsByType<SpriteRenderer>())
+                if (r.sharedMaterial != null && r.sharedMaterial.shader.name == back) props++;
+            Assert.Greater(props, 60, "장식·소품·숲");
+            var e = SpawnAt(SvEnemyKind.Changgwi, new Vector2(3f, 0f));
+            yield return null;
+            Assert.AreNotEqual(back, e.Rig.GetComponent<MeshRenderer>().sharedMaterial.shader.name, "요괴는 누르지 않는다");
+            Assert.AreNotEqual(back, Player.Rig.Material.shader.name, "퇴마사는 누르지 않는다");
+        }
+
+        [UnityTest]
         public IEnumerator Capture_Watch_Colors()
         {
             Game.Progress.MagnetRadius = 0f;

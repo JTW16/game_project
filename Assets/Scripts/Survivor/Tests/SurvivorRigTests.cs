@@ -666,6 +666,69 @@ namespace ParryRL.Tests
             yield return Screen("vfx_orbit", 4f, i => { }, () => Around(30, 1.4f, 5f, 200));
         }
 
+        /// <summary>같은 장면을 예전 톤(SvTone 끔)과 새 톤으로 경마다 찍는다 — 파일 이름에 꺼짐/켜짐.</summary>
+        [UnityTest, Explicit]
+        public IEnumerator Capture_Tone()
+        {
+            Game.Weapons.enabled = false;
+            Game.Progress.MagnetRadius = 0f;
+            Game.Progress.HoldLevelUps = true;
+            Player.MaxHp = 100000;
+            Player.Heal(100000);
+            string tag = SvTone.Enabled ? "on" : "off";
+            var kinds = new[] { SvEnemyKind.Changgwi, SvEnemyKind.SmallDokkaebi, SvEnemyKind.Dalgyal, SvEnemyKind.Changgwi, SvEnemyKind.Dokkaebibul };
+            for (int i = 0; i < 30; i++)
+            {
+                var e = Game.Spawner.Spawn(kinds[i % kinds.Length], SvGeom.FromAngle(i * 137.5f) * (2.6f + (i % 10) * 0.75f));
+                if (i % 7 == 3) e.MakeFierce();
+                e.Speed = 0.01f;
+            }
+            Game.Spawner.Spawn(SvEnemyKind.Elite, new Vector2(4.4f, 1.2f)).Speed = 0.01f;
+            for (int i = 0; i < 8; i++) SvGem.Drop(SvGeom.FromAngle(i * 45f) * 4.2f, i % 3 == 0 ? 3 : 1);
+            yield return Wait(1f);
+            string dir = Path.Combine(Dir, "tone");
+            Directory.CreateDirectory(dir);
+            foreach (var c in Object.FindObjectsByType<Canvas>()) if (c.name != "Night") c.enabled = false;
+            var night = GameObject.Find("Night").GetComponent<Canvas>();
+            for (int w = 0; w < SvNight.Watches.Length; w++)
+            {
+                Game.SetElapsed(SvNight.Watches[w].At + 1f);
+                yield return null;
+                Game.Night.Snap();
+                foreach (var c in Object.FindObjectsByType<Canvas>()) if (c.name != "Night") c.enabled = false;
+                var cam = SvView.Instance.Camera;
+                // 어둠 캔버스까지 함께 찍히게 잠깐 카메라 캔버스로
+                night.renderMode = RenderMode.ScreenSpaceCamera;
+                night.worldCamera = cam;
+                night.planeDistance = 1f;
+                night.sortingOrder = 32000;
+                var rt = new RenderTexture(1280, 720, 24);
+                cam.targetTexture = rt;
+                yield return null;
+                cam.Render();
+                RenderTexture.active = rt;
+                var tex = new Texture2D(1280, 720, TextureFormat.RGB24, false);
+                tex.ReadPixels(new Rect(0, 0, 1280, 720), 0, 0);
+                tex.Apply();
+                RenderTexture.active = null;
+                cam.targetTexture = null;
+                night.renderMode = RenderMode.ScreenSpaceOverlay;
+                File.WriteAllBytes(Path.Combine(dir, $"{tag}_{w}.png"), tex.EncodeToPNG());
+                Object.Destroy(tex);
+                rt.Release();
+            }
+        }
+
+        /// <summary>예전 톤으로 찍기: 장면을 만들기 전에 꺼야 해서 따로 켠다.</summary>
+        [UnityTest, Explicit]
+        public IEnumerator Capture_Tone_Off()
+        {
+            SvTone.Enabled = false;
+            yield return Load();
+            yield return Capture_Tone();
+            SvTone.Enabled = true;
+        }
+
         // ---------- 속도감 (보법 · 경공 · 급강하 · 기세)
 
         [UnityTest]

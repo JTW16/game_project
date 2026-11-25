@@ -11,7 +11,7 @@
 5. **기존 코드는 설계서 7장 "가져온 코드 목록"에 있는 것만 쓴다.** 없는 걸 쓰려면 먼저 묻는다.
 
 - 일정·진행·의논: 노션 [귀문 — 뱀서류 전환 계획](https://app.notion.com/p/40f29ac9bdf081889fbfd5056fcfb481) (규칙의 기준 아님).
-- 저장소: `JTW16/game_project` (`main`, 2026-11-25부터 이곳을 클론해서 작업). 옛 저장소는 `alstjd0319/Project_game`(방 구조·웨이브 실험, 기록용). **커밋·푸시·브랜치 작업은 사용자가 시킬 때만** 한다.
+- 저장소: `JTW16/game_project` (`main`, 2026-11-25부터 이곳을 클론해서 작업). 옛 저장소는 `alstjd0319/Project_game`(방 구조·웨이브 실험, 기록용). **main에 직접 올리지 않는다** (2026-11-25): 작업마다 최신 main에서 브랜치를 파고 → 커밋 → 푸시 → PR → 병합. 커밋·푸시·PR은 Claude가 하고, **병합은 매번 사용자에게 확인받는다.** 릴리즈는 시킬 때만.
 - 그림: 사용자가 Codex로 뽑고(`AGENTS.md` → [`image_request_v2.md`](image_request_v2.md), 결과는 `ArtSource/v2/`), Claude가 프롬프트 작성·검수·후처리·게임 연결을 맡는다. 옛 그림(`ArtSource/gwimun/` 등)은 디자인 참고로만 쓴다.
 - `_local/`은 이 PC에만 있는 보관 자료(`.git/info/exclude`로 제외, `_local/README.md` 참고)다. 커밋하지 않는다.
 
