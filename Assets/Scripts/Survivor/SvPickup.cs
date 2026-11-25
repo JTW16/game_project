@@ -92,8 +92,8 @@ namespace ParryRL.Survivor
         private static Sprite Sprite(SurvivorArt art, SvPickupKind kind)
         {
             if (art == null) return null;
-            // 주먹밥: 그림(S14 items/riceball)이 오기 전엔 레벨업 카드의 주먹밥 아이콘(icons2 12번)
-            if (kind == SvPickupKind.Riceball) return art.icons2 != null && art.icons2.Length > 11 ? art.icons2[11] : null;
+            // 주먹밥: S14 그림(items/riceball), 없으면 레벨업 카드의 주먹밥 아이콘(icons2 12번)
+            if (kind == SvPickupKind.Riceball) return art.itemRiceball != null ? art.itemRiceball : art.icons2 != null && art.icons2.Length > 11 ? art.icons2[11] : null;
             if (kind == SvPickupKind.Gourd)
             {
                 if (art.itemGourd != null) return art.itemGourd;

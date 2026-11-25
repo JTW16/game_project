@@ -65,13 +65,16 @@ namespace ParryRL.Survivor
 
         public int LevelOf(string id) => _levels.TryGetValue(id, out int v) ? v : 0;
 
-        private int _coreGuarantee;
-        /// <summary>핵심 비급이 반드시 섞일 레벨(6·12)에 닿았는데 아직 못 받았는가.</summary>
-        public bool CoreGuaranteeDue => _coreGuarantee < SvItems.CoreGuaranteeLevels.Length && Level >= SvItems.CoreGuaranteeLevels[_coreGuarantee];
+        private int _coreWindow;
+        /// <summary>
+        /// 핵심 비급 전용 창이 뜰 차례인가 (레벨 4 · 8 · 12 · 16에 닿았는데 아직 안 열렸다).
+        /// 낼 후보가 없으면 열지 않고 다음 레벨업에 다시 본다.
+        /// </summary>
+        public bool CoreWindowDue => _coreWindow < SvItems.CoreWindowLevels.Length && Level >= SvItems.CoreWindowLevels[_coreWindow];
 
-        public void ConsumeCoreGuarantee()
+        public void ConsumeCoreWindow()
         {
-            while (CoreGuaranteeDue) _coreGuarantee++;
+            if (_coreWindow < SvItems.CoreWindowLevels.Length) _coreWindow++;
         }
 
         /// <summary>그 무기의 핵심 비급을 가졌는가.</summary>

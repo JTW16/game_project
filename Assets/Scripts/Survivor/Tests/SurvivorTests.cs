@@ -1732,27 +1732,101 @@ namespace ParryRL.Tests
         }
 
         [UnityTest]
-        public IEnumerator Core_Cards_Only_For_Weapons_At_Lv3_And_At_Most_Two()
+        public IEnumerator Core_Branches_Need_Lv2_At_Most_Four_And_Open_At_Lv4_Window()
         {
             Game.Weapons.enabled = false;
+            Assert.AreEqual(20, SvItems.Cores.Count, "대상 10가지 × 두 갈래");
             Assert.AreEqual(0, SvItems.EligibleCores(Game.Progress).Count, "봉 1단계에선 핵심 비급이 안 나온다");
-            Raise(SvItems.Staff, 3);
+            Raise(SvItems.Staff, 2);
             var el = SvItems.EligibleCores(Game.Progress);
-            Assert.AreEqual(1, el.Count);
-            Assert.AreEqual(SvItems.CoreStaff, el[0].Id);
-            int seen = 0;
-            for (int i = 0; i < 300; i++)
-                foreach (var it in SvItems.Roll(Game.Progress, 3))
-                    if (it.Kind == SvItemKind.Core) { seen++; Assert.AreEqual(SvItems.CoreStaff, it.Id, "가진 무기의 핵심만"); }
-            Assert.Greater(seen, 30, "가끔 섞여 나온다 (25%)");
-            Raise(SvItems.Talisman, 3);
-            Raise(SvItems.Bell, 3);
-            Game.Progress.Take(SvItems.Get(SvItems.CoreStaff), Player, Game.Weapons);
-            Game.Progress.Take(SvItems.Get(SvItems.CoreTalisman), Player, Game.Weapons);
-            Assert.AreEqual(2, Game.Progress.Count(SvItemKind.Core));
-            Assert.AreEqual(0, SvItems.EligibleCores(Game.Progress).Count, "한 판에 2장까지");
-            Assert.AreEqual(3, Game.Progress.Count(SvItemKind.Weapon), "핵심 비급은 무기 칸을 차지하지 않는다");
+            Assert.AreEqual(2, el.Count, "봉 2단계 — 삼재격 · 회선봉 두 갈래");
+            // 하나를 고르면 다른 갈래는 사라진다
+            Game.Progress.Take(SvItems.Get(SvItems.CoreStaff2), Player, Game.Weapons);
+            Assert.AreEqual(0, SvItems.EligibleCores(Game.Progress).Count, "갈림길: 한쪽을 고르면 끝");
+            Assert.AreEqual(360f, Game.Weapons.SwingAngle, "회선봉 = 한 바퀴");
+            // 기술도 대상 — 칸에 넣고 2단계면 나온다
+            Raise(SvSkills.Slam, 2); Raise(SvSkills.Ult, 2); Raise(SvItems.Talisman, 2); Raise(SvSkills.Leap, 2);
+            Assert.AreEqual(8, SvItems.EligibleCores(Game.Progress).Count, "네 대상 × 두 갈래");
+            foreach (var id in new[] { SvItems.CoreSlam, SvItems.CoreUlt, SvItems.CoreTalisman2 })
+                Game.Progress.Take(SvItems.Get(id), Player, Game.Weapons);
+            Assert.AreEqual(4, Game.Progress.Count(SvItemKind.Core));
+            Assert.AreEqual(0, SvItems.EligibleCores(Game.Progress).Count, "한 판에 4개까지");
+            // 보통 레벨업 카드에는 더 이상 핵심 비급이 섞이지 않는다
+            for (int k = 0; k < 100; k++)
+                foreach (var it in SvItems.Roll(Game.Progress, 3)) Assert.AreNotEqual(SvItemKind.Core, it.Kind);
             yield break;
+        }
+
+        [UnityTest]
+        public IEnumerator Core_Window_Opens_At_Level_4()
+        {
+            Game.Weapons.enabled = false;
+            Raise(SvItems.Staff, 2);
+            Assert.IsFalse(Game.Progress.CoreWindowDue);
+            while (Game.Progress.Level < 4) Game.Progress.AddExp(Game.Progress.ExpToNext);
+            Assert.IsTrue(Game.Progress.CoreWindowDue, "레벨 4 — 핵심 비급 창 차례");
+            yield return WaitReal(0.3f); // 카드 창이 뜨면 게임 시간이 멈추므로 실제 시간으로
+            // 레벨업 카드 창이 차례로 뜨다가 핵심 비급 창에서는 핵심 비급만
+            bool sawCore = false;
+            for (int guard = 0; guard < 6 && Game.Progress.LevelUpsPending > 0; guard++)
+            {
+                yield return null;
+                if (Game.Hud.CardsShown && Game.Offer.Count > 0 && Game.Offer.TrueForAll(o => o.Kind == SvItemKind.Core)) { sawCore = true; yield return Capture("survivor_core_window"); }
+                Game.ChooseCard(0);
+                yield return null;
+            }
+            Assert.IsTrue(sawCore, "핵심 비급 전용 창이 떴다");
+            Assert.IsFalse(Game.Progress.CoreWindowDue);
+        }
+
+        [UnityTest]
+        public IEnumerator Capture_Core_Effects_Wired()
+        {
+            Game.Weapons.enabled = false;
+            for (int i = 0; i < 10; i++) { var e = SpawnAt(SvEnemyKind.Changgwi, SvGeom.FromAngle(i * 36f) * 2.2f); e.SetHealth(9999); e.Speed = 0f; }
+            Raise(SvItems.Staff, 2); Raise(SvSkills.Slam, 2); Raise(SvSkills.Shaman, 2);
+            foreach (var id in new[] { SvItems.CoreStaff2, SvItems.CoreSlam, SvItems.CoreShaman })
+                Game.Progress.Take(SvItems.Get(id), Player, Game.Weapons);
+            yield return WaitReal(0.3f);
+            Game.Weapons.Swing();
+            yield return WaitReal(0.12f);
+            yield return Capture("survivor_core_spin");
+            Assert.IsTrue(Player.TrySlam());
+            yield return WaitReal(0.9f);
+            yield return Capture("survivor_core_quake");
+            Assert.IsTrue(Game.Helpers.TryShaman());
+            yield return WaitReal(0.8f);
+            yield return Capture("survivor_core_blades");
+        }
+
+        [UnityTest]
+        public IEnumerator New_Cores_Work()
+        {
+            Game.Weapons.enabled = false;
+            // 파혼령: 방울 울림에 맞은 적이 받는 피해 +30%
+            Raise(SvItems.Bell, 2);
+            Game.Progress.Take(SvItems.Get(SvItems.CoreBell2), Player, Game.Weapons);
+            var e = SpawnAt(SvEnemyKind.Changgwi, new Vector2(1.5f, 0f));
+            e.SetHealth(9999); e.Speed = 0f;
+            Game.Weapons.Ring();
+            Assert.AreEqual(1.3f, e.DamageTakenMul, 0.001f, "파혼령");
+            // 반쪽 봉인: 도력 절반으로 작은 봉인
+            Raise(SvSkills.Ult, 2);
+            Game.Progress.Take(SvItems.Get(SvItems.CoreUlt2), Player, Game.Weapons);
+            Game.Ultimate.Add(Game.Ultimate.MaxGauge * 0.6f);
+            Assert.IsFalse(Game.Ultimate.Ready);
+            Assert.IsTrue(Game.Ultimate.TryUltimate(), "반쪽 봉인");
+            Assert.AreEqual(Game.Ultimate.MaxGauge * 0.1f, Game.Ultimate.Gauge, 0.01f, "도력 절반을 쓴다");
+            yield return WaitReal(0.9f);
+            // 연쇄부: 부적이 맞힌 적에서 두 번 튕긴다
+            var a = SpawnAt(SvEnemyKind.Changgwi, new Vector2(-3f, 0f));
+            var b = SpawnAt(SvEnemyKind.Changgwi, new Vector2(-5f, 0f));
+            var c = SpawnAt(SvEnemyKind.Changgwi, new Vector2(-7f, 0f));
+            foreach (var x in new[] { a, b, c }) { x.SetHealth(9999); x.Speed = 0f; }
+            int hb = b.Hp, hc = c.Hp;
+            SvWeapons.TalismanChain(a, 10);
+            Assert.Less(b.Hp, hb, "한 번 튕김");
+            Assert.Less(c.Hp, hc, "두 번 튕김");
         }
 
         [UnityTest]
@@ -1806,6 +1880,7 @@ namespace ParryRL.Tests
         public IEnumerator Core_Giant_Slams_A_Fan()
         {
             Game.Weapons.enabled = false;
+            Raise(SvSkills.Giant, 2);
             Game.Progress.Take(SvItems.Get(SvItems.CoreGiant), Player, Game.Weapons);
             var right = SpawnAt(SvEnemyKind.Changgwi, new Vector2(3f, 0f));
             float fan = Game.Weapons.giantFanAngle;

@@ -132,8 +132,8 @@ namespace ParryRL.Survivor
                 _tigerTrailAt = Time.time + 0.05f;
                 SvFx.Anim(art.fxDashTrail, pos, 0.9f, 2.6f, 0.25f, _tigerDir.x < 0f, new Color(1f, 0.8f, 0.4f, 0.9f), order: SvOrder.Actor);
             }
-            // 지나간 구간 안의 적을 한 번씩
-            float half = tigerWidth * 0.5f;
+            // 지나간 구간 안의 적을 한 번씩 (범의 무리: 양옆 두 줄이라 폭이 넓어진다)
+            float half = tigerWidth * 0.5f + (HasCore(SvItems.CoreTiger) ? 1.2f : 0f);
             int dmg = Mathf.RoundToInt(tigerDamage * SvSkills.TigerDamageMul * (SvGame.Instance != null ? SvGame.Instance.Weapons.DamageMul : 1f));
             var list = SvEnemy.Active;
             for (int i = list.Count - 1; i >= 0; i--)
@@ -151,8 +151,10 @@ namespace ParryRL.Survivor
                 SvSkillVfx.Claw(e, _tigerDir);
                 if (art != null && !SvVfx.Ready) SvFx.Anim(art.fxEliteRend, e.Position, e.VisualHeight * 0.5f, 1.4f, 0.22f, _tigerDir.x < 0f, new Color(1f, 0.85f, 0.5f, 1f));
                 SvWeapons.Hit(e, dmg, push, tigerKnock, "tiger");
-                if (SvSkills.TigerStun && !e.IsBoss && e.isActiveAndEnabled && e.Hp > 0) e.Stun(1f); // 수련 8단계
+                if (SvSkills.TigerStun && !e.IsBoss && e.isActiveAndEnabled && e.Hp > 0) { e.Stun(1f); SvSkillVfx.Stun(e, 1f); } // 수련 8단계
             }
+            // 발톱 자국(핵심 비급): 달린 길에 3초 동안 자국이 남는다
+            if (_tigerT >= 1f && HasCore(SvItems.CoreTiger2)) StartCoroutine(ClawTrail(_tigerFrom, pos, half, Mathf.Max(1, dmg / 4)));
             if (_tigerT >= 1f && SvSkills.TigerReturn && !_tigerBack)
             {
                 // 수련 4단계: 끝에서 돌아서 왔던 길을 한 번 더 (적마다 다시 한 번씩)
@@ -173,6 +175,34 @@ namespace ParryRL.Survivor
             }
         }
 
+        private static bool HasCore(string id) => SvGame.Instance != null && SvGame.Instance.Progress != null && SvGame.Instance.Progress.HasCore(id);
+
+        private System.Collections.IEnumerator ClawTrail(Vector2 from, Vector2 to, float half, int dmg)
+        {
+            Vector2 d = to - from;
+            float len = d.magnitude;
+            if (len < 0.1f) yield break;
+            d /= len;
+            SvSkillVfx.ClawScars(from, d, len, half * 2f, 3f);
+            for (int tick = 0; tick < 6; tick++)
+            {
+                if (!SvVfx.Ready) for (int k = 0; k <= 6; k++) SvFx.Disc(from + d * (len * k / 6f), half * 0.6f, new Color(1f, 0.6f, 0.25f, 0.18f), 0.5f);
+                var list = SvEnemy.Active;
+                for (int i = list.Count - 1; i >= 0; i--)
+                {
+                    if (i >= list.Count) continue;
+                    var e = list[i];
+                    if (e == null || !e.isActiveAndEnabled) continue;
+                    Vector2 rel = e.Position - from;
+                    float along = Vector2.Dot(rel, d);
+                    if (along < -e.Radius || along > len + e.Radius) continue;
+                    if (Mathf.Abs(rel.x * d.y - rel.y * d.x) > half + e.Radius) continue;
+                    SvWeapons.Hit(e, dmg, Vector2.zero, 0f, "tiger");
+                }
+                yield return new WaitForSeconds(0.5f);
+            }
+        }
+
         // ---------- 무녀 ----------
 
         public bool TryShaman()
@@ -187,6 +217,7 @@ namespace ParryRL.Survivor
             _player.PlayAction(SummonPose(art), 0.4f, _player.Facing);
             Vector2 at = _wardAt + new Vector2(_player.Facing.x < 0f ? 1f : -1f, 0.4f);
             SvSkillVfx.WardOpen(_wardAt, WardRadius, ShamanTime);
+            if (HasCore(SvItems.CoreShaman)) SvSkillVfx.WardBlades(_wardAt, WardRadius, ShamanTime); // 작두타기
             SvSkillVfx.Puff(at);
             Summon(at, art);
             if (art != null && SurvivorArt.Ok(art.shamanDance))
@@ -247,6 +278,13 @@ namespace ParryRL.Survivor
                 var e = SvEnemy.Find(Hits[i]);
                 if (e == null || !e.isActiveAndEnabled) continue;
                 e.Slow(slowMul, 0.6f);
+                // 작두타기(핵심 비급): 가장자리에 닿은 적은 바깥으로 밀려나고 두 배 피해
+                if (HasCore(SvItems.CoreShaman) && (e.Position - _wardAt).magnitude > WardRadius - 0.8f)
+                {
+                    SvSkillVfx.BladeCut(e, (e.Position - _wardAt).normalized);
+                    SvWeapons.Hit(e, wardDamage * 2, e.Position - _wardAt, 9f, "shaman");
+                    continue;
+                }
                 if (SvSkills.ShamanVulnerable) e.MarkVulnerable(SvSkills.ShamanVulnerableMul, 0.6f); // 수련 8단계
                 SvWeapons.Hit(e, wardDamage, e.Position - _wardAt, 0f, "shaman");
             }

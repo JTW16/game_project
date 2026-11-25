@@ -686,6 +686,30 @@ MonoBehaviour:
   helperIcons:
   - {fileID: 21300000, guid: bed2c02be1726a547b1e447b5b726e89, type: 3}
   - {fileID: 21300000, guid: 5e4eb08579d7a2c408f944abceb3d423, type: 3}
+  cardSkill: {fileID: 21300000, guid: 92bd4f71053d28a46889770e5d77ff32, type: 3}
+  slotSkill: {fileID: 21300000, guid: fbd6a92f306c9fc49872bf3ab4984407, type: 3}
+  slotEmpty: {fileID: 21300000, guid: 8221c0c7a60181a4e8ca4a5ff3f7bb91, type: 3}
+  slotStaff: {fileID: 21300000, guid: b4bf46094fd346a4c85d05cc1ec097e5, type: 3}
+  coreBanner: {fileID: 21300000, guid: c3a5a122076d5d44e88df6df1f7c3d42, type: 3}
+  coreFork: {fileID: 21300000, guid: 5b6675c57b5757b43b1a432ada0f7f70, type: 3}
+  coreIcons:
+  - {fileID: 21300000, guid: 82f75067fa399b8468ee21cd6f2f3072, type: 3}
+  - {fileID: 21300000, guid: 0531c6d97eaea434bb363591c6ccfd79, type: 3}
+  - {fileID: 21300000, guid: 5bb3c32cd9febc049a94102f9cfaf3a8, type: 3}
+  - {fileID: 21300000, guid: f7157b1d0e591134a801e863222e0b20, type: 3}
+  - {fileID: 21300000, guid: 05b91b8e1cb7a00498f0de622996119b, type: 3}
+  - {fileID: 21300000, guid: 8db766468901f054d9bc57213adb7bf9, type: 3}
+  - {fileID: 21300000, guid: e136b81f56098854eb8327c1ad29e274, type: 3}
+  - {fileID: 21300000, guid: 60277fc690cf6724696d62afe52814d0, type: 3}
+  - {fileID: 21300000, guid: 7ec6a3dd41953204ea06f48abdbeeb56, type: 3}
+  - {fileID: 21300000, guid: 9085e67c854de8348933ee5084263973, type: 3}
+  - {fileID: 21300000, guid: f8793af9dfbd14941b538545ecb4cc6b, type: 3}
+  - {fileID: 21300000, guid: ce84613393f020a4d895420d7445f70a, type: 3}
+  - {fileID: 21300000, guid: 064ef88903a13d54e9db6ad32d5b5180, type: 3}
+  - {fileID: 21300000, guid: dee861a1ae879ff42b430724bbce1df1, type: 3}
+  - {fileID: 21300000, guid: 671721b1d789f6146884e59b59535162, type: 3}
+  iconLeap: {fileID: 21300000, guid: d138141aa7f1ed142afc5454d3893487, type: 3}
+  itemRiceball: {fileID: 21300000, guid: 53cf1d24934c96844be1559b61f10280, type: 3}
   heroGiantSummon:
   - {fileID: 21300000, guid: 2cc0670a144153b4b943ce4b595c32e4, type: 3}
   - {fileID: 21300000, guid: be4ba750fb682cf48a6a3ddf99a3cd85, type: 3}

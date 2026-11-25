@@ -88,6 +88,7 @@ namespace ParryRL.Survivor
             _player = GetComponent<SvPlayer>();
             _prog = GetComponent<SvProgress>();
             _player.SlamLanded += OnSlam;
+            _player.LeapLanded += OnLeapLanded;
             _swingAt = Time.time + 0.4f;
             _talismanAt = Time.time + 0.7f;
             _bellAt = Time.time + 1f;
@@ -99,7 +100,7 @@ namespace ParryRL.Survivor
 
         // ---------- 단계·비급으로 정해지는 수치 ----------
         public float DamageMul => 1f + 0.1f * Lv(SvItems.Ink);
-        public float CooldownMul => (1f - 0.06f * Lv(SvItems.Hand)) * (_player.Momentum != null ? _player.Momentum.CooldownMul : 1f);
+        public float CooldownMul => (1f - 0.06f * Lv(SvItems.Hand)) * (_player.Momentum != null ? _player.Momentum.CooldownMul : 1f) * (SvUltimate.GateOpen ? 0.7f : 1f);
         /// <summary>이보다 높이 떠 있으면 봉과 호신부는 땅의 적에게 닿지 않는다 (가안).</summary>
         public const float MeleeReachHeight = 1.6f;
         private bool TooHigh => !SvSkills.LeapAirMelee && _player.Height > MeleeReachHeight; // 경공 수련 8단계면 떠 있어도 닿는다
@@ -113,10 +114,11 @@ namespace ParryRL.Survivor
             lv >= 8 ? 3f : lv >= second ? 1.9f : lv >= first ? 1.3f : 1f;
 
         public int SwingDamage => Mathf.RoundToInt(swingDamage * DamageScale(Lv(SvItems.Staff), 2, 5) * DamageMul);
-        public float SwingRadius => swingRadius * (1f + 0.15f * Steps(Lv(SvItems.Staff), 3, 7)) * AreaMul;
-        public float SwingAngle => Lv(SvItems.Staff) >= 8 ? 180f : swingAngle;
+        public float SwingRadius => swingRadius * (1f + 0.15f * Steps(Lv(SvItems.Staff), 3, 7)) * AreaMul * (HasCore(SvItems.CoreStaff2) ? 0.9f : 1f);
+        // 회선봉(핵심 비급): 한 바퀴 360°
+        public float SwingAngle => HasCore(SvItems.CoreStaff2) ? 360f : Lv(SvItems.Staff) >= 8 ? 180f : swingAngle;
         public float SwingCooldown => swingCooldown * (Lv(SvItems.Staff) >= 6 ? 0.85f : 1f) * CooldownMul;
-        public bool SwingBack => Lv(SvItems.Staff) >= 4;
+        public bool SwingBack => Lv(SvItems.Staff) >= 4 && !HasCore(SvItems.CoreStaff2); // 회선봉이면 이미 한 바퀴
         public bool HasCore(string coreId) => Lv(coreId) > 0;
 
         public int TalismanCount => 1 + Steps(Lv(SvItems.Talisman), 2, 5) + (Lv(SvItems.Talisman) >= 8 ? 2 : 0);
@@ -265,7 +267,11 @@ namespace ParryRL.Survivor
             // 몸 옆에 세로 막대처럼 보여서 뺐다 (2026-11-18 플레이 피드백) — 반원은 큰 궤적 하나로 보여 준다
             Vector2 front = at + dir * r * (back ? 0.42f : 0.32f);
             float turn = (flip ? 1f : -1f) * (_player.Facing.x < 0f ? -1f : 1f);
-            if (SvVfx.Ready) SvSkillVfx.Swing(follow, at, dir, r, angle, _player.Rig != null ? turn : -1f, dmgMul > 1f ? 1.4f : 1f);
+            if (SvVfx.Ready)
+            {
+                if (HasCore(SvItems.CoreStaff2)) SvSkillVfx.SpinSwing(follow, at, dir, r, _player.Rig != null ? turn : -1f); // 회선봉
+                else SvSkillVfx.Swing(follow, at, dir, r, angle, _player.Rig != null ? turn : -1f, dmgMul > 1f ? 1.4f : 1f);
+            }
             bool drawn = SvVfx.Ready || a != null && SvFx.FlatAnim(trail, front, SvGeom.AngleOf(dir) + 180f, r * (lv >= 8 ? 2.1f : 1.8f) * (back ? 0.85f : 1f),
                 back ? 0.15f : FrontTrailTime, follow: follow, mirror: back || flip);
             // 판정 부채꼴은 궤적 그림이 없을 때만 (있으면 뿌옇게 덮어 그림을 흐린다)
@@ -327,6 +333,8 @@ namespace ParryRL.Survivor
                 // 도는 방향(접선)을 따라 좌우를 뒤집는다
                 orb.FacingLeft = Mathf.Cos((a + 90f) * Mathf.Deg2Rad) < 0f;
                 SvSkillVfx.Orbit(_player.Position, p, a * Mathf.Rad2Deg, r, pulsing, Time.deltaTime);
+                // 방패부: 도는 부적에 닿은 적의 투사체(쇠가시 등)를 막는다
+                if (HasCore(SvItems.CoreOrbit2)) BlockShots(p);
                 if (TooHigh) continue;
                 int hits = Physics2D.OverlapCircle(p, 0.45f, ContactFilter2D.noFilter, Hits);
                 for (int k = 0; k < hits; k++)
@@ -401,6 +409,12 @@ namespace ParryRL.Survivor
                 Hit(e, dmg, e.Position - at, bellKnock, SvItems.Bell);
                 // 진혼령: 울림에 맞은 적이 잠깐 묶인다 (보스 제외)
                 if (HasCore(SvItems.CoreBell) && e.isActiveAndEnabled && e.Hp > 0 && !e.IsBoss) e.Stun(0.8f, bind: true);
+                // 파혼령: 3초 동안 받는 피해 +30% (보스 +15%) — 무녀 수련과 겹쳐도 큰 쪽만 (최대 +50%)
+                if (HasCore(SvItems.CoreBell2) && e.isActiveAndEnabled && e.Hp > 0)
+                {
+                    e.MarkVulnerable(e.IsBoss ? 1.15f : 1.3f, 3f);
+                    SvSkillVfx.SoulCrack(e, 3f);
+                }
             }
         }
 
@@ -423,9 +437,12 @@ namespace ParryRL.Survivor
         /// 봉 그림(S6 giant_staff)이 먼저 뜨고, 땅에 닿는 순간 균열(line_crack)과 함께 판정.
         /// 퇴마사는 전용 동작(S9 giant_summon: 버팀 → 치켜듦 → 부적 충전 → 스미어 → 내리침 → 회복)을 쓰고, 없으면 패링 반격 동작을 빌린다.
         /// </summary>
+        private bool _giantSecond;
+
         public void GiantSlam()
         {
             _giantAt = Time.time + GiantCooldown;
+            _giantSecond = false;
             _giantFrom = _player.Position;
             _giantDir = _player.Facing.sqrMagnitude > 0.01f ? _player.Facing.normalized : Vector2.right;
             var art = Art;
@@ -497,6 +514,8 @@ namespace ParryRL.Survivor
                     Hit(e, dmg, to - d * along, SvSkills.GiantWide ? 9f : 3f, SvItems.Giant); // 띠 바깥쪽으로 밀림 (수련 4단계부터 크게)
                 }
             }
+            // 연환격(핵심 비급): 0.3초 뒤 같은 줄을 한 번 더 (두 번째는 다시 잇지 않는다)
+            if (HasCore(SvItems.CoreGiant2) && !_giantSecond) { _giantSecond = true; Invoke(nameof(GiantLand), 0.3f); }
             // 수련 8단계: 내리찍은 줄에 2초 동안 균열 — 0.5초마다 피해의 25%
             if (SvSkills.GiantCrack) StartCoroutine(GiantCrackRoutine(_giantFrom, GiantLines(len), half, Mathf.Max(1, Mathf.RoundToInt(dmg * 0.25f))));
             Sfx.Play(SfxId.SkillSlam, 0.9f);
@@ -595,9 +614,37 @@ namespace ParryRL.Survivor
             SvView.Instance?.Punch(0.05f, 0.22f);
             int dmg = Mathf.RoundToInt(SlamDamage * (1f + diveDamageBonus * power));
             SlamHit(at, 0f, r, dmg);
+            // 지진(핵심 비급): 3초 동안 그 자리가 흔들려 들어온 적이 느려진다
+            if (HasCore(SvItems.CoreSlam)) { SvSkillVfx.Quake(at, r, 3f); StartCoroutine(Quake(at, r)); }
             // 수련 4단계: 바깥으로 한 겹 더 (0.15초 뒤, 반지름 r~1.6r, 피해 절반) · 8단계: 0.4초 뒤 같은 자리에 여진
             if (SvSkills.SlamDoubleRing) StartCoroutine(SlamLater(at, 0.15f, r, r * 1.6f, Mathf.Max(1, dmg / 2)));
             if (SvSkills.SlamAftershock) StartCoroutine(SlamLater(at, 0.4f, 0f, r, dmg));
+        }
+
+        private System.Collections.IEnumerator Quake(Vector2 at, float r)
+        {
+            for (float t = 0f; t < 3f; t += 0.25f)
+            {
+                int n = Physics2D.OverlapCircle(at, r, ContactFilter2D.noFilter, Hits);
+                for (int i = 0; i < n; i++)
+                {
+                    var e = SvEnemy.Find(Hits[i]);
+                    if (e != null && e.isActiveAndEnabled && !e.IsBoss) e.Slow(0.45f, 0.4f);
+                }
+                if (!SvVfx.Ready && Mathf.Repeat(t, 0.75f) < 0.01f) SvFx.Ring(at, r * 0.5f, r, new Color(0.85f, 0.7f, 0.45f, 0.45f), 0.4f);
+                yield return new WaitForSeconds(0.25f);
+            }
+        }
+
+        /// <summary>비천(경공 핵심): 경공으로 뛰었다 착지할 때 둘레 반지름 3에 충격파.</summary>
+        private void OnLeapLanded(Vector2 at)
+        {
+            if (!HasCore(SvItems.CoreLeap)) return;
+            if (SvVfx.Ready) SvSkillVfx.LeapLanding(at, 3f);
+            else SvSkillVfx.SlamLand(at, 3f, 0.5f);
+            SvGame.Instance?.Shake(0.2f, 0.2f);
+            Sfx.Play(SfxId.SkillSlam, 0.7f);
+            SlamHit(at, 0f, 3f, Mathf.RoundToInt(20 * DamageMul));
         }
 
         private void SlamHit(Vector2 at, float inner, float r, int dmg)
@@ -619,6 +666,49 @@ namespace ParryRL.Survivor
             SvGame.Instance?.Shake(0.18f, 0.18f);
             Sfx.Play(SfxId.SkillSlam, 0.6f);
             SlamHit(at, inner, r, dmg);
+        }
+
+        public int ShotsBlocked { get; private set; }
+
+        private void BlockShots(Vector2 orb)
+        {
+            var shots = SvEnemyShot.Live;
+            for (int i = shots.Count - 1; i >= 0; i--)
+            {
+                if (i >= shots.Count) continue;
+                var s = shots[i];
+                if ((s.Position - orb).sqrMagnitude > 0.7f * 0.7f) continue;
+                ShotsBlocked++;
+                if (SvVfx.Ready) SvSkillVfx.Block(s.Position, s.Position + (s.Position - _player.Position).normalized, 0.8f);
+                else SvFx.Spark(s.Position, 0.8f, new Color(1f, 0.92f, 0.6f, 1f), 0.7f, 0.18f);
+                Sfx.Play(SfxId.Parry, 0.35f);
+                s.Release();
+            }
+        }
+
+        /// <summary>연쇄부: 맞은 적에서 가까운 다음 적(5칸 안)으로 두 번 튕긴다. 같은 적은 다시 맞지 않는다.</summary>
+        public static void TalismanChain(SvEnemy from, int damage)
+        {
+            var hit = new HashSet<SvEnemy> { from };
+            Vector2 at = from.Position;
+            for (int jump = 0; jump < 2; jump++)
+            {
+                SvEnemy best = null;
+                float bd = 5f * 5f;
+                foreach (var e in SvEnemy.Active)
+                {
+                    if (e == null || !e.isActiveAndEnabled || e.Hp <= 0 || hit.Contains(e)) continue;
+                    float d = (e.Position - at).sqrMagnitude;
+                    if (d < bd) { bd = d; best = e; }
+                }
+                if (best == null) return;
+                hit.Add(best);
+                // 튕기는 길: 짧은 불꽃 점선
+                if (SvVfx.Ready) SvSkillVfx.Chain(at, best.Position, 0.9f);
+                else for (int k = 1; k <= 4; k++) SvFx.Spark(Vector2.Lerp(at, best.Position, k / 5f), 0.9f, new Color(1f, 0.9f, 0.45f, 0.9f), 0.35f, 0.15f);
+                Hit(best, damage, best.Position - at, 2f, SvItems.Talisman);
+                at = best.Position;
+            }
         }
 
         /// <summary>폭렬부: 부적이 맞힌 자리에서 터져 둘레(반지름 1.4)에 부적 피해의 절반. 맞은 그 적은 빼고.</summary>

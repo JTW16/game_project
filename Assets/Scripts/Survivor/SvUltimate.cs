@@ -27,6 +27,11 @@ namespace ParryRL.Survivor
         public const string Source = "ultimate";
 
         public float Gauge { get; private set; }
+        /// <summary>귀문 개방이 끝나는 때 (그 전까지 모든 공격 간격 ×0.7).</summary>
+        public static float GateOpenUntil = -99f;
+        public static bool GateOpen => Time.time < GateOpenUntil;
+        private bool _half;
+        private static bool HasCore(string id) => SvGame.Instance != null && SvGame.Instance.Progress != null && SvGame.Instance.Progress.HasCore(id);
         public float MaxGauge => maxGauge;
         public bool Ready => Gauge >= maxGauge;
         public int UseCount { get; private set; }
@@ -36,7 +41,7 @@ namespace ParryRL.Survivor
         private float _fireAt = -1f;
         private static readonly Collider2D[] Hits = new Collider2D[512];
 
-        private void Awake() => _player = GetComponent<SvPlayer>();
+        private void Awake() { _player = GetComponent<SvPlayer>(); GateOpenUntil = -99f; }
 
         public void AddKill(SvEnemy e) => Add((e.IsBig ? perElite : perKill) * SvSkills.UltGaugeMul);
         public void AddParry() => Add(perParry * SvSkills.UltGaugeMul);
@@ -67,8 +72,12 @@ namespace ParryRL.Survivor
 
         public bool TryUltimate()
         {
-            if (!Ready || _player.Dead || Casting || SvGame.InputBlocked) return false;
-            Gauge = 0f;
+            if (_player.Dead || Casting || SvGame.InputBlocked) return false;
+            // 반쪽 봉인(핵심 비급): 도력이 절반만 차도 작은 봉인 — 피해 절반 · 범위 ×0.6, 도력 절반을 쓴다
+            bool half = !Ready && HasCore(SvItems.CoreUlt2) && Gauge >= maxGauge * 0.5f;
+            if (!Ready && !half) return false;
+            _half = half;
+            Gauge = half ? Gauge - maxGauge * 0.5f : 0f;
             UseCount++;
             var game = SvGame.Instance;
             var art = game != null ? game.Art : null;
@@ -91,7 +100,9 @@ namespace ParryRL.Survivor
             var game = SvGame.Instance;
             var art = game != null ? game.Art : null;
             Vector2 at = _player.Position;
-            float r = SvView.Instance != null ? SvView.Instance.OffscreenRadius * 0.85f : 14f;
+            float r = (SvView.Instance != null ? SvView.Instance.OffscreenRadius * 0.85f : 14f) * (_half ? 0.6f : 1f);
+            // 귀문 개방(핵심 비급): 쓴 뒤 10초 동안 모든 공격 간격 -30%
+            if (HasCore(SvItems.CoreUlt)) { GateOpenUntil = Time.time + 10f; SvSkillVfx.GateAura(_player.transform, 10f); }
 
             // 2) 화면을 덮는 봉인진 + 솟는 빛기둥 + 큰 번쩍임
             SvSkillVfx.UltFire(_player.transform, at, r);
@@ -124,8 +135,8 @@ namespace ParryRL.Survivor
                 var e = SvEnemy.Find(Hits[i]);
                 if (e == null || !e.isActiveAndEnabled) continue;
                 SvSkillVfx.SoulPull(e.Position, at);
-                float m = mul * SvSkills.UltDamageMul;
-                int dmg = e.IsBoss ? Mathf.RoundToInt(e.MaxHp * bossPercent * SvSkills.UltBigMul) : e.IsElite ? Mathf.RoundToInt(eliteDamage * m * SvSkills.UltBigMul) : Mathf.RoundToInt(damage * m);
+                float m = mul * SvSkills.UltDamageMul * (_half ? 0.5f : 1f);
+                int dmg = e.IsBoss ? Mathf.RoundToInt(e.MaxHp * bossPercent * SvSkills.UltBigMul * (_half ? 0.5f : 1f)) : e.IsElite ? Mathf.RoundToInt(eliteDamage * m * SvSkills.UltBigMul) : Mathf.RoundToInt(damage * m);
                 SvWeapons.Hit(e, dmg, e.Position - at, 14f, Source);
                 // 수련 4단계: 살아남은 적은 3초 동안 느려진다
                 if (SvSkills.UltSlow && e.isActiveAndEnabled && e.Hp > 0) e.Slow(0.5f, 3f);

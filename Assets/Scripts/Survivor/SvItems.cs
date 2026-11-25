@@ -18,7 +18,7 @@ namespace ParryRL.Survivor
         public int MaxLevel = 5;
         /// <summary>그 단계에 올라설 때 얻는 것. [0] = 처음 얻을 때.</summary>
         public string[] Levels;
-        /// <summary>그림 번호: 0~5 = ui/skill_icons, 6~17 = ui/icons2. 그림이 없으면 <see cref="Glyph"/> 글자로 그린다.</summary>
+        /// <summary>그림 번호: 0~5 = ui/skill_icons, 6~17 = ui/icons2, 18~19 = ui/icons3, 20~34 = S14 핵심 비급, 35 = 경공, 36~37 = 산군 · 무녀. 그림이 없으면 <see cref="Glyph"/> 글자로 그린다.</summary>
         public int Icon = -1;
         public string Glyph;
         /// <summary>null이면 언제나. 패링 비급은 패링이 켜져 있을 때만.</summary>
@@ -40,32 +40,56 @@ namespace ParryRL.Survivor
         public const string Move = "move", Vital = "vital", Magnet = "magnet", Ink = "ink", Hand = "hand", Aura = "aura",
             Wind = "wind", ParryBell = "parry_bell", Counter = "counter", Heal = "heal", Eye = "eye";
         public const string CoreStaff = "core_staff", CoreTalisman = "core_talisman", CoreOrbit = "core_orbit", CoreBell = "core_bell", CoreGiant = "core_giant";
-        /// <summary>핵심 비급: 한 판에 최대 · 그 무기가 이 단계 이상이어야 나옴 · 카드에 섞일 확률 · 반드시 섞이는 레벨 (모두 가안).</summary>
-        public const int MaxCores = 2, CoreFrom = 3;
-        /// <summary>긴 봉 내리찍기는 단계가 없는 기본 기술이라 선풍격은 퇴마사 레벨로 연다 (가안).</summary>
-        public const int GiantCoreLevel = 6;
-        public const float CoreChance = 0.25f;
+        public const string CoreStaff2 = "core_staff2", CoreTalisman2 = "core_talisman2", CoreOrbit2 = "core_orbit2", CoreBell2 = "core_bell2", CoreGiant2 = "core_giant2",
+            CoreSlam = "core_slam", CoreSlam2 = "core_slam2", CoreUlt = "core_ult", CoreUlt2 = "core_ult2", CoreTiger = "core_tiger", CoreTiger2 = "core_tiger2",
+            CoreShaman = "core_shaman", CoreShaman2 = "core_shaman2", CoreLeap = "core_leap", CoreLeap2 = "core_leap2";
+        /// <summary>
+        /// 핵심 비급: 한 판에 최대 4개 · 그 대상이 이 단계 이상이어야 나옴 · 전용 창이 뜨는 퇴마사 레벨 (2026-11-25 사용자 결정, 가안).
+        /// 전에는 한 판 2장 · 레벨업 카드에 25% 확률로 섞임 · 레벨 6 · 12 보장.
+        /// </summary>
+        public const int MaxCores = 4, CoreFrom = 2;
+        public static readonly int[] CoreWindowLevels = { 4, 8, 12, 16 };
         /// <summary>체력이 이 비율 아래일 때 레벨업 카드에 주먹밥이 섞일 확률 (가안).</summary>
         public const float LowHpLine = 0.5f, LowHpHealChance = 0.5f;
         /// <summary>테스트용 (null = 원래대로).</summary>
         public static float? LowHpHealChanceOverride;
-        public static readonly int[] CoreGuaranteeLevels = { 6, 12 };
 
+
+        // 핵심 비급 20개 — 대상(무기 4 + 기술 6)마다 두 갈래, 하나를 고르면 다른 갈래는 더 나오지 않는다 (2026-11-25 사용자 결정, 이름·수치 가안)
         public static readonly List<SvItem> Cores = new()
         {
-            new() { Id = CoreStaff, For = Staff, Name = "삼재격", Glyph = "三", Kind = SvItemKind.Core, MaxLevel = 1, Icon = 0,
-                Levels = new[] { "봉을 세 번 연달아 휘두른다. 셋째는 더 넓고 1.5배 세다" } },
-            new() { Id = CoreTalisman, For = Talisman, Name = "폭렬부", Glyph = "爆", Kind = SvItemKind.Core, MaxLevel = 1, Icon = 2,
-                Levels = new[] { "부적이 맞힌 자리에서 터져 둘레의 적에게 피해의 절반" } },
-            new() { Id = CoreOrbit, For = Orbit, Name = "귀화륜", Glyph = "輪", Kind = SvItemKind.Core, MaxLevel = 1, Icon = 6,
-                Levels = new[] { "3초마다 도는 부적이 두 배 멀리 퍼졌다 돌아온다" } },
-            new() { Id = CoreBell, For = Bell, Name = "진혼령", Glyph = "鎭", Kind = SvItemKind.Core, MaxLevel = 1, Icon = 7,
-                Levels = new[] { "방울 울림에 맞은 적이 0.8초 묶인다 (보스 제외)" } },
-            new() { Id = CoreGiant, For = Giant, Name = "선풍격", Glyph = "扇", Kind = SvItemKind.Core, MaxLevel = 1, Icon = 19,
-                Levels = new[] { "긴 봉 내리찍기(S)가 양옆으로도 두 줄 더 내리찍혀 부채꼴이 된다" } },
+            C(CoreStaff, Staff, "삼재격", "三", 0, "봉을 세 번 연달아 휘두른다. 셋째는 더 넓고 1.5배 세다"),
+            C(CoreStaff2, Staff, "회선봉", "旋", 20, "봉을 한 바퀴 돌려 360° 원으로 휘두른다 (범위 ×0.9)"),
+            C(CoreTalisman, Talisman, "폭렬부", "爆", 2, "부적이 맞힌 자리에서 터져 둘레의 적에게 피해의 절반"),
+            C(CoreTalisman2, Talisman, "연쇄부", "連", 21, "맞은 적에서 가까운 다음 적으로 두 번 튕긴다"),
+            C(CoreOrbit, Orbit, "귀화륜", "輪", 6, "3초마다 도는 부적이 두 배 멀리 퍼졌다 돌아온다"),
+            C(CoreOrbit2, Orbit, "방패부", "盾", 22, "도는 부적이 날아오는 적의 공격(쇠가시 등)을 막는다"),
+            C(CoreBell, Bell, "진혼령", "鎭", 7, "방울 울림에 맞은 적이 0.8초 묶인다 (보스 제외)"),
+            C(CoreBell2, Bell, "파혼령", "破", 23, "방울 울림에 맞은 적이 3초 동안 받는 피해 +30% (보스 +15%)"),
+            C(CoreGiant, SvSkills.Giant, "선풍격", "扇", 19, "긴 봉 내리찍기(S)가 양옆으로도 두 줄 더 내리찍혀 부채꼴이 된다"),
+            C(CoreGiant2, SvSkills.Giant, "연환격", "環", 24, "긴 봉이 같은 줄을 0.3초 뒤 한 번 더 내리찍는다"),
+            C(CoreSlam, SvSkills.Slam, "지진", "震", 25, "내려찍은 자리가 3초 동안 흔들려 들어온 적이 느려진다"),
+            C(CoreSlam2, SvSkills.Slam, "낙화연격", "落", 26, "내려찍고 착지한 뒤 1초 안에 Space — 경공 쿨과 상관없이 튀어 올라 한 번 더 내려찍는다"),
+            C(CoreUlt, SvSkills.Ult, "귀문 개방", "開", 27, "궁극기를 쓴 뒤 10초 동안 모든 공격 간격 -30%"),
+            C(CoreUlt2, SvSkills.Ult, "반쪽 봉인", "半", 28, "도력이 절반만 차도 작은 봉인(피해 절반 · 범위 ×0.6)을 쓸 수 있다"),
+            C(CoreTiger, SvSkills.Tiger, "범의 무리", "群", 29, "산군이 둘 — 양옆 두 줄로 덮친다"),
+            C(CoreTiger2, SvSkills.Tiger, "발톱 자국", "爪", 30, "산군이 지나간 길에 3초 동안 자국이 남아 들어온 적에게 피해"),
+            C(CoreShaman, SvSkills.Shaman, "작두타기", "刃", 31, "결계 가장자리가 벽이 되어 닿는 적을 밀어내고 피해"),
+            C(CoreShaman2, SvSkills.Shaman, "넋건지기", "魂", 32, "결계 안에서 쓰러진 적이 보석을 두 배로 떨군다"),
+            C(CoreLeap, SvSkills.Leap, "비천", "飛", 33, "경공으로 뛰었다 착지할 때 둘레에 큰 충격파 (피해 · 밀어냄)"),
+            C(CoreLeap2, SvSkills.Leap, "제비 걸음", "燕", 34, "경공을 쓰면 보법 무적 충전이 모두 차고, 착지 뒤 2초 동안 이동 +30%"),
         };
 
-        /// <summary>그 무기의 핵심 비급 (없으면 null).</summary>
+        private static SvItem C(string id, string target, string name, string glyph, int icon, string desc) =>
+            new() { Id = id, For = target, Name = name, Glyph = glyph, Kind = SvItemKind.Core, MaxLevel = 1, Icon = icon, Levels = new[] { desc } };
+
+        /// <summary>대상(무기 · 기술)의 핵심 비급 두 갈래.</summary>
+        public static List<SvItem> CoresOf(string targetId) => Cores.FindAll(c => c.For == targetId);
+
+        /// <summary>그 대상이 받은 핵심 비급 (없으면 null).</summary>
+        public static SvItem CoreTaken(SvProgress prog, string targetId) => Cores.Find(c => c.For == targetId && prog.LevelOf(c.Id) > 0);
+
+        /// <summary>그 무기의 첫 갈래 핵심 비급 (없으면 null) — 칸 표식 · 일시 정지 화면용.</summary>
         public static SvItem CoreOf(string weaponId) => Cores.Find(c => c.For == weaponId);
         /// <summary>
         /// 공용 6칸 = 봉을 뺀 무기 3종 + 기술 6종 중 6개 · 비급 4칸 (2026-11-25 사용자 결정 — 전에는 무기 4 · 비급 4).
@@ -95,11 +119,11 @@ namespace ParryRL.Survivor
                 { "긴 봉 내리찍기(S)를 칸에 넣는다", "피해 +25%", "길이 +25%", "폭 ×1.5, 맞은 적을 크게 밀어낸다", "쿨타임 -20%", "피해 +35%", "길이 +25%", "내리찍은 줄에 2초 동안 균열 (지속 피해)" } },
             new() { Id = SvSkills.Ult, Name = "귀문봉인 수련", Kind = SvItemKind.Skill, MaxLevel = 8, Glyph = "封", Levels = new[]
                 { "궁극기(D)를 칸에 넣는다", "도력 얻는 양 ×1.5", "피해 +30%", "봉인 뒤 3초 동안 적이 느려진다", "도력 얻는 양 ×2", "피해 +40%", "도력 얻는 양 ×2.5", "도력 얻는 양 ×3, 정예 · 보스 피해 +50%" } },
-            new() { Id = SvSkills.Tiger, Name = "산군 수련", Kind = SvItemKind.Skill, MaxLevel = 8, Glyph = "虎", Levels = new[]
+            new() { Id = SvSkills.Tiger, Name = "산군 수련", Kind = SvItemKind.Skill, MaxLevel = 8, Icon = 36, Glyph = "虎", Levels = new[]
                 { "산군(W)을 칸에 넣는다", "피해 +30%", "쿨타임 -15%", "끝까지 달린 뒤 되돌아오며 한 번 더", "피해 +30%", "길이 +30%", "쿨타임 -20%", "맞은 적 1초 기절 (보스 제외)" } },
-            new() { Id = SvSkills.Shaman, Name = "무녀 수련", Kind = SvItemKind.Skill, MaxLevel = 8, Glyph = "巫", Levels = new[]
+            new() { Id = SvSkills.Shaman, Name = "무녀 수련", Kind = SvItemKind.Skill, MaxLevel = 8, Icon = 37, Glyph = "巫", Levels = new[]
                 { "무녀(E)를 칸에 넣는다", "결계 +1초", "회복 +50%", "결계 반경 +30%", "쿨타임 -15%", "회복 +50%", "결계 +1초", "결계 안의 적이 받는 피해 ×1.5" } },
-            new() { Id = SvSkills.Leap, Name = "경공 수련", Kind = SvItemKind.Skill, MaxLevel = 8, Glyph = "躍", Levels = new[]
+            new() { Id = SvSkills.Leap, Name = "경공 수련", Kind = SvItemKind.Skill, MaxLevel = 8, Icon = 35, Glyph = "躍", Levels = new[]
                 { "경공(Space)을 칸에 넣는다", "쿨타임 -10%", "2단 높이 +20%", "두 번 연달아 쓸 수 있다 (충전 2회)", "쿨타임 -15%", "허공답보 +1회", "쿨타임 -20%", "떠 있어도 봉 휘두르기 · 호신부가 땅에 닿는다" } },
 
             new() { Id = Move, Name = "축지법", Kind = SvItemKind.Passive, Icon = 8, Levels = new[] { "이동 속도 +8%" } },
@@ -126,8 +150,22 @@ namespace ParryRL.Survivor
         public static List<SvItem> EligibleCores(SvProgress prog)
         {
             if (prog.Count(SvItemKind.Core) >= MaxCores) return new List<SvItem>();
-            return Cores.FindAll(c => prog.LevelOf(c.Id) == 0 &&
-                (c.For == Giant ? prog.Level >= GiantCoreLevel : prog.LevelOf(c.For) >= CoreFrom));
+            // 가진 대상(봉 + 공용 칸)이 2단계 이상이고, 그 대상이 아직 핵심을 받지 않았을 때 두 갈래 모두
+            return Cores.FindAll(c => prog.LevelOf(c.For) >= CoreFrom && CoreTaken(prog, c.For) == null);
+        }
+
+        /// <summary>핵심 비급 창: 서로 다른 대상에서 고르게 섞어 최대 n장 (같은 대상의 두 갈래가 함께 나올 수 있다).</summary>
+        public static List<SvItem> RollCores(SvProgress prog, int n)
+        {
+            var pool = EligibleCores(prog);
+            var pick = new List<SvItem>();
+            while (pick.Count < n && pool.Count > 0)
+            {
+                int i = Random.Range(0, pool.Count);
+                pick.Add(pool[i]);
+                pool.RemoveAt(i);
+            }
+            return pick;
         }
 
         /// <summary>올릴 수 있는 가진 것 + (빈칸이 있으면) 새것 중 서로 다른 n장. 모자라면 주먹밥으로 채운다.</summary>
@@ -154,17 +192,6 @@ namespace ParryRL.Survivor
             var hero = SvPlayer.Instance;
             if (hero != null && hero.Hp < hero.MaxHp * LowHpLine && !pick.Contains(HealItem) && pick.Count > 0 && Random.value < (LowHpHealChanceOverride ?? LowHpHealChance))
                 pick[Random.Range(0, pick.Count)] = HealItem;
-            // 핵심 비급: 25% 확률로 한 장, 레벨 6·12에 처음 닿으면 반드시 (나올 수 있을 때)
-            var cores = EligibleCores(prog);
-            if (cores.Count > 0 && pick.Count > 0)
-            {
-                bool due = prog.CoreGuaranteeDue;
-                if (due || Random.value < CoreChance)
-                {
-                    if (due) prog.ConsumeCoreGuarantee();
-                    pick[Random.Range(0, pick.Count)] = cores[Random.Range(0, cores.Count)];
-                }
-            }
             return pick;
         }
     }
