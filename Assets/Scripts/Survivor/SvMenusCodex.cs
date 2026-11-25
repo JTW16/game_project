@@ -136,7 +136,7 @@ namespace ParryRL.Survivor
                 CodexIcon(box, it, new Vector2(14f, -(h - 56f) * 0.5f), 56f, CodexPassive);
                 Label(box, it.Name, 28, new Vector2(0f, 1f), new Vector2(86f, -14f), new Vector2(w - 260f, 36f), TextAnchor.UpperLeft, Color.white);
                 Label(box, $"단계마다 {it.Levels[0]}", 22, new Vector2(0f, 1f), new Vector2(86f, -54f), new Vector2(w - 100f, 30f), TextAnchor.UpperLeft, new Color(0.9f, 0.88f, 0.82f));
-                string tag = $"비급 · 최대 {it.MaxLevel}단계" + (it.Available != null ? " · 패링을 켰을 때만" : "");
+                string tag = $"비급 · 최대 {it.MaxLevel}단계" + (it.Available != null ? " · 조건이 맞을 때만" : "");
                 Label(box, tag, 20, new Vector2(1f, 1f), new Vector2(-14f, -16f), new Vector2(360f, 26f), TextAnchor.UpperRight, CodexPassive);
             }
         }

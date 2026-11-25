@@ -21,7 +21,6 @@ namespace ParryRL.Tests
         public IEnumerator Load()
         {
             SvGame.AutoSpawn = false;
-            SvGame.ParryEnabled = true;
             SvGame.ShowHitboxes = false;
             SvGame.ShowTitle = false;
             SvPlayer.LeapCooldownOverride = 0f; // 경공 쿨타임은 Leap_Has_Cooldown 테스트에서만 본다
@@ -44,7 +43,6 @@ namespace ParryRL.Tests
             SvSkills.LevelOverride = 0;
             SvPlayer.LeapCooldownOverride = null;
             SvGame.AutoSpawn = true;
-            SvGame.ParryEnabled = true;
             SvGame.ShowHitboxes = false;
             SvGame.ShowTitle = true;
             Time.timeScale = 1f;
@@ -536,10 +534,10 @@ namespace ParryRL.Tests
         }
 
         [UnityTest]
-        public IEnumerator Parry_Can_Be_Switched_Off()
+        public IEnumerator Parry_Is_Always_On()
         {
-            SvGame.ParryEnabled = false;
-            Assert.IsFalse(Player.TryParry());
+            Assert.IsTrue(Player.TryParry(), "패링은 끄는 스위치 없이 늘 쓸 수 있다");
+            Assert.IsFalse(Player.TryParry(), "쿨타임 중엔 안 된다");
             yield break;
         }
 
@@ -706,13 +704,8 @@ namespace ParryRL.Tests
         }
 
         [UnityTest]
-        public IEnumerator Parry_Cards_Only_When_Parry_Is_On()
+        public IEnumerator Parry_Bell_Widens_Window()
         {
-            SvGame.ParryEnabled = false;
-            for (int i = 0; i < 30; i++)
-                foreach (var u in SvItems.Roll(Game.Progress, 3))
-                    Assert.IsFalse(u.Id == SvItems.ParryBell || u.Id == SvItems.Counter, "패링이 꺼져 있으면 패링 카드가 안 나온다");
-            SvGame.ParryEnabled = true;
             float w = Player.ParryWindow;
             Game.Progress.Take(SvItems.Get(SvItems.ParryBell), Player, Game.Weapons);
             Assert.Greater(Player.ParryWindow, w);

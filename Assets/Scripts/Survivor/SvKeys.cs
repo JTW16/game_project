@@ -13,7 +13,6 @@ namespace ParryRL.Survivor
         public const KeyCode Dash = KeyCode.LeftShift;
         public const KeyCode DashAlt = KeyCode.RightShift;
         public const KeyCode Restart = KeyCode.R;
-        public const KeyCode ToggleParry = KeyCode.F3;
         public const KeyCode ToggleHitboxes = KeyCode.F4;
         public const KeyCode Stress = KeyCode.F5;
         public const KeyCode SpawnElite = KeyCode.F6;
