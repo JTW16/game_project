@@ -246,9 +246,13 @@ namespace ParryRL.Survivor
             if (art != null && !SvFx.Anim(art.fxLevelBurst, Player.Position, 1.4f, 2.8f, 0.9f)) SvFx.Anim(art.fxLevelUp, Player.Position, 1.3f, 2.6f, 0.8f);
             Hud.Flash(new Color(0.6f, 1f, 0.95f), 0.25f, 0.35f);
             SvView.Instance?.Punch(0.05f, 0.35f);
-            Offer = SvItems.Roll(Progress, 3);
+            // 레벨 4 · 8 · 12 · 16: 핵심 비급 전용 창 (낼 후보가 없으면 보통 카드, 다음 레벨업에 다시 — 2026-11-25)
+            var cores = Progress.CoreWindowDue ? SvItems.RollCores(Progress, 3) : null;
+            bool coreWindow = cores != null && cores.Count > 0;
+            if (coreWindow) Progress.ConsumeCoreWindow();
+            Offer = coreWindow ? cores : SvItems.Roll(Progress, 3);
             _menu = true;
-            Hud.ShowCards(Offer, Progress);
+            Hud.ShowCards(Offer, Progress, coreWindow);
         }
 
         public void ChooseCard(int i)
@@ -370,6 +374,9 @@ namespace ParryRL.Survivor
             else
             {
                 SvGem.Drop(e.Position, e.Exp);
+                // 넋건지기(무녀 핵심): 결계 안에서 쓰러지면 보석을 두 배로
+                if (Helpers != null && Helpers.ShamanActive && Progress.HasCore(SvItems.CoreShaman2) && (e.Position - Helpers.WardCenter).sqrMagnitude <= Helpers.WardRadius * Helpers.WardRadius)
+                    SvGem.Drop(e.Position, e.Exp);
                 SvPickup.TryDropRiceball(e.Position);
             }
             Sfx.Play(SfxId.EnemyDie, 0.4f);

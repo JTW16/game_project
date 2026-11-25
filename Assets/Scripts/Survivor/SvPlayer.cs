@@ -106,7 +106,12 @@ namespace ParryRL.Survivor
         public float VerticalSpeed => _vy;
         public SvMomentum Momentum { get; set; }
         /// <summary>기세까지 얹은 지금 속도.</summary>
-        public float SpeedNow => moveSpeed * (Momentum != null ? Momentum.SpeedMul : 1f);
+        public float SpeedNow => moveSpeed * (Momentum != null ? Momentum.SpeedMul : 1f) * (Time.time < _swiftUntil ? 1.3f : 1f);
+        // 제비 걸음(경공 핵심): 착지 뒤 2초 이동 +30% · 낙화연격(내려찍기 핵심): 착지 뒤 1초 안에 Space면 한 번 더 내려찍기
+        private float _swiftUntil, _slamComboUntil;
+        private static bool HasCore(string id) => SvGame.Instance != null && SvGame.Instance.Progress != null && SvGame.Instance.Progress.HasCore(id);
+        /// <summary>경공으로 뛰었다 땅에 닿았다 (비천 · 제비 걸음).</summary>
+        public event System.Action<Vector2> LeapLanded;
         public bool Parrying => Time.time < _parryUntil;
         public float ParryCooldownLeft => Mathf.Max(0f, _parryReadyAt - Time.time);
         public float ParryCooldown => parryCooldown;
@@ -219,12 +224,20 @@ namespace ParryRL.Survivor
 
         public bool TryJump()
         {
+            // 낙화연격: 내려찍고 착지한 뒤 1초 안이면 경공 쿨과 상관없이 튀어 올라 한 번 더 내려찍는다
+            if (!Airborne && Time.time < _slamComboUntil && !Slamming && !Dead)
+            {
+                _slamComboUntil = 0f;
+                _slamReadyAt = 0f;
+                return TrySlam();
+            }
             if (Dead || Slamming || _jumpsUsed >= maxJumps) return false;
             if (_jumpsUsed == 0)
             {
                 if (LeapChargesLeft <= 0) return false;
                 if (_leapUsed == 0) _leapReadyAt = Time.time + LeapCooldown;
                 _leapUsed++;
+                if (HasCore(SvItems.CoreLeap2)) DashChargesLeft = dashCharges; // 제비 걸음
             }
             _jumpsUsed++;
             bool second = _jumpsUsed >= 2;
@@ -469,9 +482,21 @@ namespace ParryRL.Survivor
             if (Height > 0f || _vy < 0f) _landAt = Time.time;
             Height = 0f;
             _vy = 0f;
+            bool fromLeap = _jumpsUsed > 0;
             _jumpsUsed = 0;
             _airDashUsed = 0;
-            if (!Slamming) { SvSkillVfx.Alight(Position, _fallPeak); _fallPeak = 0f; return; }
+            if (!Slamming)
+            {
+                SvSkillVfx.Alight(Position, _fallPeak);
+                _fallPeak = 0f;
+                if (fromLeap)
+                {
+                    if (HasCore(SvItems.CoreLeap2)) _swiftUntil = Time.time + 2f;
+                    LeapLanded?.Invoke(_rb.position);
+                }
+                return;
+            }
+            if (HasCore(SvItems.CoreSlam2)) _slamComboUntil = Time.time + 1f;
             _fallPeak = 0f;
             Slamming = false;
             Diving = false;

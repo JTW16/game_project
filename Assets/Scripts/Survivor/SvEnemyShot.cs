@@ -86,6 +86,8 @@ namespace ParryRL.Survivor
             if (_left <= 0f) Release();
         }
 
+        public Vector2 Position => _pos;
+
         public void Release()
         {
             Live.Remove(this);

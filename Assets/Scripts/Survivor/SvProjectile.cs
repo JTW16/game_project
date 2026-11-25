@@ -97,6 +97,7 @@ namespace ParryRL.Survivor
                 SvWeapons.Hit(e, _damage, _dir, 3f, SvItems.Talisman);
                 var prog = SvGame.Instance != null ? SvGame.Instance.Progress : null;
                 if (prog != null && prog.HasCore(SvItems.CoreTalisman)) SvWeapons.TalismanBurst(e.Position, _damage, e);
+                if (prog != null && prog.HasCore(SvItems.CoreTalisman2)) SvWeapons.TalismanChain(e, _damage);
                 if (_pierce-- <= 0)
                 {
                     if (_burst != null && !SvVfx.Ready) SvFx.Anim(_burst, _pos, FlyHeight, 0.9f, 0.3f, _dir.x < 0f);

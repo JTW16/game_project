@@ -396,8 +396,8 @@ namespace ParryRL.Survivor
                 // 기술 수련 칸은 남빛 바탕 (S14 칸 틀 그림이 오기 전까지 색으로 구분)
                 slot.Bg.color = item.Kind == SvItemKind.Skill ? new Color(0.08f, 0.1f, 0.2f, 0.92f) : new Color(0.1f, 0.09f, 0.08f, 0.9f);
                 // 핵심 비급을 가진 무기: 왼쪽 위에 자줏빛 보주 표식
-                var core = item.Kind == SvItemKind.Weapon ? SvItems.CoreOf(id) : null;
-                slot.Core.gameObject.SetActive(core != null && prog.HasCore(core.Id));
+                // 핵심 비급을 받은 무기 · 기술 (두 갈래 중 어느 쪽이든)
+                slot.Core.gameObject.SetActive(SvItems.CoreTaken(prog, id) != null);
             }
             for (int i = w; i < _weaponSlots.Count; i++) Clear(_weaponSlots[i]);
             for (int i = p; i < _passiveSlots.Count; i++) Clear(_passiveSlots[i]);
@@ -585,6 +585,7 @@ namespace ParryRL.Survivor
             var title = UiKit.Text("Title", _cardRoot, 52, TextAnchor.MiddleCenter);
             UiKit.Place(title.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0f, 350f), new Vector2(900f, 70f));
             title.text = "레벨 업! 하나를 고르세요";
+            _cardTitle = title;
             title.color = Teal;
             var hint = UiKit.Text("Hint", _cardRoot, 24, TextAnchor.MiddleCenter);
             UiKit.Place(hint.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0f, -355f), new Vector2(900f, 40f));
@@ -707,9 +708,17 @@ namespace ParryRL.Survivor
             };
         }
 
-        public void ShowCards(List<SvItem> offer, SvProgress prog)
+        private Text _cardTitle;
+
+        /// <summary>레벨업 카드를 띄운다. coreWindow = 핵심 비급 전용 창 (레벨 4 · 8 · 12 · 16).</summary>
+        public void ShowCards(List<SvItem> offer, SvProgress prog, bool coreWindow = false)
         {
             _cardRoot.gameObject.SetActive(true);
+            if (_cardTitle != null)
+            {
+                _cardTitle.text = coreWindow ? "핵심 비급 — 이번 판의 길을 고르세요" : "레벨 업! 하나를 고르세요";
+                _cardTitle.color = coreWindow ? CoreCol : Teal;
+            }
             _cardsShownAt = Time.unscaledTime;
             for (int i = 0; i < _cards.Count; i++)
             {

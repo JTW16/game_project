@@ -230,8 +230,8 @@ namespace ParryRL.Survivor
             if (stat.Length > 0) sb.Append($"<color=#9fd8c8>지금: {stat}</color>");
             if (SvWeapons.DamageBy.TryGetValue(id, out int d)) sb.Append($"\n<color=#9fd8c8>준 피해 {d:N0}</color>");
             if (lv < item.MaxLevel) sb.Append($"\n<color=#b0a898>다음 단계: {item.DescFor(lv + 1)}</color>");
-            var core = weapon ? SvItems.CoreOf(id) : null;
-            if (core != null && g.Progress.HasCore(core.Id)) sb.Append($"\n<color=#eb8ad9>핵심 비급 · {core.Name}: {core.Levels[0]}</color>");
+            var core = SvItems.CoreTaken(g.Progress, id);
+            if (core != null) sb.Append($"\n<color=#eb8ad9>핵심 비급 · {core.Name}: {core.Levels[0]}</color>");
             return sb.ToString();
         }
 
