@@ -58,7 +58,7 @@ namespace ParryRL.Survivor
             new(1f, 0f), new(0.71f, 0.71f), new(0f, 1f), new(-0.71f, 0.71f), new(-1f, 0f), new(-0.71f, -0.71f), new(0f, -1f), new(0.71f, -0.71f),
         };
         public float RimPx = 8f;
-        public Color RimColor = new(0.80f, 0.93f, 0.84f, 0.34f);
+        public Color RimColor = new(0.90f, 1f, 0.90f, 0.5f);
         private readonly bool _rim;
         private bool _uvSet;
 

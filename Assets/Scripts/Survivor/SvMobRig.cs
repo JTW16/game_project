@@ -91,11 +91,35 @@ namespace ParryRL.Survivor
                 }
             }
             d.Mesh = new Mesh { name = "MobRig_" + kind };
-            d.Mesh.SetVertices(v); d.Mesh.SetUVs(0, uv); d.Mesh.SetUVs(1, bone); d.Mesh.SetColors(col); d.Mesh.SetTriangles(tri, 0);
+            // 잡귀의 둘레 빛 테두리: 같은 몸을 여섯 쪽으로 밀어 앞 순서(뒤)에 깐다 — 한 번에 그려 200마리도 가볍다
+            // (정예·보스는 따로 타오르는 테두리가 있고, 도깨비불은 스스로 빛난다)
+            var rim = new List<Vector3>();
+            for (int i = 0; i < v.Count; i++) rim.Add(Vector3.zero);
+            bool edged = SvTone.Ready && kind is "changgwi" or "smalldokkaebi" or "dalgyal";
+            if (edged)
+            {
+                int baseV = v.Count;
+                var body = tri;
+                tri = new List<int>();
+                for (int r = 0; r < 6; r++)
+                {
+                    Vector2 dir = SvGeom.FromAngle(60f * r + 30f);
+                    int at = v.Count;
+                    for (int i = 0; i < baseV; i++) { v.Add(v[i]); uv.Add(uv[i]); bone.Add(bone[i]); col.Add(Color.white); rim.Add(new Vector3(dir.x, dir.y, 1f)); }
+                    foreach (int t in body) tri.Add(at + t);
+                }
+                tri.AddRange(body);
+            }
+            d.Mesh.SetVertices(v); d.Mesh.SetUVs(0, uv); d.Mesh.SetUVs(1, bone); d.Mesh.SetUVs(2, rim); d.Mesh.SetColors(col); d.Mesh.SetTriangles(tri, 0);
             d.Mesh.bounds = new Bounds(new Vector3(0f, 0.5f, 0f), new Vector3(3f, 3f, 0.1f));
             d.Mat = new Material(_shader) { name = kind, mainTexture = tex };
             var dark = Resources.Load<Texture2D>("MobRig/" + kind + "_dark");
             d.DarkMat = dark != null ? new Material(_shader) { name = kind + "_dark", mainTexture = dark } : d.Mat;
+            if (edged)
+            {
+                d.Mat.SetColor("_Rim", new Color(0.74f, 0.86f, 0.96f, 0.42f));
+                d.DarkMat.SetColor("_Rim", new Color(0.72f, 0.46f, 1f, 0.62f));
+            }
             return d;
         }
     }

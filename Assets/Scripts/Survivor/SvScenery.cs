@@ -204,7 +204,7 @@ namespace ParryRL.Survivor
         {
             if (sr == null) return;
             // 장식은 바닥 무늬보다 살짝 어둡게 — 캐릭터보다 눈에 띄지 않게
-            sr.color = prop ? Color.Lerp(_tint, Color.white, 0.3f) : _tint * 0.82f + new Color(0, 0, 0, 0.18f);
+            sr.color = prop ? Color.Lerp(_tint, Color.white, SvTone.PropLift) : _tint * 0.82f + new Color(0, 0, 0, 0.18f);
         }
 
         private bool HasArt => _art != null && (SurvivorArt.Ok(_art.decals) || SurvivorArt.Ok(_art.props));
@@ -291,6 +291,7 @@ namespace ParryRL.Survivor
             bb.Height = h * sprite.pivot.y / sprite.rect.height;
             var glow = SvBillboard.CreateGlow(anchor, w * 1.25f, new Color(0.55f, 1f, 0.85f, 0.2f));
             anchor.gameObject.AddComponent<SvGateView>().Set(index, bb.Renderer, glow, sprite, _art.gateActive);
+            if (SvTone.Ready) bb.Renderer.sharedMaterial = SvTone.Soft;
             anchor.name = $"Gate {index}";
             GateCount++;
         }
@@ -462,6 +463,7 @@ namespace ParryRL.Survivor
             var glow = SvBillboard.CreateGlow(anchor, 7f, warm);
             var inner = SvBillboard.CreateGlow(anchor, 2.6f, new Color(1f, 0.85f, 0.55f, 0.35f));
             anchor.gameObject.AddComponent<SvFlicker>().Set(glow, inner, (float)_rng.NextDouble() * 10f);
+            if (SvTone.Ready) anchor.GetComponentInChildren<SvBillboard>().Renderer.sharedMaterial = SvTone.Soft;
             LightCount++;
             _lights.Add(anchor);
         }
@@ -501,6 +503,7 @@ namespace ParryRL.Survivor
         private void Tint(SpriteRenderer sr, bool prop)
         {
             _list.Add((sr, prop));
+            if (SvTone.Ready) sr.sharedMaterial = prop ? SvTone.Prop : SvTone.Decal;
             Paint(sr, prop);
         }
 

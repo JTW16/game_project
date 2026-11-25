@@ -45,6 +45,11 @@ namespace ParryRL.Survivor
             go.GetComponent<MeshFilter>().sharedMesh = mesh;
             var mr = go.GetComponent<MeshRenderer>();
             mr.sharedMaterial = new Material(Shader.Find("Sprites/Default")) { name = "FloorMat", mainTexture = tex, color = SvNight.Watches[0].Tint };
+            if (SvTone.Ready)
+            {
+                mr.sharedMaterial = SvTone.Floor(tex);
+                mr.sharedMaterial.color = SvNight.Watches[0].Tint;
+            }
             mr.sortingOrder = SvOrder.Floor;
             f._mr = mr;
             Instance = f;

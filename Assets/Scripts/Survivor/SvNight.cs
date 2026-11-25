@@ -134,9 +134,12 @@ namespace ParryRL.Survivor
             float diag = Mathf.Sqrt(1920f * 1920f + 1080f * 1080f);
             float size = diag * Mathf.Lerp(2.6f, 1.05f, _dark);
             _vignette.rectTransform.sizeDelta = new Vector2(size, size);
-            _vignette.color = new Color(1f, 1f, 1f, Mathf.Clamp01(_dark * 1.25f));
+            // 톤 나누기: 화면을 덮는 어둠은 캐릭터까지 묻으므로 줄이고, 그만큼 배경에만 짙게 깐다
+            bool split = SvTone.Ready;
+            SvTone.SetDark(_dark);
+            _vignette.color = new Color(1f, 1f, 1f, Mathf.Clamp01(_dark * (split ? 0.62f : 1.25f)));
             // 화면 전체를 덮는 어둠은 캐릭터까지 묻으므로 약하게 — 어둠은 주로 바닥 색이 맡는다
-            _dim.color = new Color(0.02f, 0.03f, 0.08f, _dark * 0.15f);
+            _dim.color = new Color(0.02f, 0.03f, 0.08f, _dark * (split ? 0.04f : 0.15f));
             SvFloor.Instance?.SetTint(_tint);
             SvScenery.Instance?.SetTint(_tint);
             SvBoundary.Instance?.SetTint(_tint);

@@ -8,6 +8,8 @@ Shader "Survivor/MobRig"
         _Hit ("White", Range(0,1)) = 0
         _Flip ("Flip", Float) = 1
         _Ink ("Dissolve", Range(0,1)) = 0
+        _Rim ("Rim color", Color) = (0,0,0,0)
+        _RimW ("Rim width", Float) = 0.0105
         [HDR] _Solid ("Rim (a = on)", Color) = (0,0,0,0)
     }
     SubShader
@@ -25,11 +27,12 @@ Shader "Survivor/MobRig"
             sampler2D _MainTex;
             fixed4 _Color;
             float _Hit, _Flip, _Ink;
-            float4 _Solid;
+            float4 _Solid, _Rim;
+            float _RimW;
             float4 _B0[24]; // x, y, cos, sin
             float4 _B1[24]; // 휘기(라디안), 가로, 세로, 보이기
-            struct a2v { float4 vertex : POSITION; float4 color : COLOR; float2 uv : TEXCOORD0; float2 bone : TEXCOORD1; };
-            struct v2f { float4 pos : SV_POSITION; fixed4 color : COLOR; float2 uv : TEXCOORD0; float2 loc : TEXCOORD1; };
+            struct a2v { float4 vertex : POSITION; float4 color : COLOR; float2 uv : TEXCOORD0; float2 bone : TEXCOORD1; float3 rim : TEXCOORD2; };
+            struct v2f { float4 pos : SV_POSITION; fixed4 color : COLOR; float2 uv : TEXCOORD0; float2 loc : TEXCOORD1; float rim : TEXCOORD2; };
             v2f vert (a2v v)
             {
                 v2f o;
@@ -43,6 +46,8 @@ Shader "Survivor/MobRig"
                 p = c + float2(cos(a), sin(a)) * p.x;
                 p = float2(p.x * m.z - p.y * m.w, p.x * m.w + p.y * m.z) + m.xy;
                 o.loc = p;
+                o.rim = v.rim.z;
+                p += v.rim.xy * _RimW; // 둘레 빛 테두리: 같은 몸을 밀어 뒤에 깐 조각
                 p.x *= _Flip;
                 o.pos = UnityObjectToClipPos(float4(p * step(0.5, k.w), v.vertex.z, 1));
                 o.uv = v.uv;
@@ -59,6 +64,7 @@ Shader "Survivor/MobRig"
             {
                 fixed4 c = tex2D(_MainTex, i.uv);
                 c.rgb = lerp(c.rgb, 1, _Hit * 0.8) * i.color.rgb;
+                if (i.rim > .5) { c.rgb = _Rim.rgb; c.a *= _Rim.a; }
                 if (_Solid.a > 0) c.rgb = _Solid.rgb;
                 c.a *= i.color.a * (_Solid.a > 0 ? _Solid.a : 1);
                 if (_Ink > 0)

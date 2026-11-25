@@ -128,6 +128,7 @@ namespace ParryRL.Survivor
             bb.enabled = false; // 카메라 기울기는 바뀌지 않으므로 한 번만 세운다
             var sr = bb.Renderer;
             sr.color = new Color(shade, shade, shade, 1f);
+            if (SvTone.Ready) sr.sharedMaterial = glow ? SvTone.Soft : SvTone.Prop;
             _tinted.Add(sr);
             // 앞쪽(아래 가장자리) 그림은 퇴마사가 뒤로 들어가면 반투명하게
             if (front) anchor.gameObject.AddComponent<SvOccluder>().Set(sr, Width(sprite, h), h);
@@ -144,7 +145,7 @@ namespace ParryRL.Survivor
 
         private void Paint()
         {
-            var lit = Color.Lerp(_tint, Color.white, 0.3f);
+            var lit = Color.Lerp(_tint, Color.white, SvTone.PropLift);
             foreach (var sr in _tinted)
             {
                 if (sr == null) continue;
