@@ -267,7 +267,11 @@ namespace ParryRL.Survivor
             // 몸 옆에 세로 막대처럼 보여서 뺐다 (2026-11-18 플레이 피드백) — 반원은 큰 궤적 하나로 보여 준다
             Vector2 front = at + dir * r * (back ? 0.42f : 0.32f);
             float turn = (flip ? 1f : -1f) * (_player.Facing.x < 0f ? -1f : 1f);
-            if (SvVfx.Ready) SvSkillVfx.Swing(follow, at, dir, r, angle, _player.Rig != null ? turn : -1f, dmgMul > 1f ? 1.4f : 1f);
+            if (SvVfx.Ready)
+            {
+                if (HasCore(SvItems.CoreStaff2)) SvSkillVfx.SpinSwing(follow, at, dir, r, _player.Rig != null ? turn : -1f); // 회선봉
+                else SvSkillVfx.Swing(follow, at, dir, r, angle, _player.Rig != null ? turn : -1f, dmgMul > 1f ? 1.4f : 1f);
+            }
             bool drawn = SvVfx.Ready || a != null && SvFx.FlatAnim(trail, front, SvGeom.AngleOf(dir) + 180f, r * (lv >= 8 ? 2.1f : 1.8f) * (back ? 0.85f : 1f),
                 back ? 0.15f : FrontTrailTime, follow: follow, mirror: back || flip);
             // 판정 부채꼴은 궤적 그림이 없을 때만 (있으면 뿌옇게 덮어 그림을 흐린다)
@@ -406,7 +410,11 @@ namespace ParryRL.Survivor
                 // 진혼령: 울림에 맞은 적이 잠깐 묶인다 (보스 제외)
                 if (HasCore(SvItems.CoreBell) && e.isActiveAndEnabled && e.Hp > 0 && !e.IsBoss) e.Stun(0.8f, bind: true);
                 // 파혼령: 3초 동안 받는 피해 +30% (보스 +15%) — 무녀 수련과 겹쳐도 큰 쪽만 (최대 +50%)
-                if (HasCore(SvItems.CoreBell2) && e.isActiveAndEnabled && e.Hp > 0) e.MarkVulnerable(e.IsBoss ? 1.15f : 1.3f, 3f);
+                if (HasCore(SvItems.CoreBell2) && e.isActiveAndEnabled && e.Hp > 0)
+                {
+                    e.MarkVulnerable(e.IsBoss ? 1.15f : 1.3f, 3f);
+                    SvSkillVfx.SoulCrack(e, 3f);
+                }
             }
         }
 
@@ -607,7 +615,7 @@ namespace ParryRL.Survivor
             int dmg = Mathf.RoundToInt(SlamDamage * (1f + diveDamageBonus * power));
             SlamHit(at, 0f, r, dmg);
             // 지진(핵심 비급): 3초 동안 그 자리가 흔들려 들어온 적이 느려진다
-            if (HasCore(SvItems.CoreSlam)) StartCoroutine(Quake(at, r));
+            if (HasCore(SvItems.CoreSlam)) { SvSkillVfx.Quake(at, r, 3f); StartCoroutine(Quake(at, r)); }
             // 수련 4단계: 바깥으로 한 겹 더 (0.15초 뒤, 반지름 r~1.6r, 피해 절반) · 8단계: 0.4초 뒤 같은 자리에 여진
             if (SvSkills.SlamDoubleRing) StartCoroutine(SlamLater(at, 0.15f, r, r * 1.6f, Mathf.Max(1, dmg / 2)));
             if (SvSkills.SlamAftershock) StartCoroutine(SlamLater(at, 0.4f, 0f, r, dmg));
@@ -623,7 +631,7 @@ namespace ParryRL.Survivor
                     var e = SvEnemy.Find(Hits[i]);
                     if (e != null && e.isActiveAndEnabled && !e.IsBoss) e.Slow(0.45f, 0.4f);
                 }
-                if (Mathf.Repeat(t, 0.75f) < 0.01f) SvFx.Ring(at, r * 0.5f, r, new Color(0.85f, 0.7f, 0.45f, 0.45f), 0.4f);
+                if (!SvVfx.Ready && Mathf.Repeat(t, 0.75f) < 0.01f) SvFx.Ring(at, r * 0.5f, r, new Color(0.85f, 0.7f, 0.45f, 0.45f), 0.4f);
                 yield return new WaitForSeconds(0.25f);
             }
         }
@@ -632,7 +640,8 @@ namespace ParryRL.Survivor
         private void OnLeapLanded(Vector2 at)
         {
             if (!HasCore(SvItems.CoreLeap)) return;
-            SvSkillVfx.SlamLand(at, 3f, 0.5f);
+            if (SvVfx.Ready) SvSkillVfx.LeapLanding(at, 3f);
+            else SvSkillVfx.SlamLand(at, 3f, 0.5f);
             SvGame.Instance?.Shake(0.2f, 0.2f);
             Sfx.Play(SfxId.SkillSlam, 0.7f);
             SlamHit(at, 0f, 3f, Mathf.RoundToInt(20 * DamageMul));
@@ -670,7 +679,8 @@ namespace ParryRL.Survivor
                 var s = shots[i];
                 if ((s.Position - orb).sqrMagnitude > 0.7f * 0.7f) continue;
                 ShotsBlocked++;
-                SvFx.Spark(s.Position, 0.8f, new Color(1f, 0.92f, 0.6f, 1f), 0.7f, 0.18f);
+                if (SvVfx.Ready) SvSkillVfx.Block(s.Position, s.Position + (s.Position - _player.Position).normalized, 0.8f);
+                else SvFx.Spark(s.Position, 0.8f, new Color(1f, 0.92f, 0.6f, 1f), 0.7f, 0.18f);
                 Sfx.Play(SfxId.Parry, 0.35f);
                 s.Release();
             }
@@ -694,7 +704,8 @@ namespace ParryRL.Survivor
                 if (best == null) return;
                 hit.Add(best);
                 // 튕기는 길: 짧은 불꽃 점선
-                for (int k = 1; k <= 4; k++) SvFx.Spark(Vector2.Lerp(at, best.Position, k / 5f), 0.9f, new Color(1f, 0.9f, 0.45f, 0.9f), 0.35f, 0.15f);
+                if (SvVfx.Ready) SvSkillVfx.Chain(at, best.Position, 0.9f);
+                else for (int k = 1; k <= 4; k++) SvFx.Spark(Vector2.Lerp(at, best.Position, k / 5f), 0.9f, new Color(1f, 0.9f, 0.45f, 0.9f), 0.35f, 0.15f);
                 Hit(best, damage, best.Position - at, 2f, SvItems.Talisman);
                 at = best.Position;
             }

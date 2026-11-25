@@ -64,7 +64,7 @@ namespace ParryRL.Survivor
         private static readonly Color WeaponCol = new(0.93f, 0.66f, 0.22f);
         private static readonly Color PassiveCol = new(0.3f, 0.72f, 0.62f);
         private static readonly Color HealCol = new(0.85f, 0.8f, 0.65f);
-        private class Slot { public Image Bg, Icon, Core; public Text Glyph, Lv; public string Id; }
+        private class Slot { public Image Bg, Icon, Core, Frame; public Text Glyph, Lv; public string Id; }
         // 핵심 비급 색 (자줏빛 — 빨강은 적 경고 전용)
         private static readonly Color CoreCol = new(0.92f, 0.45f, 0.85f);
         private static readonly Color SkillCol = new(0.55f, 0.65f, 1f);
@@ -162,7 +162,8 @@ namespace ParryRL.Survivor
             // 아래 가운데: 직접 쓰는 기술
             // Space Shift | A S D | Q W E (2026-11-12: S = 긴 봉, 패링은 Q · 2026-11-25: 경공에 쿨타임이 생겨 칸 추가)
             _leap = MakeAbility(-336f, -1, "Space", "경공");
-            _leap.Glyph.text = "躍"; // 경공 아이콘(S14 ui/skill_icon_leap)이 오기 전까지
+            if (_art != null && _art.iconLeap != null) { _leap.Icon.sprite = _art.iconLeap; _leap.Icon.enabled = true; _leap.Glyph.text = ""; }
+            else _leap.Glyph.text = "躍"; // 경공 아이콘(S14 ui/skill_icon_leap)이 없을 때
             AbilityHover(_leap, () =>
             {
                 var p = SvPlayer.Instance;
@@ -322,6 +323,12 @@ namespace ParryRL.Survivor
         public Sprite IconSprite(int index)
         {
             if (_art == null || index < 0) return null;
+            if (index >= 20)
+            {
+                if (index <= 34) return SurvivorArt.Ok(_art.coreIcons) && index - 20 < _art.coreIcons.Length ? _art.coreIcons[index - 20] : null;
+                if (index == 35) return _art.iconLeap;
+                return SurvivorArt.Ok(_art.helperIcons) && index - 36 < _art.helperIcons.Length ? _art.helperIcons[index - 36] : null;
+            }
             if (index < 6) return SurvivorArt.Ok(_art.skillIcons) && index < _art.skillIcons.Length ? _art.skillIcons[index] : null;
             if (index >= 18) return SurvivorArt.Ok(_art.icons3) && index - 18 < _art.icons3.Length ? _art.icons3[index - 18] : null;
             int k = index - 6;
@@ -356,10 +363,11 @@ namespace ParryRL.Survivor
             var glyph = UiKit.Text("Glyph", bg.rectTransform, glyphSize, TextAnchor.MiddleCenter);
             UiKit.Stretch(glyph.rectTransform);
             glyph.color = new Color(0.92f, 0.86f, 0.7f);
+            Image frame = null;
             if (frameSprite != null)
             {
-                // 칸 틀 그림(S3)을 그림 위에 겹친다
-                var frame = UiKit.Image("Frame", bg.rectTransform, Color.white);
+                // 칸 틀 그림(S3)을 그림 위에 겹친다 (윗줄은 무기 · 기술 · 빈 칸 · 봉에 따라 갈아 끼운다 — S14)
+                frame = UiKit.Image("Frame", bg.rectTransform, Color.white);
                 frame.sprite = frameSprite;
                 UiKit.Stretch(frame.rectTransform, -size * 0.1f);
             }
@@ -372,7 +380,7 @@ namespace ParryRL.Survivor
             core.raycastTarget = false;
             UiKit.Place(core.rectTransform, new Vector2(0f, 1f), new Vector2(-6f, 6f), new Vector2(size * 0.38f, size * 0.38f));
             core.gameObject.SetActive(false);
-            var slot = new Slot { Bg = bg, Icon = icon, Glyph = glyph, Lv = lv, Core = core };
+            var slot = new Slot { Bg = bg, Icon = icon, Glyph = glyph, Lv = lv, Core = core, Frame = frame };
             SvHover.Attach(bg, () => slot.Id != null ? SvMenus.Describe(slot.Id) : "<color=#a0a0a0>빈 칸</color>");
             return slot;
         }
@@ -393,13 +401,24 @@ namespace ParryRL.Survivor
                 PaintIcon(slot.Icon, slot.Glyph, item);
                 int lv = prog.LevelOf(id);
                 slot.Lv.text = lv >= item.MaxLevel ? "<color=#ffd36a>최대</color>" : lv.ToString();
-                // 기술 수련 칸은 남빛 바탕 (S14 칸 틀 그림이 오기 전까지 색으로 구분)
-                slot.Bg.color = item.Kind == SvItemKind.Skill ? new Color(0.08f, 0.1f, 0.2f, 0.92f) : new Color(0.1f, 0.09f, 0.08f, 0.9f);
+                // 칸 틀: 봉(고정) · 기술 · 무기 (S14 그림, 없으면 기술 칸은 남빛 바탕으로 구분)
+                bool skillSlot = item.Kind == SvItemKind.Skill;
+                slot.Bg.color = skillSlot && (_art == null || _art.slotSkill == null) ? new Color(0.08f, 0.1f, 0.2f, 0.92f) : new Color(0.1f, 0.09f, 0.08f, 0.9f);
+                if (top && slot.Frame != null && _art != null)
+                {
+                    var f = id == SvItems.Staff ? _art.slotStaff : skillSlot ? _art.slotSkill : null;
+                    slot.Frame.sprite = f != null ? f : _art.slotWeapon;
+                }
                 // 핵심 비급을 가진 무기: 왼쪽 위에 자줏빛 보주 표식
                 // 핵심 비급을 받은 무기 · 기술 (두 갈래 중 어느 쪽이든)
                 slot.Core.gameObject.SetActive(SvItems.CoreTaken(prog, id) != null);
             }
-            for (int i = w; i < _weaponSlots.Count; i++) Clear(_weaponSlots[i]);
+            for (int i = w; i < _weaponSlots.Count; i++)
+            {
+                Clear(_weaponSlots[i]);
+                // 아직 안 고른 공용 칸은 점선 틀
+                if (_weaponSlots[i].Frame != null && _art != null && _art.slotEmpty != null) _weaponSlots[i].Frame.sprite = _art.slotEmpty;
+            }
             for (int i = p; i < _passiveSlots.Count; i++) Clear(_passiveSlots[i]);
 
             static void Clear(Slot s)
@@ -582,6 +601,13 @@ namespace ParryRL.Survivor
             dim.raycastTarget = true;
             UiKit.Stretch(dim.rectTransform);
             _cardRoot = dim.rectTransform;
+            // 핵심 비급 창일 때만 제목 뒤에 자줏빛 띠 (S14 core_window)
+            _coreBanner = UiKit.Image("CoreBanner", _cardRoot, Color.white);
+            _coreBanner.sprite = _art != null ? _art.coreBanner : null;
+            _coreBanner.preserveAspect = true;
+            _coreBanner.raycastTarget = false;
+            UiKit.Place(_coreBanner.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0f, 350f), new Vector2(1100f, 190f));
+            _coreBanner.gameObject.SetActive(false);
             var title = UiKit.Text("Title", _cardRoot, 52, TextAnchor.MiddleCenter);
             UiKit.Place(title.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0f, 350f), new Vector2(900f, 70f));
             title.text = "레벨 업! 하나를 고르세요";
@@ -686,10 +712,10 @@ namespace ParryRL.Survivor
                     WindowW = a != null && a.cardCore != null ? 0.44f : 0.47f, NameY = 0.56f, DescY = 0.68f, PipY = 0.86f, KeyY = 0.9f,
                     NameCol = new Color(1f, 0.7f, 0.95f), DescCol = cream,
                 },
-                // 기술 수련: S14 남빛 족자(card_skill)가 오기 전엔 무기 족자를 남빛으로 물들여 쓴다 (ShowCards)
+                // 기술 수련: S14 남빛 족자(card_skill), 없으면 무기 족자를 남빛으로 물들여 쓴다 (ShowCards)
                 SvItemKind.Weapon or SvItemKind.Skill => new CardLook
                 {
-                    Scroll = a?.cardWeapon, Frame = a?.frameWeapon, Emblem = Em(0), Pip = a?.pipGold, Round = false,
+                    Scroll = kind == SvItemKind.Skill && a != null && a.cardSkill != null ? a.cardSkill : a?.cardWeapon, Frame = a?.frameWeapon, Emblem = Em(0), Pip = a?.pipGold, Round = false,
                     Aspect = 0.64f, WindowY = 0.355f, WindowW = 0.47f, NameY = 0.545f, DescY = 0.67f, PipY = 0.855f, KeyY = 0.915f,
                     NameCol = new Color(1f, 0.85f, 0.5f), DescCol = cream,
                 },
@@ -709,6 +735,7 @@ namespace ParryRL.Survivor
         }
 
         private Text _cardTitle;
+        private Image _coreBanner;
 
         /// <summary>레벨업 카드를 띄운다. coreWindow = 핵심 비급 전용 창 (레벨 4 · 8 · 12 · 16).</summary>
         public void ShowCards(List<SvItem> offer, SvProgress prog, bool coreWindow = false)
@@ -717,8 +744,9 @@ namespace ParryRL.Survivor
             if (_cardTitle != null)
             {
                 _cardTitle.text = coreWindow ? "핵심 비급 — 이번 판의 길을 고르세요" : "레벨 업! 하나를 고르세요";
-                _cardTitle.color = coreWindow ? CoreCol : Teal;
+                _cardTitle.color = coreWindow ? (_art != null && _art.coreBanner != null ? new Color(1f, 0.9f, 0.6f) : CoreCol) : Teal;
             }
+            if (_coreBanner != null) _coreBanner.gameObject.SetActive(coreWindow && _coreBanner.sprite != null);
             _cardsShownAt = Time.unscaledTime;
             for (int i = 0; i < _cards.Count; i++)
             {
@@ -737,7 +765,7 @@ namespace ParryRL.Survivor
                 var rt = c.Bg.rectTransform;
                 rt.sizeDelta = new Vector2(w, h);
                 c.Bg.sprite = art ? look.Scroll : (_art != null ? _art.card : null);
-                c.Bg.color = item.Kind == SvItemKind.Skill ? new Color(0.62f, 0.72f, 1f) : Color.white;
+                c.Bg.color = item.Kind == SvItemKind.Skill && (_art == null || _art.cardSkill == null) ? new Color(0.62f, 0.72f, 1f) : Color.white;
                 if (!art && c.Bg.sprite == null) c.Bg.color = Panel;
                 float win = w * look.WindowW;
                 Vector2 At(float y01) => new(0f, -h * y01);

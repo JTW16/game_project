@@ -491,7 +491,7 @@ namespace ParryRL.Survivor
                 _fallPeak = 0f;
                 if (fromLeap)
                 {
-                    if (HasCore(SvItems.CoreLeap2)) _swiftUntil = Time.time + 2f;
+                    if (HasCore(SvItems.CoreLeap2)) { _swiftUntil = Time.time + 2f; SvSkillVfx.SwallowTrail(transform, 2f); }
                     LeapLanded?.Invoke(_rb.position);
                 }
                 return;

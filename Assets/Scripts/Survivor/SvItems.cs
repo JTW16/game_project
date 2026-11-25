@@ -18,7 +18,7 @@ namespace ParryRL.Survivor
         public int MaxLevel = 5;
         /// <summary>그 단계에 올라설 때 얻는 것. [0] = 처음 얻을 때.</summary>
         public string[] Levels;
-        /// <summary>그림 번호: 0~5 = ui/skill_icons, 6~17 = ui/icons2. 그림이 없으면 <see cref="Glyph"/> 글자로 그린다.</summary>
+        /// <summary>그림 번호: 0~5 = ui/skill_icons, 6~17 = ui/icons2, 18~19 = ui/icons3, 20~34 = S14 핵심 비급, 35 = 경공, 36~37 = 산군 · 무녀. 그림이 없으면 <see cref="Glyph"/> 글자로 그린다.</summary>
         public int Icon = -1;
         public string Glyph;
         /// <summary>null이면 언제나. 패링 비급은 패링이 켜져 있을 때만.</summary>
@@ -59,25 +59,25 @@ namespace ParryRL.Survivor
         public static readonly List<SvItem> Cores = new()
         {
             C(CoreStaff, Staff, "삼재격", "三", 0, "봉을 세 번 연달아 휘두른다. 셋째는 더 넓고 1.5배 세다"),
-            C(CoreStaff2, Staff, "회선봉", "旋", 0, "봉을 한 바퀴 돌려 360° 원으로 휘두른다 (범위 ×0.9)"),
+            C(CoreStaff2, Staff, "회선봉", "旋", 20, "봉을 한 바퀴 돌려 360° 원으로 휘두른다 (범위 ×0.9)"),
             C(CoreTalisman, Talisman, "폭렬부", "爆", 2, "부적이 맞힌 자리에서 터져 둘레의 적에게 피해의 절반"),
-            C(CoreTalisman2, Talisman, "연쇄부", "連", 2, "맞은 적에서 가까운 다음 적으로 두 번 튕긴다"),
+            C(CoreTalisman2, Talisman, "연쇄부", "連", 21, "맞은 적에서 가까운 다음 적으로 두 번 튕긴다"),
             C(CoreOrbit, Orbit, "귀화륜", "輪", 6, "3초마다 도는 부적이 두 배 멀리 퍼졌다 돌아온다"),
-            C(CoreOrbit2, Orbit, "방패부", "盾", 6, "도는 부적이 날아오는 적의 공격(쇠가시 등)을 막는다"),
+            C(CoreOrbit2, Orbit, "방패부", "盾", 22, "도는 부적이 날아오는 적의 공격(쇠가시 등)을 막는다"),
             C(CoreBell, Bell, "진혼령", "鎭", 7, "방울 울림에 맞은 적이 0.8초 묶인다 (보스 제외)"),
-            C(CoreBell2, Bell, "파혼령", "破", 7, "방울 울림에 맞은 적이 3초 동안 받는 피해 +30% (보스 +15%)"),
+            C(CoreBell2, Bell, "파혼령", "破", 23, "방울 울림에 맞은 적이 3초 동안 받는 피해 +30% (보스 +15%)"),
             C(CoreGiant, SvSkills.Giant, "선풍격", "扇", 19, "긴 봉 내리찍기(S)가 양옆으로도 두 줄 더 내리찍혀 부채꼴이 된다"),
-            C(CoreGiant2, SvSkills.Giant, "연환격", "環", 19, "긴 봉이 같은 줄을 0.3초 뒤 한 번 더 내리찍는다"),
-            C(CoreSlam, SvSkills.Slam, "지진", "震", 1, "내려찍은 자리가 3초 동안 흔들려 들어온 적이 느려진다"),
-            C(CoreSlam2, SvSkills.Slam, "낙화연격", "落", 1, "내려찍고 착지한 뒤 1초 안에 Space — 경공 쿨과 상관없이 튀어 올라 한 번 더 내려찍는다"),
-            C(CoreUlt, SvSkills.Ult, "귀문 개방", "開", -1, "궁극기를 쓴 뒤 10초 동안 모든 공격 간격 -30%"),
-            C(CoreUlt2, SvSkills.Ult, "반쪽 봉인", "半", -1, "도력이 절반만 차도 작은 봉인(피해 절반 · 범위 ×0.6)을 쓸 수 있다"),
-            C(CoreTiger, SvSkills.Tiger, "범의 무리", "群", -1, "산군이 둘 — 양옆 두 줄로 덮친다"),
-            C(CoreTiger2, SvSkills.Tiger, "발톱 자국", "爪", -1, "산군이 지나간 길에 3초 동안 자국이 남아 들어온 적에게 피해"),
-            C(CoreShaman, SvSkills.Shaman, "작두타기", "刃", -1, "결계 가장자리가 벽이 되어 닿는 적을 밀어내고 피해"),
-            C(CoreShaman2, SvSkills.Shaman, "넋건지기", "魂", -1, "결계 안에서 쓰러진 적이 보석을 두 배로 떨군다"),
-            C(CoreLeap, SvSkills.Leap, "비천", "飛", -1, "경공으로 뛰었다 착지할 때 둘레에 큰 충격파 (피해 · 밀어냄)"),
-            C(CoreLeap2, SvSkills.Leap, "제비 걸음", "燕", -1, "경공을 쓰면 보법 무적 충전이 모두 차고, 착지 뒤 2초 동안 이동 +30%"),
+            C(CoreGiant2, SvSkills.Giant, "연환격", "環", 24, "긴 봉이 같은 줄을 0.3초 뒤 한 번 더 내리찍는다"),
+            C(CoreSlam, SvSkills.Slam, "지진", "震", 25, "내려찍은 자리가 3초 동안 흔들려 들어온 적이 느려진다"),
+            C(CoreSlam2, SvSkills.Slam, "낙화연격", "落", 26, "내려찍고 착지한 뒤 1초 안에 Space — 경공 쿨과 상관없이 튀어 올라 한 번 더 내려찍는다"),
+            C(CoreUlt, SvSkills.Ult, "귀문 개방", "開", 27, "궁극기를 쓴 뒤 10초 동안 모든 공격 간격 -30%"),
+            C(CoreUlt2, SvSkills.Ult, "반쪽 봉인", "半", 28, "도력이 절반만 차도 작은 봉인(피해 절반 · 범위 ×0.6)을 쓸 수 있다"),
+            C(CoreTiger, SvSkills.Tiger, "범의 무리", "群", 29, "산군이 둘 — 양옆 두 줄로 덮친다"),
+            C(CoreTiger2, SvSkills.Tiger, "발톱 자국", "爪", 30, "산군이 지나간 길에 3초 동안 자국이 남아 들어온 적에게 피해"),
+            C(CoreShaman, SvSkills.Shaman, "작두타기", "刃", 31, "결계 가장자리가 벽이 되어 닿는 적을 밀어내고 피해"),
+            C(CoreShaman2, SvSkills.Shaman, "넋건지기", "魂", 32, "결계 안에서 쓰러진 적이 보석을 두 배로 떨군다"),
+            C(CoreLeap, SvSkills.Leap, "비천", "飛", 33, "경공으로 뛰었다 착지할 때 둘레에 큰 충격파 (피해 · 밀어냄)"),
+            C(CoreLeap2, SvSkills.Leap, "제비 걸음", "燕", 34, "경공을 쓰면 보법 무적 충전이 모두 차고, 착지 뒤 2초 동안 이동 +30%"),
         };
 
         private static SvItem C(string id, string target, string name, string glyph, int icon, string desc) =>
@@ -119,11 +119,11 @@ namespace ParryRL.Survivor
                 { "긴 봉 내리찍기(S)를 칸에 넣는다", "피해 +25%", "길이 +25%", "폭 ×1.5, 맞은 적을 크게 밀어낸다", "쿨타임 -20%", "피해 +35%", "길이 +25%", "내리찍은 줄에 2초 동안 균열 (지속 피해)" } },
             new() { Id = SvSkills.Ult, Name = "귀문봉인 수련", Kind = SvItemKind.Skill, MaxLevel = 8, Glyph = "封", Levels = new[]
                 { "궁극기(D)를 칸에 넣는다", "도력 얻는 양 ×1.5", "피해 +30%", "봉인 뒤 3초 동안 적이 느려진다", "도력 얻는 양 ×2", "피해 +40%", "도력 얻는 양 ×2.5", "도력 얻는 양 ×3, 정예 · 보스 피해 +50%" } },
-            new() { Id = SvSkills.Tiger, Name = "산군 수련", Kind = SvItemKind.Skill, MaxLevel = 8, Glyph = "虎", Levels = new[]
+            new() { Id = SvSkills.Tiger, Name = "산군 수련", Kind = SvItemKind.Skill, MaxLevel = 8, Icon = 36, Glyph = "虎", Levels = new[]
                 { "산군(W)을 칸에 넣는다", "피해 +30%", "쿨타임 -15%", "끝까지 달린 뒤 되돌아오며 한 번 더", "피해 +30%", "길이 +30%", "쿨타임 -20%", "맞은 적 1초 기절 (보스 제외)" } },
-            new() { Id = SvSkills.Shaman, Name = "무녀 수련", Kind = SvItemKind.Skill, MaxLevel = 8, Glyph = "巫", Levels = new[]
+            new() { Id = SvSkills.Shaman, Name = "무녀 수련", Kind = SvItemKind.Skill, MaxLevel = 8, Icon = 37, Glyph = "巫", Levels = new[]
                 { "무녀(E)를 칸에 넣는다", "결계 +1초", "회복 +50%", "결계 반경 +30%", "쿨타임 -15%", "회복 +50%", "결계 +1초", "결계 안의 적이 받는 피해 ×1.5" } },
-            new() { Id = SvSkills.Leap, Name = "경공 수련", Kind = SvItemKind.Skill, MaxLevel = 8, Glyph = "躍", Levels = new[]
+            new() { Id = SvSkills.Leap, Name = "경공 수련", Kind = SvItemKind.Skill, MaxLevel = 8, Icon = 35, Glyph = "躍", Levels = new[]
                 { "경공(Space)을 칸에 넣는다", "쿨타임 -10%", "2단 높이 +20%", "두 번 연달아 쓸 수 있다 (충전 2회)", "쿨타임 -15%", "허공답보 +1회", "쿨타임 -20%", "떠 있어도 봉 휘두르기 · 호신부가 땅에 닿는다" } },
 
             new() { Id = Move, Name = "축지법", Kind = SvItemKind.Passive, Icon = 8, Levels = new[] { "이동 속도 +8%" } },

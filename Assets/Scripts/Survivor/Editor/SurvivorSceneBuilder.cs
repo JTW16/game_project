@@ -220,6 +220,18 @@ namespace ParryRL.EditorTools
             art.coreEmblem = coreParts.Length > 0 ? coreParts[0] : null;
             art.coreBadge = coreParts.Length > 1 ? coreParts[1] : null;
             art.helperIcons = Frames(ui, "helpericon_");
+            // S14 — 아이콘은 이름 순(10이 2보다 앞)이 아니라 번호 순으로
+            art.cardSkill = Frames(ui, "cards_").FirstOrDefault();
+            var slotB = Numbered(Frames(ui, "slotframeb_"));
+            art.slotSkill = slotB.Length > 0 ? slotB[0] : null;
+            art.slotEmpty = slotB.Length > 1 ? slotB[1] : null;
+            art.slotStaff = slotB.Length > 2 ? slotB[2] : null;
+            var coreWin = Numbered(Frames(ui, "corewin_"));
+            art.coreBanner = coreWin.Length > 0 ? coreWin[0] : null;
+            art.coreFork = coreWin.Length > 1 ? coreWin[1] : null;
+            art.coreIcons = Numbered(Frames(ui, "coreicon_"));
+            art.iconLeap = Frames(ui, "iconleap_").FirstOrDefault();
+            art.itemRiceball = Frames(fx, "riceball_").FirstOrDefault();
             art.fxSummon = Frames(fx, "summon_");
             art.fxWard = Frames(fx, "ward_");
             // S9
@@ -440,6 +452,10 @@ namespace ParryRL.EditorTools
             ti.textureCompression = TextureImporterCompression.Uncompressed;
             ti.SaveAndReimport();
         }
+
+        /// <summary>이름 끝 번호(_0, _1 … _14) 순으로 다시 늘어놓는다.</summary>
+        private static Sprite[] Numbered(Sprite[] sprites) =>
+            sprites.OrderBy(s => int.TryParse(s.name.Substring(s.name.LastIndexOf('_') + 1), out int n) ? n : 0).ToArray();
 
         private static Sprite[] Frames(string[] paths, string prefix) =>
             paths.Where(p => Path.GetFileName(p).StartsWith(prefix))

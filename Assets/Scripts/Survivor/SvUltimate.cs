@@ -102,7 +102,7 @@ namespace ParryRL.Survivor
             Vector2 at = _player.Position;
             float r = (SvView.Instance != null ? SvView.Instance.OffscreenRadius * 0.85f : 14f) * (_half ? 0.6f : 1f);
             // 귀문 개방(핵심 비급): 쓴 뒤 10초 동안 모든 공격 간격 -30%
-            if (HasCore(SvItems.CoreUlt)) GateOpenUntil = Time.time + 10f;
+            if (HasCore(SvItems.CoreUlt)) { GateOpenUntil = Time.time + 10f; SvSkillVfx.GateAura(_player.transform, 10f); }
 
             // 2) 화면을 덮는 봉인진 + 솟는 빛기둥 + 큰 번쩍임
             SvSkillVfx.UltFire(_player.transform, at, r);

@@ -1780,6 +1780,26 @@ namespace ParryRL.Tests
         }
 
         [UnityTest]
+        public IEnumerator Capture_Core_Effects_Wired()
+        {
+            Game.Weapons.enabled = false;
+            for (int i = 0; i < 10; i++) { var e = SpawnAt(SvEnemyKind.Changgwi, SvGeom.FromAngle(i * 36f) * 2.2f); e.SetHealth(9999); e.Speed = 0f; }
+            Raise(SvItems.Staff, 2); Raise(SvSkills.Slam, 2); Raise(SvSkills.Shaman, 2);
+            foreach (var id in new[] { SvItems.CoreStaff2, SvItems.CoreSlam, SvItems.CoreShaman })
+                Game.Progress.Take(SvItems.Get(id), Player, Game.Weapons);
+            yield return WaitReal(0.3f);
+            Game.Weapons.Swing();
+            yield return WaitReal(0.12f);
+            yield return Capture("survivor_core_spin");
+            Assert.IsTrue(Player.TrySlam());
+            yield return WaitReal(0.9f);
+            yield return Capture("survivor_core_quake");
+            Assert.IsTrue(Game.Helpers.TryShaman());
+            yield return WaitReal(0.8f);
+            yield return Capture("survivor_core_blades");
+        }
+
+        [UnityTest]
         public IEnumerator New_Cores_Work()
         {
             Game.Weapons.enabled = false;

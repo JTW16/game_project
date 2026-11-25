@@ -128,6 +128,17 @@ namespace ParryRL.Survivor
         public Sprite[] fxSummon, fxWard;
         [Tooltip("조력자 기술 칸 아이콘: 산군 · 무녀")]
         public Sprite[] helperIcons;
+        [Header("S14 — 기술 수련 · 공용 칸 · 핵심 비급 갈림길 · 경공 · 주먹밥 (없으면 있는 그림으로 대신)")]
+        [Tooltip("기술 수련 족자 (남빛)")]
+        public Sprite cardSkill;
+        [Tooltip("칸 틀: 기술 칸 · 빈 공용 칸 · 봉 고정 칸")]
+        public Sprite slotSkill, slotEmpty, slotStaff;
+        [Tooltip("핵심 비급 창 제목 띠 · 갈림길 장식")]
+        public Sprite coreBanner, coreFork;
+        [Tooltip("새 핵심 비급 아이콘 15개 (요청서 6S14-1 순서: 회선봉 … 제비 걸음)")]
+        public Sprite[] coreIcons;
+        [Tooltip("경공 기술 아이콘 · 주먹밥 아이템")]
+        public Sprite iconLeap, itemRiceball;
         [Header("S9 — 전용 동작 · 상태 · 메뉴 부품 (없으면 있는 그림으로 대신)")]
         [Tooltip("퇴마사: 긴 봉 소환·내리찍기 6장 · 조력자 부르기 4장")]
         public Sprite[] heroGiantSummon, heroSummon;
