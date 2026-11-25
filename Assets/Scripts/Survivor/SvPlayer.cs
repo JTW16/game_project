@@ -3,8 +3,8 @@ using UnityEngine;
 namespace ParryRL.Survivor
 {
     /// <summary>
-    /// 퇴마사: 8방향 이동 · 2단 점프(그림만 뜸) · 대시(2회, 무적) · 점프 후 내려찍기(A) · 패링(S, 정예 공격만).
-    /// 판정 몸은 바닥 평면의 원 하나. 수치는 모두 가안.
+    /// 퇴마사: 8방향 이동 · 경공(2단 점프) · 보법(대시, 자유롭게 — 무적은 충전된 만큼만) · 급강하·내려찍기(A) · 패링(Q, 정예 공격만).
+    /// 판정 몸은 바닥 평면의 원 하나. 높이 떠 있으면 땅의 잡귀에게 닿지 않는다. 수치는 모두 가안.
     /// </summary>
     [RequireComponent(typeof(Rigidbody2D))]
     public class SvPlayer : MonoBehaviour
@@ -17,21 +17,44 @@ namespace ParryRL.Survivor
         [SerializeField] private float regenPerSecond = 0.3f;
 
         [Header("이동")]
-        [SerializeField] private float moveSpeed = 5f;
-        [SerializeField] private float jumpVelocity = 9f;
-        [SerializeField] private float gravity = 30f;
-        [SerializeField] private int maxJumps = 2;
+        [SerializeField] private float moveSpeed = 5.5f;
 
-        [Header("대시")]
-        [SerializeField] private float dashDistance = 3.2f;
-        [SerializeField] private float dashTime = 0.16f;
+        [Header("경공 (점프)")]
+        [SerializeField] private float jumpVelocity = 9.5f;
+        [SerializeField] private float leapVelocity = 14f;
+        [SerializeField] private float gravity = 30f;
+        [Tooltip("꼭대기에서 잠깐 머무는 중력 배율 · 떨어질 때 배율")]
+        [SerializeField] private float apexGravity = 0.6f;
+        [SerializeField] private float fallGravity = 1.25f;
+        [SerializeField] private int maxJumps = 2;
+        [Tooltip("2단 점프 때 가던 쪽으로 더해지는 속도")]
+        [SerializeField] private float leapPush = 3f;
+        [Tooltip("이보다 높으면 땅의 잡귀에게 닿지 않는다")]
+        [SerializeField] private float safeHeight = 1.2f;
+
+        [Header("보법 (대시)")]
+        [SerializeField] private float dashDistance = 4.2f;
+        [SerializeField] private float dashTime = 0.18f;
+        [Tooltip("다시 밟을 수 있을 때까지 (아무 때나 쓴다)")]
+        [SerializeField] private float dashGap = 0.26f;
+        [Tooltip("무적 보법 충전 수 · 한 번 차는 시간 — 다 쓰면 무적 없이 움직이기만 한다")]
         [SerializeField] private int dashCharges = 2;
         [SerializeField] private float dashRecharge = 1.2f;
+        [Tooltip("한 번 떠 있는 동안 밟을 수 있는 수 (허공답보)")]
+        [SerializeField] private int airDashes = 2;
+        [Tooltip("보법이 끝난 뒤 남는 속도 (이동 속도 배율)")]
+        [SerializeField] private float dashCarry = 0.9f;
 
         [Header("내려찍기 (A)")]
         [SerializeField] private float slamCooldown = 2.5f;
         [SerializeField] private float slamFallSpeed = 28f;
         [SerializeField] private float slamHop = 7f;
+
+        [Header("급강하 (공중 A)")]
+        [SerializeField] private float diveMinHeight = 1f;
+        [SerializeField] private float diveFullHeight = 4f;
+        [SerializeField] private float diveHang = 0.1f;
+        [SerializeField] private float diveReach = 8f;
 
         [Header("패링 (Q)")]
         [SerializeField] private float parryWindow = 0.3f;
@@ -58,7 +81,17 @@ namespace ParryRL.Survivor
         public float SlamCooldown => slamCooldown;
         public int DashChargesLeft { get; private set; }
         public bool Dashing => Time.time < _dashUntil;
-        public bool Invulnerable => Dashing || Time.time < _invulUntil;
+        public bool Invulnerable => (Dashing && _dashSafe) || Diving || Time.time < _invulUntil;
+        /// <summary>무적 보법인가 (충전이 없으면 움직이기만 한다).</summary>
+        public bool DashSafe => _dashSafe;
+        /// <summary>높은 데서 내리꽂는 중.</summary>
+        public bool Diving { get; private set; }
+        /// <summary>마지막 내려찍기가 얼마나 높은 데서 왔나 (0~1).</summary>
+        public float DivePower { get; private set; }
+        public float VerticalSpeed => _vy;
+        public SvMomentum Momentum { get; set; }
+        /// <summary>기세까지 얹은 지금 속도.</summary>
+        public float SpeedNow => moveSpeed * (Momentum != null ? Momentum.SpeedMul : 1f);
         public bool Parrying => Time.time < _parryUntil;
         public float ParryCooldownLeft => Mathf.Max(0f, _parryReadyAt - Time.time);
         public float ParryCooldown => parryCooldown;
@@ -73,15 +106,30 @@ namespace ParryRL.Survivor
 
         private Rigidbody2D _rb;
         private SvBillboard _art;
+        private SvHeroRig _rig;
+        /// <summary>부위를 나눈 뼈대 (그림이 없으면 null — 예전 그림 장면으로 움직인다).</summary>
+        public SvHeroRig Rig => _rig;
         private SurvivorArt _artSet;
         private float _vy, _regen;
         private int _jumpsUsed;
         private float _dashUntil, _dashRechargeAt, _invulUntil, _parryUntil, _parryReadyAt, _slamReadyAt;
-        private Vector2 _dashDir;
+        private Vector2 _dashDir, _carry, _diveDir;
+        private bool _dashSafe;
+        private int _airDashUsed;
+        private float _airHoldUntil;
+        /// <summary>공중에서 큰 기술을 쓰는 동안 그 높이에 잠깐 머문다.</summary>
+        public void HoldAir(float seconds)
+        {
+            if (Airborne && !Slamming) _airHoldUntil = Time.time + seconds;
+        }
+        private float _dashReadyAt, _flipAt = -9f, _diveAt, _diveVy, _diveSpeed, _fallPeak;
+        private SpriteRenderer _shadow;
+        private Vector3 _shadowScale;
         private float _runClock;
         private MeshRenderer _hitDisc;
         // 그림 동작: 휘두르기·던지기처럼 잠깐 덮어쓰는 동작과, 대시·내려찍기·쓰러짐의 시각
         private Sprite[] _action;
+        private float _deadClock;
         private float _actionStart, _actionDur, _dashEndAt = -9f, _slamLandAt = -9f, _deadAt = -1f;
         private bool _actionLeft;
         private string _actionPose;
@@ -128,10 +176,13 @@ namespace ParryRL.Survivor
             _art = SvBillboard.Create(transform, "Art", hasArt ? _artSet.heroIdle : SvSprites.Box,
                 hasArt ? Vector2.zero : new Vector2(0.8f, 1.6f));
             if (!hasArt) _art.Renderer.color = new Color(0.55f, 0.7f, 0.55f);
+            _rig = SvHeroRig.Create(_art.transform, _artSet);
+            if (_rig != null) _art.Renderer.enabled = false;
             // 퇴마사가 든 등불 같은 빛: 넓고 옅은 둘레 + 발밑의 밝은 웅덩이 (어두운 바닥에서 외곽이 묻히지 않게, 설계서 2장)
             SvBillboard.CreateGlow(transform, 9f, new Color(1f, 0.82f, 0.55f, 0.26f));
             SvBillboard.CreateGlow(transform, 3f, new Color(1f, 0.9f, 0.7f, 0.38f));
-            SvBillboard.CreateShadow(transform, 1.1f);
+            _shadow = SvBillboard.CreateShadow(transform, 1.1f);
+            _shadowScale = _shadow.transform.localScale;
             _hitDisc = SvBillboard.CreateHitDisc(transform, hurtRadius, new Color(0.3f, 1f, 0.4f, 0.5f));
         }
 
@@ -155,23 +206,51 @@ namespace ParryRL.Survivor
         {
             if (Dead || Slamming || _jumpsUsed >= maxJumps) return false;
             _jumpsUsed++;
-            _vy = jumpVelocity;
+            bool second = _jumpsUsed >= 2;
+            _vy = second ? leapVelocity : jumpVelocity;
             _jumpAt = Time.time;
-            Sfx.Play(SfxId.Jump, 0.6f);
+            _fallPeak = 0f;
+            // 보법 끝에 이어 뛰면 그 힘을 타고 멀리 난다
+            if (Time.time - _dashEndAt < 0.15f) _carry = _dashDir * SpeedNow * 1.1f;
+            if (second)
+            {
+                _flipAt = Time.time;
+                _carry += MoveInput * leapPush;
+                SvView.Instance?.Punch(-0.05f, 0.35f);
+            }
+            SvSkillVfx.Leap(Position, Height, second);
+            Momentum?.OnJump(second);
+            Sfx.Play(SfxId.Jump, second ? 0.8f : 0.6f);
+            if (second) Sfx.Play(SfxId.Dash, 0.35f);
             return true;
         }
 
         public bool TryDash()
         {
-            if (Dead || Slamming || DashChargesLeft <= 0) return false;
-            if (DashChargesLeft == dashCharges) _dashRechargeAt = Time.time + dashRecharge;
-            DashChargesLeft--;
+            if (Dead || Slamming || Time.time < _dashReadyAt) return false;
+            if (Airborne && Height > 0.05f)
+            {
+                if (_airDashUsed >= airDashes) return false;
+                _airDashUsed++;
+                _vy = Mathf.Max(_vy, 0f);
+            }
+            _dashSafe = DashChargesLeft > 0;
+            if (_dashSafe)
+            {
+                if (DashChargesLeft == dashCharges) _dashRechargeAt = Time.time + dashRecharge;
+                DashChargesLeft--;
+            }
+            _dashReadyAt = Time.time + dashGap;
             _dashDir = MoveInput.sqrMagnitude > 0.01f ? MoveInput.normalized : Facing;
             _dashUntil = Time.time + dashTime;
             // 잔상: 그림은 오른쪽으로 달리는 모습 (꼬리가 왼쪽) — 왼쪽으로 가면 뒤집는다
-            if (_artSet != null) SvFx.Anim(_artSet.fxDashTrail, Position + _dashDir * 0.6f, 0.9f, 2.4f, 0.32f, _dashDir.x < 0f, order: SvOrder.Actor);
+            if (_artSet != null && _rig == null) SvFx.Anim(_artSet.fxDashTrail, Position + _dashDir * 0.6f, 0.9f, 2.4f, 0.32f, _dashDir.x < 0f, order: SvOrder.Actor);
             _dashEndAt = _dashUntil;
-            Sfx.Play(SfxId.Dash, 0.7f);
+            _carry = _dashDir * (SpeedNow * dashCarry);
+            SvSkillVfx.Step(Position, _dashDir, dashDistance, Height, _dashSafe);
+            SvView.Instance?.Punch(-0.025f, 0.2f);
+            Momentum?.OnDash();
+            Sfx.Play(SfxId.Dash, _dashSafe ? 0.7f : 0.5f);
             return true;
         }
 
@@ -180,9 +259,29 @@ namespace ParryRL.Survivor
         {
             if (Dead || Slamming || SlamCooldownLeft > 0f) return false;
             Slamming = true;
+            _airHoldUntil = 0f;
             _slamReadyAt = Time.time + slamCooldown;
-            if (Height <= 0f) _vy = slamHop;
+            DivePower = 0f;
+            Diving = false;
+            if (Height <= 0f) { _vy = slamHop; SvSkillVfx.SlamGather(transform, 0.24f); }
+            else if (Height >= diveMinHeight) StartDive();
             return true;
+        }
+
+        /// <summary>공중에서 A: 잠깐 멈칫했다가 보는 쪽으로 비스듬히 내리꽂는다. 높을수록 멀리·세게.</summary>
+        private void StartDive()
+        {
+            Diving = true;
+            DivePower = Mathf.Clamp01(Mathf.InverseLerp(diveMinHeight * 0.6f, diveFullHeight, Height));
+            _diveDir = MoveInput.sqrMagnitude > 0.01f ? MoveInput.normalized : Facing;
+            float time = 0.15f + 0.015f * Height;
+            _diveAt = Time.time + diveHang;
+            _diveVy = -Height / time;
+            _diveSpeed = Mathf.Lerp(1.5f, diveReach, DivePower) / time;
+            _carry = Vector2.zero;
+            _vy = 0f;
+            SvSkillVfx.DivePath(SvVfx.P(Position, Height + 0.9f), SvVfx.P(Position + _diveDir * (_diveSpeed * time), 0.45f), time, diveHang);
+            Sfx.Play(SfxId.StaffSwing1, 0.8f);
         }
 
         public bool TryParry()
@@ -202,6 +301,7 @@ namespace ParryRL.Survivor
             _parryReadyAt = Time.time;
             _parryHitAt = Time.time;
             _parryHitLeft = _art != null && _art.FacingLeft;
+            if (_rig != null) _rig.Play(SvHeroAct.Counter, ParryHitTime, Facing);
             _invulUntil = Time.time + 0.3f;
         }
 
@@ -239,7 +339,23 @@ namespace ParryRL.Survivor
             _actionStart = Time.time;
             _actionDur = duration;
             _actionLeft = Mathf.Abs(dir.x) > 0.05f ? dir.x < 0f : _art != null && _art.FacingLeft;
+            if (_rig == null) return;
+            var a = _artSet;
+            var act = frames == a.heroSwing ? SvHeroAct.Swing : frames == a.heroUltimate ? SvHeroAct.Ultimate : frames == a.heroSummon ? SvHeroAct.Summon
+                : pose == "giant" ? SvHeroAct.Giant : SvHeroAct.Throw;
+            _rig.Play(act, duration, dir, act == SvHeroAct.Swing ? SwingSign : 1f, act == SvHeroAct.Swing ? SwingPower : 1f);
+            SwingPower = 1f;
         }
+
+        /// <summary>다음 휘두르기의 쪽과 크기 (무기가 정한다: 번갈아 쓸고, 연타 마지막은 크게).</summary>
+        public float SwingSign { get; set; } = 1f;
+        public float SwingPower { get; set; } = 1f;
+        /// <summary>자동 봉이 나가기 직전 당겨 드는 정도(0~1)와 쪽 (무기가 매 프레임 알려 준다).</summary>
+        public float WindupAmount { get; set; }
+        public Vector2 WindupDir { get; set; } = Vector2.right;
+        /// <summary>온몸을 쓰는 동작 중 (긴 봉·궁극기·휘두르기) — 부적 던지기 같은 작은 동작이 끊지 않게.</summary>
+        public bool BusyAct => _rig != null && _rig.Act is SvHeroAct.Giant or SvHeroAct.Ultimate or SvHeroAct.Swing or SvHeroAct.Counter or SvHeroAct.Summon;
+
 
         /// <summary>지금 그리는 동작 이름 (테스트·디버그용).</summary>
         public string Pose { get; private set; } = "idle";
@@ -251,8 +367,24 @@ namespace ParryRL.Survivor
         {
             if (Dead) return;
             float dt = Time.fixedDeltaTime;
-            Vector2 v = Dashing ? _dashDir * (dashDistance / dashTime) : MoveInput * moveSpeed;
-            if (Slamming && Height > 0f && _vy < 0f) v *= 0.3f;
+            Vector2 v;
+            if (Dashing)
+            {
+                // 튀어 나가듯 빠르게 시작해 미끄러지듯 멎는다 (평균은 거리 ÷ 시간)
+                float t = 1f - (_dashUntil - Time.time) / dashTime;
+                v = _dashDir * (dashDistance / dashTime * (1.6f - 1.2f * Mathf.Clamp01(t)));
+            }
+            else
+            {
+                v = MoveInput * SpeedNow + _carry;
+                float cap = SpeedNow * 2.1f;
+                if (v.sqrMagnitude > cap * cap) v = v.normalized * cap;
+                // 남은 힘: 땅에서는 금방 멎고(손을 놓으면 더), 공중에서는 길게 흐른다
+                float drag = Airborne ? 1.4f : MoveInput.sqrMagnitude > 0.01f ? 5f : 11f;
+                _carry *= Mathf.Exp(-drag * dt);
+            }
+            if (Diving) v = Time.time < _diveAt ? Vector2.zero : _diveDir * _diveSpeed;
+            else if (Slamming && Height > 0f && _vy < 0f) v *= 0.3f;
             // 담·나무 같은 소품은 물리로 밀리지 않는 몸이라 직접 밀어낸다
             Vector2 next = _rb.position + v * dt;
             // 점프로 떠 있으면 낮은 담·울타리·바위는 넘는다 (내려앉을 때 걸쳐 있으면 밀려난다)
@@ -275,8 +407,12 @@ namespace ParryRL.Survivor
             // 높이는 판정과 무관한 그림 연출
             if (Height > 0f || _vy > 0f)
             {
-                bool plunge = Slamming && _vy <= 0f;
-                _vy = plunge ? -slamFallSpeed : _vy - gravity * dt;
+                if (Diving) _vy = Time.time < _diveAt ? 0f : _diveVy;
+                else if (Slamming && _vy <= 0f) _vy = -slamFallSpeed;
+                else if (Time.time < _airHoldUntil && Height > 0.05f) _vy = Mathf.MoveTowards(_vy, 0f, 90f * dt);
+                else if (Dashing && Height > 0.05f) _vy = Mathf.Max(0f, _vy - gravity * 0.4f * dt); // 허공답보: 밟는 동안 떨어지지 않는다
+                else _vy -= gravity * (Mathf.Abs(_vy) < 3.5f ? apexGravity : _vy < 0f ? fallGravity : 1f) * dt;
+                _fallPeak = Mathf.Max(_fallPeak, -_vy);
                 Height = Mathf.Max(0f, Height + _vy * dt);
                 if (Height <= 0f) Land();
             }
@@ -296,6 +432,7 @@ namespace ParryRL.Survivor
             for (int i = 0; i < n; i++)
             {
                 var e = SvEnemy.Find(Touching[i]);
+                if (e != null && Height > safeHeight + e.Hover) continue;
                 if (e != null && e.isActiveAndEnabled && !e.Stunned) worst = Mathf.Max(worst, e.ContactDamage);
             }
             if (worst > 0) TakeDamage(worst);
@@ -307,8 +444,11 @@ namespace ParryRL.Survivor
             Height = 0f;
             _vy = 0f;
             _jumpsUsed = 0;
-            if (!Slamming) return;
+            _airDashUsed = 0;
+            if (!Slamming) { SvSkillVfx.Alight(Position, _fallPeak); _fallPeak = 0f; return; }
+            _fallPeak = 0f;
             Slamming = false;
+            Diving = false;
             _slamLandAt = Time.time;
             SlamLanded?.Invoke(_rb.position);
         }
@@ -367,6 +507,14 @@ namespace ParryRL.Survivor
         {
             if (_art == null) return;
             _art.Height = Height;
+            // 높이 뜨면 카메라에 가까워진 만큼 조금 커 보인다
+            _art.Scale = 1f + 0.22f * Mathf.Clamp01(Height / 4.2f);
+            if (_shadow != null)
+            {
+                float sk = 1f / (1f + 0.14f * Height);
+                _shadow.transform.localScale = _shadowScale * sk;
+                _shadow.color = new Color(0f, 0f, 0f, 0.45f * Mathf.Lerp(1f, 0.75f, Mathf.Clamp01(Height / 4f)));
+            }
             if (Mathf.Abs(Facing.x) > 0.05f) _art.FacingLeft = Facing.x < 0f;
             _art.Squash = Vector2.one;
             var a = _artSet;
@@ -457,12 +605,58 @@ namespace ParryRL.Survivor
             if (Slamming && _vy <= 0f && Height > 0f && !SurvivorArt.Ok(a != null ? a.heroSlam : null)) _art.Squash = new Vector2(0.85f, 1.15f);
 
             Motion();
+            if (_rig != null) _art.Lean = 0f;
 
             var c = Color.white;
             if (Time.time < _invulUntil && !Dashing && !Dead) c.a = Mathf.PingPong(Time.time * 12f, 1f) < 0.5f ? 0.35f : 1f;
             if (!hasArt) c *= new Color(0.55f, 0.7f, 0.55f);
             _art.Renderer.color = c;
+            if (_rig != null) TickRig(c);
             if (_hitDisc != null) _hitDisc.enabled = SvGame.ShowHitboxes;
+        }
+
+        private void Ghost(Color color, float life)
+        {
+            // 뼈대는 봉 궤적이 따로 있어 몸 잔상은 대시에만, 옅게
+            if (_rig != null) { if (Pose == "dash") SvAfterimage.Spawn(_rig, new Color(color.r, color.g, color.b, color.a * 0.6f), life); }
+            else SvAfterimage.Spawn(_art.Renderer, color, life);
+        }
+
+        private void TickRig(Color tint)
+        {
+            float now = Time.time;
+            // 궁극기는 세상이 멈춘 동안에도 퇴마사만 움직인다
+            bool ult = _rig.Act == SvHeroAct.Ultimate;
+            float dt = ult && Time.timeScale == 0f && !SvGame.InputBlocked ? Time.unscaledDeltaTime : Time.deltaTime;
+            // 쓰러지면 게임 시간이 멈추지만 넘어지는 동작은 끝까지 간다
+            if (Dead) { if (Time.timeScale == 0f) dt = Mathf.Min(Time.unscaledDeltaTime, 0.05f); _deadClock += dt; }
+            float blink = Time.time < _invulUntil && !Dashing && !Dead && Mathf.PingPong(Time.time * 12f, 1f) < 0.5f ? 0.38f : 0f;
+            tint = Color.white;
+            // 뼈대는 제 무게로 눌리고 튕기므로 그림 찌그러짐은 뛸 때·내릴 때만 남긴다
+            float j = (now - _jumpAt) / 0.14f, l = (now - _landAt) / 0.16f;
+            Vector2 sq = Vector2.one;
+            if (j < 1f) sq = Vector2.Lerp(new Vector2(0.9f, 1.1f), sq, j);
+            if (l < 1f && Height <= 0f) sq = Vector2.Lerp(new Vector2(1.12f, 0.88f), sq, l * l);
+            _art.Squash = sq;
+            _art.Sync();
+            var st = new SvHeroState
+            {
+                Move = MoveInput, Facing = Facing, FaceLeft = _art.FacingLeft, Height = Height, Vy = _vy,
+                Airborne = Airborne, Dashing = Dashing, Slamming = Slamming, Guarding = Parrying && now - _parryHitAt > ParryHitTime, Dead = Dead, Celebrating = Celebrating,
+                SinceSlamLand = now - _slamLandAt, SinceLand = now - _landAt, SinceHurt = now - _hurtAt, SinceDash = now - _dashEndAt,
+                SinceVictory = now - _victoryAt, SinceDead = _deadClock, Flash = blink,
+                Windup = WindupAmount, WindupDir = WindupDir, Tint = tint, MoveSpeed = SpeedNow,
+                SinceFlip = now - _flipAt, Diving = Diving, DiveHang = Diving && now < _diveAt, DiveDir = _diveDir, Rush = Momentum != null ? Momentum.Stage / 3f : 0f,
+            };
+            _rig.Tick(st, dt, _art.FacingLeft ? -1f : 1f);
+            // 광풍: 달리는 뒤로 옅은 잔상 · 2단 점프와 급강하에도 남는다
+            bool rush = Momentum != null && Momentum.Stage >= 3 && MoveInput.sqrMagnitude > 0.01f && !Airborne && !Dashing;
+            bool fly = now - _flipAt < 0.3f || Diving && now >= _diveAt;
+            if ((rush || fly) && now - _ghostAt > (fly ? 0.035f : 0.075f) && Time.timeScale > 0f)
+            {
+                _ghostAt = now;
+                SvAfterimage.Spawn(_rig, Diving ? new Color(1f, 0.85f, 0.5f, 0.4f) : new Color(0.55f, 1f, 0.85f, fly ? 0.26f : 0.2f), 0.24f);
+            }
         }
 
         /// <summary>
@@ -498,7 +692,7 @@ namespace ParryRL.Survivor
                     if (ActionStrike(t, n) && now - _ghostAt > 0.035f)
                     {
                         _ghostAt = now;
-                        SvAfterimage.Spawn(_art.Renderer, new Color(0.75f, 1f, 0.9f, 0.45f), 0.14f);
+                        Ghost( new Color(0.75f, 1f, 0.9f, 0.45f), 0.14f);
                     }
                     break;
                 }
@@ -513,7 +707,7 @@ namespace ParryRL.Survivor
                     {
                         lean = 16f;
                         sq = new Vector2(0.92f, 1.1f);
-                        if (now - _ghostAt > 0.03f) { _ghostAt = now; SvAfterimage.Spawn(_art.Renderer, new Color(0.75f, 1f, 0.9f, 0.5f), 0.16f); }
+                        if (now - _ghostAt > 0.03f) { _ghostAt = now; Ghost( new Color(0.75f, 1f, 0.9f, 0.5f), 0.16f); }
                     }
                     else { float s = Mathf.InverseLerp(0.62f, 1f, t); lean = Mathf.Lerp(10f, 0f, s); sq = Vector2.Lerp(new Vector2(1.08f, 0.92f), Vector2.one, s); }
                     break;
@@ -526,7 +720,7 @@ namespace ParryRL.Survivor
                         if (now - _ghostAt > 0.03f)
                         {
                             _ghostAt = now;
-                            SvAfterimage.Spawn(_art.Renderer, new Color(0.6f, 1f, 0.85f, 0.5f), 0.2f);
+                            Ghost(_dashSafe ? new Color(0.6f, 1f, 0.85f, 0.5f) : new Color(0.75f, 0.78f, 0.8f, 0.35f), 0.2f);
                         }
                     }
                     break;
@@ -550,7 +744,7 @@ namespace ParryRL.Survivor
                 if (ph > 0.25f && ph < 0.6f && now - _ghostAt > 0.035f)
                 {
                     _ghostAt = now;
-                    SvAfterimage.Spawn(_art.Renderer, new Color(0.7f, 1f, 0.95f, 0.5f), 0.16f);
+                    Ghost( new Color(0.7f, 1f, 0.95f, 0.5f), 0.16f);
                 }
             }
             else if (Parrying)
@@ -564,7 +758,8 @@ namespace ParryRL.Survivor
                 if (art && _artSet != null && SurvivorArt.Ok(_artSet.fxParryGuard) && now - _guardFxAt > 0.12f)
                 {
                     _guardFxAt = now;
-                    SvFx.Anim(_artSet.fxParryGuard, Position + new Vector2(_art.FacingLeft ? -0.25f : 0.25f, 0f), 0.75f, 1.5f, 0.14f,
+                    if (SvVfx.Ready) SvSkillVfx.Guard(Position, Facing);
+                    else SvFx.Anim(_artSet.fxParryGuard, Position + new Vector2(_art.FacingLeft ? -0.25f : 0.25f, 0f), 0.75f, 1.5f, 0.14f,
                         _art.FacingLeft, order: SvOrder.Overhead);
                 }
             }

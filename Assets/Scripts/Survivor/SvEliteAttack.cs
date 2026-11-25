@@ -10,15 +10,15 @@ namespace ParryRL.Survivor
     [RequireComponent(typeof(SvEnemy))]
     public class SvEliteAttack : MonoBehaviour
     {
-        [SerializeField] private float triggerRange = 4.2f;
+        [SerializeField] private float triggerRange = 4.6f;
         [SerializeField] private float windup = 1.1f;
         [Tooltip("느낌표가 빨갛게 바뀌는 때 (공격 순간 몇 초 전) — 이때 누르면 패링 창이 공격 순간을 덮는다")]
         [SerializeField] private float redLead = 0.24f;
-        [SerializeField] private float radius = 3.4f;
+        [SerializeField] private float radius = 3.8f;
         [SerializeField] private float angle = 110f;
-        [SerializeField] private int damage = 25;
+        [SerializeField] private int damage = 32;
         [SerializeField] private float recover = 0.7f;
-        [SerializeField] private Vector2 interval = new(2.5f, 4f);
+        [SerializeField] private Vector2 interval = new(2.1f, 3.4f);
         [Header("패링 성공")]
         [SerializeField] private float stunTime = 2.2f;
 
@@ -60,6 +60,8 @@ namespace ParryRL.Survivor
         private float _strikeAt, _nextAt, _recoverUntil;
         private Vector2 _dir = Vector2.right;
         private MeshRenderer _zone, _zoneFill;
+        private SvWarn _warn;
+        private int Phase => _enemy.IsBoss && _enemy.Rig != null && _enemy.Rig.Name == "boss2" ? 2 : 1;
         private MaterialPropertyBlock _block;
         private SpriteRenderer _cue;
         private bool _posing;
@@ -68,8 +70,9 @@ namespace ParryRL.Survivor
         {
             _enemy = GetComponent<SvEnemy>();
             _block = new MaterialPropertyBlock();
-            _zone = MakeZone("Zone", SvOrder.FlatFx + 1);
-            _zoneFill = MakeZone("ZoneFill", SvOrder.FlatFx + 2);
+            _zone = MakeZone("Zone", SvOrder.FlatFx + 20);
+            _zoneFill = MakeZone("ZoneFill", SvOrder.FlatFx + 21);
+            _warn = SvWarn.Create(transform);
             var cue = new GameObject("Cue", typeof(SpriteRenderer));
             cue.transform.SetParent(transform, false);
             _cue = cue.GetComponent<SpriteRenderer>();
@@ -160,6 +163,7 @@ namespace ParryRL.Survivor
                     if (!CueRed && Time.time >= _strikeAt - redLead)
                     {
                         CueRed = true;
+                        if (_enemy.Rig != null) SvFoeVfx.Cue(_enemy, _enemy.Rig.Point("head", 0.6f));
                         Sfx.Play(SfxId.HeavyCue, 0.9f);
                     }
                     if (Time.time >= _strikeAt) Strike(player);
@@ -180,15 +184,19 @@ namespace ParryRL.Survivor
             AttackCount++;
             _state = State.Recover;
             _recoverUntil = Time.time + recover;
+            _warn?.Hide(true);
             Hide();
-            SvFx.Sector(_enemy.Position, _dir, radius, angle, new Color(1f, 0.25f, 0.2f, 0.8f), 0.25f);
+            if (_enemy.IsBoss) SvFoeVfx.PawSlam(_enemy, _enemy.Position, _dir, radius, angle, Phase);
+            else SvFoeVfx.EliteStrike(_enemy, _enemy.Position, _dir, radius, angle);
+            if (_warn == null) SvFx.Sector(_enemy.Position, _dir, radius, angle, new Color(1f, 0.25f, 0.2f, 0.8f), 0.25f);
             var art = SvGame.Instance != null ? SvGame.Instance.Art : null;
             Vector2 hitAt = _enemy.Position + _dir * radius * 0.55f;
-            if (StrikeStanding != null) SvFx.Anim(StrikeStanding, hitAt, 2.2f, 4.4f, 0.6f, order: SvOrder.Overhead);
+            if (SvVfx.Ready) { }
+            else if (StrikeStanding != null) SvFx.Anim(StrikeStanding, hitAt, 2.2f, 4.4f, 0.6f, order: SvOrder.Overhead);
             else if (art != null) SvFx.Anim(art.fxEliteRend, hitAt, 1.2f, radius * 0.9f, 0.32f, _dir.x < 0f);
             if (StrikeFx != null)
             {
-                SvFx.FlatAnim(StrikeFx, _enemy.Position + _dir * radius * 0.55f, 0f, radius * 1.3f, 0.6f);
+                if (!SvVfx.Ready) SvFx.FlatAnim(StrikeFx, _enemy.Position + _dir * radius * 0.55f, 0f, radius * 1.3f, 0.6f);
                 SvGame.Instance?.Shake(0.3f, 0.25f);
                 Sfx.Play(SfxId.BossSlam, 0.9f);
             }
@@ -210,6 +218,7 @@ namespace ParryRL.Survivor
                 _enemy.PoseOverride = null;
                 _posing = false;
             }
+            _warn?.Hide(false);
             _zone.enabled = _zoneFill.enabled = _cue.enabled = false;
             CueRed = false;
         }
@@ -229,7 +238,10 @@ namespace ParryRL.Survivor
             _zone.SetPropertyBlock(_block);
             _block.SetColor("_Color", new Color(1f, 0.2f, 0.15f, CueRed ? 0.6f : 0.35f));
             _zoneFill.SetPropertyBlock(_block);
-            _zone.enabled = _zoneFill.enabled = true;
+            if (_warn != null) _warn.Show(SvWarnShape.Sector, _enemy.Position, _dir, radius, angle, 0f, t, CueRed, _enemy.IsBoss ? 1 : 0);
+            _zone.enabled = _zoneFill.enabled = _warn == null;
+            if (_enemy.IsBoss) SvFoeVfx.PawWindup(_enemy, t, CueRed, Phase, Time.deltaTime);
+            else SvFoeVfx.EliteWindup(_enemy, t, CueRed, Time.deltaTime);
 
             // 느낌표: 머리 위, 노랑 → (공격 직전) 빨강. 바뀌는 순간 한 번 커졌다 가라앉음
             _cue.enabled = true;

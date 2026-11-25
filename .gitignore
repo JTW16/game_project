@@ -56,3 +56,6 @@ __pycache__/
 /Captures/survivor/
 # Unity Test Framework가 남기는 임시 씬
 /Assets/InitTestScene*
+
+# 테스트·촬영이 만드는 그림과 영상 (각자 PC에만)
+/Captures/

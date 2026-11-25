@@ -41,7 +41,7 @@ namespace ParryRL.Survivor
         public const string CoreStaff = "core_staff", CoreTalisman = "core_talisman", CoreOrbit = "core_orbit", CoreBell = "core_bell", CoreGiant = "core_giant";
         /// <summary>핵심 비급: 한 판에 최대 · 그 무기가 이 단계 이상이어야 나옴 · 카드에 섞일 확률 · 반드시 섞이는 레벨 (모두 가안).</summary>
         public const int MaxCores = 2, CoreFrom = 3;
-        /// <summary>긴 봉 내리찍기는 단계가 없는 기본 기술이라 십자격은 퇴마사 레벨로 연다 (가안).</summary>
+        /// <summary>긴 봉 내리찍기는 단계가 없는 기본 기술이라 선풍격은 퇴마사 레벨로 연다 (가안).</summary>
         public const int GiantCoreLevel = 6;
         public const float CoreChance = 0.25f;
         public static readonly int[] CoreGuaranteeLevels = { 6, 12 };
@@ -56,8 +56,8 @@ namespace ParryRL.Survivor
                 Levels = new[] { "3초마다 도는 부적이 두 배 멀리 퍼졌다 돌아온다" } },
             new() { Id = CoreBell, For = Bell, Name = "진혼령", Glyph = "鎭", Kind = SvItemKind.Core, MaxLevel = 1, Icon = 7,
                 Levels = new[] { "방울 울림에 맞은 적이 0.8초 묶인다 (보스 제외)" } },
-            new() { Id = CoreGiant, For = Giant, Name = "십자격", Glyph = "十", Kind = SvItemKind.Core, MaxLevel = 1, Icon = 19,
-                Levels = new[] { "긴 봉 내리찍기(S)가 옆으로도 두 줄 더 내리찍혀 십자가 된다" } },
+            new() { Id = CoreGiant, For = Giant, Name = "선풍격", Glyph = "扇", Kind = SvItemKind.Core, MaxLevel = 1, Icon = 19,
+                Levels = new[] { "긴 봉 내리찍기(S)가 양옆으로도 두 줄 더 내리찍혀 부채꼴이 된다" } },
         };
 
         /// <summary>그 무기의 핵심 비급 (없으면 null).</summary>
@@ -83,7 +83,7 @@ namespace ParryRL.Survivor
             new() { Id = Aura, Name = "넓은 기운", Kind = SvItemKind.Passive, Icon = 13, Levels = new[] { "공격 범위 +10%" } },
             // 치명타 (설계서 4장 "피해 숫자 강화 + 치명타", 가안) — 그림은 S6 icons3
             new() { Id = Eye, Name = "매의 눈", Kind = SvItemKind.Passive, Icon = 18, Glyph = "眼", Levels = new[] { "치명타 확률 +8%" } },
-            new() { Id = Wind, Name = "바람걸음", Kind = SvItemKind.Passive, Icon = 14, Levels = new[] { "대시 충전 -12%" } },
+            new() { Id = Wind, Name = "바람걸음", Kind = SvItemKind.Passive, Icon = 14, Levels = new[] { "보법 무적 충전 -12%" } },
             new() { Id = ParryBell, Name = "맑은 방울", Kind = SvItemKind.Passive, MaxLevel = 3, Icon = 15, Available = () => SvGame.ParryEnabled,
                 Levels = new[] { "패링 받는 시간 +0.05초" } },
             new() { Id = Counter, Name = "되받아치기", Kind = SvItemKind.Passive, MaxLevel = 3, Icon = 16, Available = () => SvGame.ParryEnabled,

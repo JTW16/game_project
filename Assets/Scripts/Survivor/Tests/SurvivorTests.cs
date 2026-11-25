@@ -1575,19 +1575,26 @@ namespace ParryRL.Tests
         }
 
         [UnityTest]
-        public IEnumerator Core_Giant_Slams_A_Cross()
+        public IEnumerator Core_Giant_Slams_A_Fan()
         {
             Game.Weapons.enabled = false;
             Game.Progress.Take(SvItems.Get(SvItems.CoreGiant), Player, Game.Weapons);
             var right = SpawnAt(SvEnemyKind.Changgwi, new Vector2(3f, 0f));
-            var up = SpawnAt(SvEnemyKind.Changgwi, new Vector2(0f, 3f));
-            right.SetHealth(9999); up.SetHealth(9999);
+            float fan = Game.Weapons.giantFanAngle;
+            var up = SpawnAt(SvEnemyKind.Changgwi, SvGeom.FromAngle(fan) * 4.5f);
+            var down = SpawnAt(SvEnemyKind.Changgwi, SvGeom.FromAngle(-fan) * 4.5f);
+            var side = SpawnAt(SvEnemyKind.Changgwi, new Vector2(0f, 4f));
+            foreach (var e in new[] { right, up, down, side }) { e.SetHealth(9999); e.Speed = 0f; }
+            Player.TryMove(Vector2.right);
+            Player.TryMove(Vector2.zero);
             yield return new WaitForFixedUpdate();
             Game.Weapons.GiantSlam();
             yield return Wait(0.45f);
-            yield return Capture("survivor_core_cross", 960, 540);
+            yield return Capture("survivor_core_fan", 960, 540);
             Assert.Less(right.Hp, 9999, "앞줄");
-            Assert.Less(up.Hp, 9999, "십자격: 옆줄");
+            Assert.Less(up.Hp, 9999, "선풍격: 왼쪽으로 벌어진 줄");
+            Assert.Less(down.Hp, 9999, "선풍격: 오른쪽으로 벌어진 줄");
+            Assert.AreEqual(9999, side.Hp, "직각 옆은 이제 안 맞는다");
         }
 
         [UnityTest]

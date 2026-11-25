@@ -41,6 +41,9 @@ namespace ParryRL.Survivor
         private SurvivorArt _art;
         private int _selected;
         private readonly List<Slot> _weaponSlots = new(), _passiveSlots = new();
+        private static readonly Color MomentumColor = new(0.45f, 0.86f, 0.8f);
+        private readonly Image[] _momentum = new Image[3];
+        private Text _momentumName;
         private Ability _slam, _dash, _parry, _ult, _tiger, _shaman, _giant;
         private Image _ultFill, _bannerBg;
         private readonly List<Image> _arrows = new();
@@ -143,9 +146,21 @@ namespace ParryRL.Survivor
             _hp = UiKit.Text("Hp", hpEdge.rectTransform, 19, TextAnchor.MiddleCenter);
             UiKit.Stretch(_hp.rectTransform);
 
+            // 기세: 체력 바 바로 위의 가는 세 칸 (단계가 오르면 칸이 차고 이름이 뜬다)
+            for (int i = 0; i < 3; i++)
+            {
+                var edge = UiKit.Image("MomentumEdge", _root, new Color(0.02f, 0.02f, 0.02f, 0.85f));
+                UiKit.Place(edge.rectTransform, new Vector2(0.5f, 0f), new Vector2(-141f + 141f * i, 146f), new Vector2(137f, 11f));
+                var bg = UiKit.Image("MomentumBg", edge.rectTransform, new Color(0.1f, 0.13f, 0.14f, 0.9f));
+                UiKit.Stretch(bg.rectTransform, 2f);
+                _momentum[i] = Fill(bg.rectTransform, MomentumColor);
+            }
+            _momentumName = UiKit.Text("Momentum", _root, 20, TextAnchor.MiddleCenter);
+            UiKit.Place(_momentumName.rectTransform, new Vector2(0.5f, 0f), new Vector2(0f, 168f), new Vector2(240f, 28f));
+
             // 아래 가운데: 직접 쓰는 기술
             // Shift | A S D | Q W E (2026-11-12: S = 긴 봉, 패링은 Q)
-            _dash = MakeAbility(-252f, 3, "Shift", "대시");
+            _dash = MakeAbility(-252f, 3, "Shift", "보법");
             _slam = MakeAbility(-168f, 1, "A", "내려찍기");
             _giant = MakeAbility(-84f, 19, "S", "긴 봉");
             _ult = MakeAbility(0f, -1, "D", "궁극기");
@@ -176,14 +191,14 @@ namespace ParryRL.Survivor
             AbilityHover(_slam, () =>
             {
                 var p = SvPlayer.Instance; var w = SvGame.Instance != null ? SvGame.Instance.Weapons : null;
-                return $"<size=28><b>내려찍기</b></size>   A\n<color=#d8d0c0>뛰어올라 봉으로 땅을 내려찍어 둘레의 적에게 피해</color>\n" +
+                return $"<size=28><b>내려찍기</b></size>   A\n<color=#d8d0c0>봉으로 땅을 내려찍어 둘레의 적에게 피해. 높이 떠서 쓰면 보는 쪽으로 급강하하며 더 넓고 세다</color>\n" +
                        $"<color=#9fd8c8>피해 {(w != null ? w.SlamDamage : 0)} · 범위 {(w != null ? w.SlamRadius : 0f):0.0} · 쿨타임 {(p != null ? p.SlamCooldown : 0f):0.#}초</color>";
             });
             AbilityHover(_dash, () =>
             {
                 var p = SvPlayer.Instance;
-                return $"<size=28><b>대시</b></size>   Shift\n<color=#d8d0c0>짧게 돌진한다. 도는 동안 맞지 않는다</color>\n" +
-                       $"<color=#9fd8c8>충전 {(p != null ? p.DashChargesLeft : 0)}회 · 다시 차는 데 {(p != null ? p.DashRecharge : 0f):0.0}초</color>";
+                return $"<size=28><b>보법</b></size>   Shift\n<color=#d8d0c0>땅을 접어 미끄러지듯 나아간다. 쉬지 않고 쓸 수 있고 공중에서도 두 번 밟는다. 무적은 충전된 만큼만</color>\n" +
+                       $"<color=#9fd8c8>무적 {(p != null ? p.DashChargesLeft : 0)}회 · 다시 차는 데 {(p != null ? p.DashRecharge : 0f):0.0}초</color>";
             });
             AbilityHover(_parry, () =>
             {
@@ -885,8 +900,21 @@ namespace ParryRL.Survivor
 
             UpdateSlots(prog);
             SetAbility(_slam, p.SlamCooldownLeft, p.SlamCooldown, p.SlamCooldownLeft > 0f ? $"{p.SlamCooldownLeft:0.0}" : "");
-            SetAbility(_dash, p.DashChargesLeft > 0 ? 0f : p.DashRechargeLeft, p.DashRecharge,
-                p.DashChargesLeft > 0 ? $"<size=22>{p.DashChargesLeft}</size>" : $"{p.DashRechargeLeft:0.0}");
+            // 보법은 늘 쓸 수 있으니 칸을 가리지 않고, 남은 무적 수만 보인다
+            SetAbility(_dash, 0f, p.DashRecharge, $"<size=22>{p.DashChargesLeft}</size>");
+            var mo = p.Momentum;
+            if (mo != null)
+            {
+                float from = 0f;
+                for (int i = 0; i < 3; i++)
+                {
+                    SetFill(_momentum[i], Mathf.InverseLerp(from, SvMomentum.Steps[i], mo.Value));
+                    _momentum[i].color = mo.Stage > i ? Color.Lerp(MomentumColor, Color.white, 0.35f + 0.2f * Mathf.Sin(Time.unscaledTime * 6f)) : MomentumColor;
+                    from = SvMomentum.Steps[i];
+                }
+                _momentumName.text = SvMomentum.Names[mo.Stage];
+                _momentumName.color = mo.Stage >= 3 ? new Color(0.9f, 1f, 0.97f) : new Color(0.6f, 0.92f, 0.82f, 0.9f);
+            }
             SetAbility(_parry, p.ParryCooldownLeft, p.ParryCooldown, p.ParryCooldownLeft > 0f ? $"{p.ParryCooldownLeft:0.0}" : "", !SvGame.ParryEnabled);
             var wpn = g.Weapons;
             if (wpn != null) SetAbility(_giant, wpn.GiantCooldownLeft, wpn.GiantCooldown, wpn.GiantCooldownLeft > 0f ? $"{wpn.GiantCooldownLeft:0.0}" : "");

@@ -61,19 +61,28 @@ namespace ParryRL.Survivor
             return false;
         }
 
-        /// <summary>몹이 나올 귀문: 화면 가장자리~바깥 띠 안에서 무작위, 없으면 가까운 것 (붙어 있는 것은 뺀다).</summary>
-        public static int Pick(Vector2 center, float offscreen)
+        /// <summary>
+        /// 몹이 나올 귀문: 화면 가장자리~바깥 띠 안에서 무작위, 없으면 가까운 것 (붙어 있는 것은 뺀다).
+        /// ahead = 요즘 달려가는 쪽(길이 0~1): 그쪽 귀문이 더 잘 뽑힌다 — 빠른 퇴마사가 뒤에 몹을 떼어 놓고 빈 들판만 달리지 않게 (가안).
+        /// </summary>
+        public static int Pick(Vector2 center, float offscreen, Vector2 ahead = default)
         {
             var all = All;
             // 바깥 끝은 스포너가 "너무 멀어진 적"을 다시 놓는 거리(화면 밖 반경 × 1.7)보다 안쪽 —
             // 그보다 멀면 막 나온 몹(꼬마 도깨비 떼)이 곧바로 다른 귀문으로 옮겨져 흩어진다
             float lo = offscreen * 0.7f, hi = Mathf.Min(offscreen + 14f, offscreen * 1.55f);
-            int count = 0, chosen = -1, nearest = -1;
+            int chosen = -1, nearest = -1;
+            float sum = 0f;
             float best = float.MaxValue;
             for (int i = 0; i < all.Count; i++)
             {
                 float d = (all[i] - center).magnitude;
-                if (d >= lo && d <= hi && Random.Range(0, ++count) == 0) chosen = i; // 띠 안에서 고르게 하나
+                if (d >= lo && d <= hi)
+                {
+                    float w = Mathf.Exp(1.5f * Vector2.Dot((all[i] - center) / d, ahead));
+                    sum += w;
+                    if (Random.value * sum <= w) chosen = i; // 띠 안에서 하나 (앞쪽일수록 잘 뽑힘)
+                }
                 if (d >= 6f && d < best) { best = d; nearest = i; }
             }
             return chosen >= 0 ? chosen : nearest;

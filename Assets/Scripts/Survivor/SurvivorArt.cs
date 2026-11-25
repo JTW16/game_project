@@ -27,6 +27,10 @@ namespace ParryRL.Survivor
         public Sprite[] heroSwing, heroSlam, heroThrow, heroJump, heroDash, heroDown;
         [Tooltip("S6·S7: 패링(막기·튕김·반격 준비·스미어·반격·회복) · 피격 · 승리")]
         public Sprite[] heroParry, heroHurt, heroVictory;
+        [Header("퇴마사 뼈대 (부위 나누기 — 2026-11-25, 있으면 위 그림 장면 대신 이걸로 움직인다)")]
+        public Texture2D heroRigAtlas;
+        public TextAsset heroRigInfo;
+        public Material heroRigMaterial;
         public float heroRunFps = 12f;
         [Tooltip("그림 위 몸 높이 (유닛) — 그림자·느낌표 위치 계산용")]
         public float heroHeight = 1.7f;

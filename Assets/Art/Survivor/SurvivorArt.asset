@@ -72,6 +72,9 @@ MonoBehaviour:
   - {fileID: 21300000, guid: 75c6d559e7441854fa44d7e53eba9fc3, type: 3}
   - {fileID: 21300000, guid: 57d43d71df5901449890a34518357f39, type: 3}
   - {fileID: 21300000, guid: fb2ffdeb1c9e80f4b972050fe0d4efbc, type: 3}
+  heroRigAtlas: {fileID: 2800000, guid: 3c019914931e2124db4ff9e1b8d96a4e, type: 3}
+  heroRigInfo: {fileID: 4900000, guid: 18c8a5bb6b853c549b2dec433f549ce2, type: 3}
+  heroRigMaterial: {fileID: 2100000, guid: 87173874695b8e34f8191056a7badcaf, type: 2}
   heroRunFps: 12
   heroHeight: 1.7
   changgwi:
@@ -92,7 +95,7 @@ MonoBehaviour:
     - {fileID: 21300000, guid: 88dde0a467cd0cd4db0b88cb7929ac90, type: 3}
     - {fileID: 21300000, guid: ab6414019781b684bbf12a18adf2b2e9, type: 3}
     moveFps: 7
-    height: 1.45
+    height: 1.58
   dokkaebibul:
     idle: {fileID: 21300000, guid: 0102d3b16366513439b97ab5dad0c961, type: 3}
     move:
@@ -111,7 +114,7 @@ MonoBehaviour:
     - {fileID: 21300000, guid: 5450d877d9e25af43be8e26c6ba29d99, type: 3}
     - {fileID: 21300000, guid: ae6c047cb561ac84784879644c983609, type: 3}
     moveFps: 9
-    height: 0.9
+    height: 1
   elite:
     idle: {fileID: 21300000, guid: 02e8f38b43019a9419c53687c4cd8484, type: 3}
     move:
@@ -131,7 +134,7 @@ MonoBehaviour:
     - {fileID: 21300000, guid: eb85e71ef96f736428adcaaa67d635f6, type: 3}
     - {fileID: 21300000, guid: 7a8413de8d7729d44a6d03bdf6534c69, type: 3}
     moveFps: 6
-    height: 2.3
+    height: 2.9
   dalgyal:
     idle: {fileID: 21300000, guid: 2081f64ab09aca04aac43e75469afb1d, type: 3}
     move:
@@ -150,7 +153,7 @@ MonoBehaviour:
     - {fileID: 21300000, guid: a4a7e70a141576d40b3b908dd45eb801, type: 3}
     - {fileID: 21300000, guid: ce53b554d4fce3a44b2406be57cceab5, type: 3}
     moveFps: 6
-    height: 1.6
+    height: 1.75
   smallDokkaebi:
     idle: {fileID: 21300000, guid: 0638fbf6107df83438f2784644a143e8, type: 3}
     move:
@@ -169,7 +172,7 @@ MonoBehaviour:
     - {fileID: 21300000, guid: f174eb64254e64548b1b9a9571d3678e, type: 3}
     - {fileID: 21300000, guid: ce43c34061e83a54493e56d0d5b610a1, type: 3}
     moveFps: 12
-    height: 1
+    height: 1.1
   bossP1:
     idle: {fileID: 21300000, guid: 833ce0833a27e8e43b8bc9b60abc9c26, type: 3}
     move:
@@ -190,7 +193,7 @@ MonoBehaviour:
     - {fileID: 21300000, guid: 6a486eed61140b84ebd80a4c610ae0f0, type: 3}
     - {fileID: 21300000, guid: 23acd44ed0b1ea249a362046b646a91c, type: 3}
     moveFps: 6
-    height: 3
+    height: 3.9
   bossP2:
     idle: {fileID: 21300000, guid: aaa6bac0fe700634293f8d988b2f6257, type: 3}
     move:
@@ -211,7 +214,7 @@ MonoBehaviour:
     - {fileID: 21300000, guid: 6a486eed61140b84ebd80a4c610ae0f0, type: 3}
     - {fileID: 21300000, guid: 23acd44ed0b1ea249a362046b646a91c, type: 3}
     moveFps: 8
-    height: 3.4499998
+    height: 4.485
   bossSpines:
   - {fileID: 21300000, guid: 3c3310cc33d893c44aa7c53b05168809, type: 3}
   - {fileID: 21300000, guid: 9dd75b97396d81448b9340c1085057ba, type: 3}
@@ -393,7 +396,7 @@ MonoBehaviour:
     - {fileID: 21300000, guid: 563e35057640b3d46aaa27d0665b65ae, type: 3}
     - {fileID: 21300000, guid: 118fb979002acf540877362a483dd78c, type: 3}
     moveFps: 7
-    height: 1.45
+    height: 1.58
   dokkaebibulDark:
     idle: {fileID: 21300000, guid: e56c76a9bc169344f8e5871dc082539f, type: 3}
     move:
@@ -412,7 +415,7 @@ MonoBehaviour:
     - {fileID: 21300000, guid: cf9c61078893ef649ac278033b352285, type: 3}
     - {fileID: 21300000, guid: 8c0f85bc80f648a48ad49dc7639c88d8, type: 3}
     moveFps: 9
-    height: 0.9
+    height: 1
   dalgyalDark:
     idle: {fileID: 21300000, guid: cf7fc64256cbac340861c1bb9e397cff, type: 3}
     move:
@@ -431,7 +434,7 @@ MonoBehaviour:
     - {fileID: 21300000, guid: 33e96c7996653de4b8b36fe5432b77a8, type: 3}
     - {fileID: 21300000, guid: 71b1b23370b4a2346971d9cbf0223c2c, type: 3}
     moveFps: 6
-    height: 1.6
+    height: 1.75
   smallDokkaebiDark:
     idle: {fileID: 21300000, guid: c950762249938834a95eb6f0e20ad74d, type: 3}
     move:
@@ -450,7 +453,7 @@ MonoBehaviour:
     - {fileID: 21300000, guid: 3750d8e222f7cd442a44785fccb3c7a1, type: 3}
     - {fileID: 21300000, guid: bada8f78b19a1b24688de704e49006e7, type: 3}
     moveFps: 12
-    height: 1
+    height: 1.1
   icons2:
   - {fileID: 21300000, guid: 8d2ef75179f807543b5167b9b1561f4b, type: 3}
   - {fileID: 21300000, guid: 23119c7d393131d4d95aa0b2cafa253a, type: 3}

@@ -15,10 +15,13 @@ namespace ParryRL.Survivor
         private const float StandGrow = 0.7f;
 
         private Transform _pivot, _art, _follow;
-        private SpriteRenderer _sr;
+        private SpriteRenderer _sr, _glow;
         private Vector2 _from, _dir;
         private float _len, _start, _windup, _swing, _ghostAt;
         private bool _playing;
+        private float _height;
+        /// <summary>봉 밑동의 자리 (테스트용).</summary>
+        public Vector3 Base => _pivot.position;
 
         public bool Playing => _playing;
         /// <summary>지금 봉이 바닥과 이루는 각 (테스트용, 0 = 바닥에 누움).</summary>
@@ -35,6 +38,18 @@ namespace ParryRL.Survivor
             fx._art = art.transform;
             fx._sr = art.GetComponent<SpriteRenderer>();
             fx._sr.sortingOrder = SvOrder.Actor;
+            var sh = Resources.Load<Shader>("Vfx/VfxParticle");
+            if (sh != null)
+            {
+                var g = new GameObject("Glow", typeof(SpriteRenderer));
+                g.transform.SetParent(art.transform, false);
+                g.transform.localPosition = new Vector3(0f, 0f, -0.002f);
+                fx._glow = g.GetComponent<SpriteRenderer>();
+                fx._glow.sharedMaterial = new Material(sh);
+                fx._glow.sharedMaterial.SetFloat("_Mode", 2f);
+                fx._glow.sharedMaterial.SetFloat("_Boost", 0.45f);
+                fx._glow.sortingOrder = SvOrder.Actor + 1;
+            }
             go.SetActive(false);
             return fx;
         }
@@ -51,16 +66,22 @@ namespace ParryRL.Survivor
             _windup = windup;
             _swing = swing;
             _start = Time.time;
+            _height = HeightNow;
             _playing = true;
             gameObject.SetActive(true);
             Pose(BackAngle * 0.8f, 0.35f, 0f);
         }
 
+        private static float HeightNow => SvPlayer.Instance != null ? SvPlayer.Instance.Height : 0f;
+
+        /// <summary>떠 있으면 봉 끝이 땅에 닿을 때까지 더 내려 친다 (밑동은 퇴마사 손에).</summary>
+        private float EndAngle => -Mathf.Asin(Mathf.Clamp01(_height / Mathf.Max(0.1f, _len)) * 0.95f) * Mathf.Rad2Deg;
+
         private void LateUpdate()
         {
             if (!_playing) return;
             float t = Time.time - _start;
-            if (_follow != null && t < _windup + _swing) _from = _follow.position;
+            if (_follow != null && t < _windup + _swing) { _from = _follow.position; _height = HeightNow; }
             if (t < _windup)
             {
                 // 준비: 곧게 서며 길어지고 살짝 뒤로 젖힌다 (힘을 모음)
@@ -74,7 +95,7 @@ namespace ParryRL.Survivor
             if (s < 1f)
             {
                 // 내리침: 점점 빨라지며(가속) 앞으로 쓰러진다 + 잔상
-                float a = Mathf.Lerp(BackAngle, 0f, s * s);
+                float a = Mathf.Lerp(BackAngle, EndAngle, s * s);
                 Pose(a, Mathf.Lerp(StandGrow, 1f, s), 1f);
                 if (Time.time - _ghostAt > 0.02f)
                 {
@@ -91,7 +112,7 @@ namespace ParryRL.Survivor
                 gameObject.SetActive(false);
                 return;
             }
-            Pose(0f, 1f, 1f - f);
+            Pose(EndAngle, 1f, 1f - f);
         }
 
         /// <summary>angle = 바닥에서 든 각(도), grow = 길이 비율, alpha = 진하기.</summary>
@@ -110,11 +131,16 @@ namespace ParryRL.Survivor
             // 그림의 오른쪽(+x) = 갈고리 끝 = 봉 끝, 아래 끝(왼쪽)을 퇴마사 곁에 둔다
             // 손 높이에서 들고, 쓰러질수록 바닥으로 내려온다
             float hand = Mathf.Lerp(0.08f, 0.6f, Mathf.Clamp01(angle / 90f));
-            _pivot.SetPositionAndRotation(new Vector3(_from.x, _from.y, -0.05f) + SvView.Up * hand, Quaternion.LookRotation(normal, w));
+            _pivot.SetPositionAndRotation(new Vector3(_from.x, _from.y, -0.05f) + SvView.Up * (hand + _height), Quaternion.LookRotation(normal, w));
             float len = _len * grow;
             _art.localPosition = new Vector3(len * 0.5f, 0f, 0f);
             _art.localScale = new Vector3(len, len, 1f);
             _sr.color = new Color(1f, 1f, 1f, alpha);
+            if (_glow != null)
+            {
+                _glow.sprite = _sr.sprite;
+                _glow.color = new Color(0.5f, 1f, 0.75f, alpha * SvVfx.Bright * (0.8f + 0.2f * Mathf.Sin(Time.time * 40f)));
+            }
         }
     }
 }

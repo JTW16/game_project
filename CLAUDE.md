@@ -11,7 +11,7 @@
 5. **기존 코드는 설계서 7장 "가져온 코드 목록"에 있는 것만 쓴다.** 없는 걸 쓰려면 먼저 묻는다.
 
 - 일정·진행·의논: 노션 [귀문 — 뱀서류 전환 계획](https://app.notion.com/p/40f29ac9bdf081889fbfd5056fcfb481) (규칙의 기준 아님).
-- 저장소: `alstjd0319/Project_game` (`main` = 방 구조, `wave-mode` = 팀원의 웨이브 실험). **커밋·푸시·브랜치 작업은 사용자가 시킬 때만** 한다.
+- 저장소: `JTW16/game_project` (`main`, 2026-11-25부터 이곳을 클론해서 작업). 옛 저장소는 `alstjd0319/Project_game`(방 구조·웨이브 실험, 기록용). **커밋·푸시·브랜치 작업은 사용자가 시킬 때만** 한다.
 - 그림: 사용자가 Codex로 뽑고(`AGENTS.md` → [`image_request_v2.md`](image_request_v2.md), 결과는 `ArtSource/v2/`), Claude가 프롬프트 작성·검수·후처리·게임 연결을 맡는다. 옛 그림(`ArtSource/gwimun/` 등)은 디자인 참고로만 쓴다.
 - `_local/`은 이 PC에만 있는 보관 자료(`.git/info/exclude`로 제외, `_local/README.md` 참고)다. 커밋하지 않는다.
 
@@ -30,7 +30,7 @@
 
 ## 빌드 · 테스트
 
-- **뱀서 시험판**: `powershell -ExecutionPolicy Bypass -File Tools\survivor_tests.ps1` = 씬 생성(`SurvivorSceneBuilder.Build` → `Assets/Scenes/Survivor.unity`, 생성물이라 직접 고치지 않음) + `ParryRL.Survivor.Tests`(캡처는 `Captures/survivor/`). `-SkipBuild`, `-Filter`, `-Player`(시험판만 든 Windows 빌드 `Builds/Survivor/`), `-Mac`(macOS 범용 빌드 `Builds/SurvivorMac/`, Mac Build Support (Mono) 모듈 설치됨 — 압축은 실행 권한이 남게 파이썬 zipfile로). 둘 다 씬을 새로 만들지 않으니 새 그림 뒤엔 먼저 그냥 돌린다. 새 그림(`ArtSource/v2`) 가공은 `python -I Tools/survivor_art/cut_sprites.py` (캐릭터 프레임·이펙트 배경 지우기·소품/UI 조각 → `Assets/Art/Survivor/`), 그다음 씬 생성이 스프라이트로 가져온다. 새 텍스처가 많으면 첫 가져오기가 10분 넘게 걸린다. 난이도 점검(봇이 한 판을 4배속으로 끝까지, 약 3분)은 기본 실행에서 빠져 있다 — `-SkipBuild -Filter ParryRL.Tests.SurvivorSimTests.Bot_Plays_A_Full_Run`, 결과 `Captures/survivor/sim_log.txt`.
+- **뱀서 시험판**: `powershell -ExecutionPolicy Bypass -File Tools\survivor_tests.ps1` = 씬 생성(`SurvivorSceneBuilder.Build` → `Assets/Scenes/Survivor.unity`, 생성물이라 직접 고치지 않음) + `ParryRL.Survivor.Tests`(캡처는 `Captures/survivor/`). `-SkipBuild`, `-Filter`, `-Player`(시험판만 든 Windows 빌드 `Builds/Survivor/`), `-Mac`(macOS 범용 빌드 `Builds/SurvivorMac/`, Mac Build Support (Mono) 모듈 설치됨 — 압축은 실행 권한이 남게 파이썬 zipfile로). 둘 다 씬을 새로 만들지 않으니 새 그림 뒤엔 먼저 그냥 돌린다. 새 그림(`ArtSource/v2`) 가공은 `python -I Tools/survivor_art/cut_sprites.py` (캐릭터 프레임·이펙트 배경 지우기·소품/UI 조각 → `Assets/Art/Survivor/`), 그다음 씬 생성이 스프라이트로 가져온다. 퇴마사 뼈대(부위 그림 `ArtSource/v2/hero/rig`)는 `python -I Tools/survivor_art/cut_rig.py` → 씬 생성. 요괴·보스 부위(`ArtSource/v2/rig_mobs`)는 `python -I Tools/survivor_art/cut_mobs.py [미리보기.png]` → 씬 생성, 찍기 `Capture_Mob_Rigs`(정예·보스 공격은 `Capture_Foes`). 스킬 이펙트 입자 그림(`ArtSource/v2/fx11`)은 `python -I Tools/survivor_art/cut_vfx.py`(`Resources/Vfx/`). 스킬 화면 찍기: 필터 `SurvivorRigTests.Capture_Skill_Vfx`, 속도감(보법·경공·급강하): `Capture_Speed`, 부하: `Stress_Skill_Vfx`, PNG→mp4: `Encode_Videos`. 동작을 가까이서 찍기: `-SkipBuild -Filter ParryRL.Tests.SurvivorRigTests.Capture_Rig_Motions` → `Captures/survivor/rig/<동작>/`. 새 텍스처가 많으면 첫 가져오기가 10분 넘게 걸린다. 난이도 점검(봇이 한 판을 4배속으로 끝까지, 약 3분)은 기본 실행에서 빠져 있다 — `-SkipBuild -Filter ParryRL.Tests.SurvivorSimTests.Bot_Plays_A_Full_Run`, 결과 `Captures/survivor/sim_log.txt`.
 - Bash 도구의 heredoc은 `\\`를 `\`로 줄인다 — C# 문자열의 `\n`을 heredoc 파이썬으로 넣으면 실제 줄바꿈이 된다. 백슬래시가 든 코드는 Edit 도구로 고친다.
 - (옛 게임) 씬 생성 + 전체 PlayMode 테스트(캡처 포함): `powershell -ExecutionPolicy Bypass -File Tools\run_tests.ps1` (4~5분). 씬을 안 바꿨으면 `-SkipBuild`, 일부만 돌리려면 `-Filter ParryRL.Tests.XxxTests`. 로그는 `%TEMP%\ParryRL_logs\`.
   - 이 스크립트는 지금 게임(`PrototypeSceneBuilder.Build`) 기준이다. 시험판 씬은 별도로 만든다 — 씬 생성 방식은 시험판을 시작할 때 정한다.

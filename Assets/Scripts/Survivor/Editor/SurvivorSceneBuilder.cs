@@ -41,7 +41,7 @@ namespace ParryRL.EditorTools
         }
 
         private const string ArtRoot = "Assets/Art/Survivor";
-        private const float BossHeight = 3f;
+        private const float BossHeight = 3.9f;
         private const string FloorPath = "Assets/Art/Survivor/Ground/floor_a.png";
         // 바닥 타일 한 장의 크기 (유닛) — 풀 한 포기가 퇴마사 무릎 높이쯤 되게
         private const float FloorTileSize = 6.5f;
@@ -77,15 +77,17 @@ namespace ParryRL.EditorTools
             art.heroGiantSummon = Frames(hero, "hero_giantsummon_");
             art.heroSummon = Frames(hero, "hero_summon_");
             art.heroHeight = HeroHeight;
-            art.changgwi = Mob("Changgwi", "changgwi", 1.45f, 7f);
-            art.dokkaebibul = Mob("Dokkaebibul", "dokkaebibul", 0.9f, 9f);
-            art.elite = Mob("Elite", "elite", 2.3f, 6f);
-            art.changgwiDark = Dark(Mob("ChanggwiDark", "changgwidark", 1.45f, 7f), art.changgwi);
-            art.dokkaebibulDark = Dark(Mob("DokkaebibulDark", "dokkaebibuldark", 0.9f, 9f), art.dokkaebibul);
-            art.dalgyal = Mob("Dalgyal", "dalgyal", 1.6f, 6f);
-            art.smallDokkaebi = Mob("SmallDokkaebi", "smalldokkaebi", 1.0f, 12f);
-            art.dalgyalDark = Dark(Mob("DalgyalDark", "dalgyaldark", 1.6f, 6f), art.dalgyal);
-            art.smallDokkaebiDark = Dark(Mob("SmallDokkaebiDark", "smalldokkaebidark", 1.0f, 12f), art.smallDokkaebi);
+            ImportRig(art);
+            ImportVfx();
+            art.changgwi = Mob("Changgwi", "changgwi", 1.58f, 7f);
+            art.dokkaebibul = Mob("Dokkaebibul", "dokkaebibul", 1.0f, 9f);
+            art.elite = Mob("Elite", "elite", 2.9f, 6f);
+            art.changgwiDark = Dark(Mob("ChanggwiDark", "changgwidark", 1.58f, 7f), art.changgwi);
+            art.dokkaebibulDark = Dark(Mob("DokkaebibulDark", "dokkaebibuldark", 1.0f, 9f), art.dokkaebibul);
+            art.dalgyal = Mob("Dalgyal", "dalgyal", 1.75f, 6f);
+            art.smallDokkaebi = Mob("SmallDokkaebi", "smalldokkaebi", 1.1f, 12f);
+            art.dalgyalDark = Dark(Mob("DalgyalDark", "dalgyaldark", 1.75f, 6f), art.dalgyal);
+            art.smallDokkaebiDark = Dark(Mob("SmallDokkaebiDark", "smalldokkaebidark", 1.1f, 12f), art.smallDokkaebi);
             // 불가살이: 한 폴더에 1·2페이즈가 함께 있다 (몸 높이 3유닛 — 퇴마사의 약 1.8배, 가안)
             var boss = ImportCharacter($"{ArtRoot}/Boss", "boss", BossHeight);
             var bossDeath = Frames(boss, "boss_death_");
@@ -273,6 +275,76 @@ namespace ParryRL.EditorTools
         }
 
         /// <summary>짙은 변종은 걷기만 새로 그렸다 — 쓰러짐은 원래 요괴 그림을 쓴다.</summary>
+        /// <summary>스킬 입자 시트 (Tools/survivor_art/cut_vfx.py 결과, Resources에서 이름으로 읽는다).</summary>
+        private static void ImportVfx()
+        {
+            // 요괴 뼈대 아틀라스 (Tools/survivor_art/cut_mobs.py 결과)
+            const string rigs = ArtRoot + "/Resources/MobRig";
+            if (Directory.Exists(rigs))
+            {
+                AssetDatabase.Refresh();
+                foreach (var p in Directory.GetFiles(rigs, "*.png").Select(x => x.Replace('\\', '/')))
+                {
+                    if (AssetImporter.GetAtPath(p) is not TextureImporter ri) continue;
+                    ri.textureType = TextureImporterType.Default;
+                    ri.alphaIsTransparency = true;
+                    ri.mipmapEnabled = true;
+                    ri.wrapMode = TextureWrapMode.Clamp;
+                    ri.filterMode = FilterMode.Bilinear;
+                    ri.textureCompression = TextureImporterCompression.Uncompressed;
+                    ri.maxTextureSize = 4096;
+                    ri.SaveAndReimport();
+                }
+            }
+            const string dir = ArtRoot + "/Resources/Vfx";
+            if (!Directory.Exists(dir)) return;
+            foreach (var p in Directory.GetFiles(dir, "*.png").Select(x => x.Replace('\\', '/')))
+            {
+                if (AssetImporter.GetAtPath(p) is not TextureImporter ti) continue;
+                ti.textureType = TextureImporterType.Default;
+                ti.alphaIsTransparency = p.EndsWith("vfx_ink.png") || p.EndsWith("vfx_cloud.png") || p.EndsWith("vfx_solid.png");
+                ti.sRGBTexture = ti.alphaIsTransparency;
+                ti.mipmapEnabled = true;
+                ti.wrapMode = TextureWrapMode.Clamp;
+                ti.filterMode = FilterMode.Bilinear;
+                ti.textureCompression = TextureImporterCompression.Uncompressed;
+                ti.SaveAndReimport();
+            }
+        }
+
+        /// <summary>퇴마사 뼈대: 아틀라스 · 부위 정보 · 재질 (Tools/survivor_art/cut_rig.py 결과). 없으면 예전 그림 장면으로 움직인다.</summary>
+        private static void ImportRig(SurvivorArt art)
+        {
+            const string dir = ArtRoot + "/HeroRig";
+            string png = dir + "/hero_rig.png", mat = dir + "/HeroRig.mat";
+            AssetDatabase.Refresh();
+            if (AssetImporter.GetAtPath(png) is TextureImporter ti)
+            {
+                ti.textureType = TextureImporterType.Default;
+                ti.alphaIsTransparency = true;
+                ti.mipmapEnabled = true;
+                ti.filterMode = FilterMode.Trilinear;
+                ti.wrapMode = TextureWrapMode.Clamp;
+                ti.maxTextureSize = 4096;
+                ti.textureCompression = TextureImporterCompression.Uncompressed;
+                ti.SaveAndReimport();
+            }
+            art.heroRigAtlas = AssetDatabase.LoadAssetAtPath<Texture2D>(png);
+            art.heroRigInfo = AssetDatabase.LoadAssetAtPath<TextAsset>(dir + "/hero_rig.json");
+            var shader = AssetDatabase.LoadAssetAtPath<Shader>(dir + "/SvRig.shader");
+            if (shader == null || art.heroRigAtlas == null) { art.heroRigMaterial = null; return; }
+            var m = AssetDatabase.LoadAssetAtPath<Material>(mat);
+            if (m == null)
+            {
+                m = new Material(shader);
+                AssetDatabase.CreateAsset(m, mat);
+            }
+            m.shader = shader;
+            m.mainTexture = art.heroRigAtlas;
+            EditorUtility.SetDirty(m);
+            art.heroRigMaterial = m;
+        }
+
         private static SvMobArt Dark(SvMobArt dark, SvMobArt baseMob)
         {
             if (!dark.Has) return dark;

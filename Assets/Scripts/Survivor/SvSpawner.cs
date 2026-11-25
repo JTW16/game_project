@@ -27,7 +27,7 @@ namespace ParryRL.Survivor
         [Header("보스 불가살이 (가안)")]
         [Tooltip("이 시간(초)에 보스가 나온다. 이후 정예는 안 나오고 잡몹 동시 수를 줄인다")]
         [SerializeField] private float bossAt = 540f;
-        [SerializeField] private int bossHp = 2600;
+        [SerializeField] private int bossHp = 4200;
         [SerializeField] private int aliveDuringBoss = 90;
 
         [Header("꼬마 도깨비 떼 (가안)")]
@@ -40,6 +40,8 @@ namespace ParryRL.Survivor
         [SerializeField] private float dalgyalMaxShare = 0.15f;
 
         [Header("스탯")]
+        [Tooltip("퇴마사가 빨라진 만큼 잡몹 걸음도 올린다 (가안)")]
+        [SerializeField] private float mobSpeedMul = 1.15f;
         [Tooltip("이 시간(초)마다 잡몹 체력이 기본만큼 더 늘어난다")]
         [SerializeField] private float hpDoubleTime = 240f;
 
@@ -76,6 +78,7 @@ namespace ParryRL.Survivor
         private readonly Dictionary<SvEnemyKind, Stack<SvEnemy>> _free = new();
         private Transform _root;
         private float _budget, _nextElite, _nextPack;
+        private Vector2 _ahead;
 
         private void Awake()
         {
@@ -94,6 +97,8 @@ namespace ParryRL.Survivor
         {
             var p = SvPlayer.Instance;
             if (!Running || p == null || p.Dead) return;
+            Vector2 going = p.MoveInput * Mathf.Clamp01(p.SpeedNow / 6f);
+            _ahead = Vector2.Lerp(_ahead, going, 1f - Mathf.Exp(-1.2f * Time.deltaTime));
             _budget = Mathf.Min(_budget + spawnPerSecond * Time.deltaTime, 30f);
             int regular = SvEnemy.Active.Count;
             while (_budget >= 1f && regular < TargetAlive)
@@ -158,7 +163,7 @@ namespace ParryRL.Survivor
         public Vector2 GatePoint(Vector2 center)
         {
             float r = SvView.Instance != null ? SvView.Instance.OffscreenRadius : 16f;
-            int i = SvGates.Pick(center, r);
+            int i = SvGates.Pick(center, r, _ahead);
             if (i < 0) return RingPoint(center);
             SvGates.MarkSpawn(i);
             return SvGates.Front(i);
@@ -215,12 +220,13 @@ namespace ParryRL.Survivor
             switch (kind)
             {
                 case SvEnemyKind.Dokkaebibul: e.Spawn(at, Mathf.RoundToInt(7 * scale), 3.2f, 6, Xp(2)); break;
-                case SvEnemyKind.Elite: e.Spawn(at, Mathf.RoundToInt(240 * scale), 1.9f, 15, 15); break;
-                case SvEnemyKind.Boss: e.Spawn(at, bossHp, 1.6f, 14, 0); break;
+                case SvEnemyKind.Elite: e.Spawn(at, Mathf.RoundToInt(380 * scale), 2.1f, 18, 15); break;
+                case SvEnemyKind.Boss: e.Spawn(at, bossHp, 1.6f, 18, 0); break;
                 case SvEnemyKind.Dalgyal: e.Spawn(at, Mathf.RoundToInt(40 * scale), 1.6f, 12, Xp(4)); break;
                 case SvEnemyKind.SmallDokkaebi: e.Spawn(at, Mathf.RoundToInt(6 * scale), 3.7f, 5, Xp(1)); break;
                 default: e.Spawn(at, Mathf.RoundToInt(10 * scale), 2.3f, 8, Xp(1)); break;
             }
+            if (!e.IsBig) { e.Speed *= mobSpeedMul; SvFoeVfx.MobArrive(at, false); }
             SpawnedTotal++;
             int phase = SvNight.Phase;
             if (!e.IsBig && fierceChance != null && phase < fierceChance.Length && Random.value < fierceChance[phase]) e.MakeFierce();

@@ -12,11 +12,11 @@ namespace ParryRL.Survivor
     public class SvBoss : MonoBehaviour
     {
         [Header("앞발 (패링 가능)")]
-        [SerializeField] private float pawRange = 4.6f;
+        [SerializeField] private float pawRange = 5f;
         [SerializeField] private float pawWindup = 1.0f, pawWindup2 = 0.85f;
-        [SerializeField] private float pawRadius = 3.9f, pawRadius2 = 4.6f;
+        [SerializeField] private float pawRadius = 4.4f, pawRadius2 = 5.2f;
         [SerializeField] private float pawAngle = 120f, pawAngle2 = 150f;
-        [SerializeField] private int pawDamage = 30, pawDamage2 = 36;
+        [SerializeField] private int pawDamage = 38, pawDamage2 = 46;
         [SerializeField] private float parryStun = 1.4f;
 
         [Header("쇠가시")]
@@ -24,15 +24,15 @@ namespace ParryRL.Survivor
         [SerializeField] private float spineWindup = 0.8f;
         [SerializeField] private int spineCount = 12, spineCount2 = 18;
         [SerializeField] private float spineSpeed = 7.5f;
-        [SerializeField] private int spineDamage = 12;
+        [SerializeField] private int spineDamage = 15;
 
         [Header("돌진 (2페이즈)")]
         [SerializeField] private float chargeEvery = 6.5f;
         [SerializeField] private float chargeWindup = 0.9f;
         [SerializeField] private float chargeLength = 10f;
-        [SerializeField] private float chargeWidth = 2.6f;
+        [SerializeField] private float chargeWidth = 3f;
         [SerializeField] private float chargeSpeed = 18f;
-        [SerializeField] private int chargeDamage = 30;
+        [SerializeField] private int chargeDamage = 38;
 
         [Header("변신")]
         [SerializeField] private float phase2At = 0.5f;
@@ -53,6 +53,7 @@ namespace ParryRL.Survivor
         private Vector2 _chargeDir, _chargeFrom;
         private bool _chargeHit;
         private MeshRenderer _lane, _laneFill;
+        private SvWarn _warn;
         private MaterialPropertyBlock _block;
         private static Mesh _quad;
 
@@ -62,8 +63,9 @@ namespace ParryRL.Survivor
             _paw = GetComponent<SvEliteAttack>();
             _art = SvGame.Instance != null ? SvGame.Instance.Art : null;
             _block = new MaterialPropertyBlock();
-            _lane = MakeLane("Lane", SvOrder.FlatFx + 1);
-            _laneFill = MakeLane("LaneFill", SvOrder.FlatFx + 2);
+            _lane = MakeLane("Lane", SvOrder.FlatFx + 20);
+            _laneFill = MakeLane("LaneFill", SvOrder.FlatFx + 21);
+            _warn = SvWarn.Create(transform);
         }
 
         /// <summary>스포너가 꺼낼 때마다 1페이즈로 되돌린다.</summary>
@@ -115,7 +117,11 @@ namespace ParryRL.Survivor
             return mr;
         }
 
-        private void HideLane() => _lane.enabled = _laneFill.enabled = false;
+        private void HideLane()
+        {
+            _lane.enabled = _laneFill.enabled = false;
+            _warn?.Hide(State == Mode.Charging);
+        }
 
         private SvPlayer Player => SvPlayer.Instance;
 
@@ -137,6 +143,11 @@ namespace ParryRL.Survivor
                     // S9 4장: 웅크림 0 → 가시를 곤두세우고 떤다 1 (준비 후반)
                     if (SurvivorArt.Ok(_art?.bossSpines) && _art.bossSpines.Length >= 4)
                         _enemy.PoseOverride = _art.bossSpines[_until - Time.time > spineWindup * 0.5f ? 0 : 1];
+                    {
+                        float st = 1f - Mathf.Clamp01((_until - Time.time) / spineWindup);
+                        _warn?.Show(SvWarnShape.Circle, _enemy.Position, Vector2.right, 3.4f, 360f, 0f, st, st > 0.7f, 2);
+                        SvFoeVfx.SpineWindup(_enemy, st, Time.deltaTime);
+                    }
                     if (Time.time >= _until) FireSpines(p);
                     break;
                 case Mode.Transform:
@@ -206,6 +217,8 @@ namespace ParryRL.Survivor
                 SvEnemyShot.Fire(_enemy.Position + dir * (_enemy.Radius * 0.8f), dir, spineSpeed, 16f, spineDamage);
             }
             SpineVolleys++;
+            _warn?.Hide(true);
+            SvFoeVfx.SpineBurst(_enemy, n, aim);
             Sfx.Play(SfxId.SpineShot, 0.9f);
             SvGame.Instance?.Shake(0.12f, 0.15f);
             _nextSpine = Time.time + (Phase == 1 ? spineEvery : spineEvery2);
@@ -224,7 +237,8 @@ namespace ParryRL.Survivor
             _enemy.ForcedVelocity = null;
             Sfx.Play(SfxId.BossRoar);
             SvGame.Instance?.Shake(0.4f, transformTime * 0.8f);
-            if (_art != null) SvFx.Anim(_art.fxBossRoarRing, _enemy.Position, 2f, 7f, transformTime * 0.8f);
+            if (_art != null && !SvVfx.Ready) SvFx.Anim(_art.fxBossRoarRing, _enemy.Position, 2f, 7f, transformTime * 0.8f);
+            SvFoeVfx.Roar(_enemy.Position, false);
             SvView.Instance?.Punch(0.06f, transformTime * 0.6f);
             SvGame.Instance?.Hud.Popup("불가살이가 달아오른다!", new Color(1f, 0.7f, 0.3f), 1.6f);
         }
@@ -232,10 +246,13 @@ namespace ParryRL.Survivor
         private void TickTransform()
         {
             float t = 1f - (_until - Time.time) / transformTime;
+            SvFoeVfx.Heating(_enemy, Mathf.Clamp01(t), Time.deltaTime);
             if (SurvivorArt.Ok(_art?.bossTransform))
                 _enemy.PoseOverride = _art.bossTransform[Mathf.Clamp((int)(t * _art.bossTransform.Length), 0, _art.bossTransform.Length - 1)];
             if (t < 1f) return;
             Phase = 2;
+            SvFoeVfx.Roar(_enemy.Position, true);
+            SvGame.Instance?.Shake(0.6f, 0.6f);
             if (_art != null) _enemy.SetMob(_art.bossP2);
             _enemy.Speed = speed2;
             _enemy.Invulnerable = false;
@@ -261,6 +278,7 @@ namespace ParryRL.Survivor
         private void StartCharging()
         {
             State = Mode.Charging;
+            SvFoeVfx.ChargeStart(_enemy, _chargeDir);
             _chargeFrom = _enemy.Position;
             _chargeHit = false;
             _enemy.ForcedVelocity = _chargeDir * chargeSpeed;
@@ -274,7 +292,8 @@ namespace ParryRL.Survivor
         private void TickCharge(SvPlayer p)
         {
             // 돌진 자국: 몸 뒤로 먼지·불씨 띠 (그림은 오른쪽이 굵은 머리 쪽)
-            if (_art != null && Time.time >= _trailAt)
+            SvFoeVfx.Charging(_enemy, _chargeDir, Time.deltaTime);
+            if (_art != null && !SvVfx.Ready && Time.time >= _trailAt)
             {
                 _trailAt = Time.time + 0.07f;
                 SvFx.FlatAnim(_art.fxChargeTrail, _enemy.Position - _chargeDir * 1.6f, SvGeom.AngleOf(_chargeDir), 5f, 0.45f);
@@ -289,6 +308,7 @@ namespace ParryRL.Survivor
             if ((_enemy.Position - _chargeFrom).magnitude >= chargeLength)
             {
                 Charges++;
+                SvFoeVfx.ChargeEnd(_enemy, _chargeDir);
                 _enemy.ForcedVelocity = null;
                 _nextCharge = Time.time + chargeEvery;
                 Hold(Mode.Recover, 0.6f);
@@ -313,7 +333,9 @@ namespace ParryRL.Survivor
             _lane.SetPropertyBlock(_block);
             _block.SetColor("_Color", new Color(1f, 0.2f, 0.15f, 0.45f));
             _laneFill.SetPropertyBlock(_block);
-            _lane.enabled = _laneFill.enabled = true;
+            _warn?.Show(SvWarnShape.Lane, _enemy.Position, _chargeDir, len, 0f, chargeWidth, t, t > 0.72f, 1);
+            SvFoeVfx.ChargeWindup(_enemy, _chargeDir, t, Time.deltaTime);
+            _lane.enabled = _laneFill.enabled = _warn == null;
         }
 
         /// <summary>테스트용: 바로 다음 기술을 부른다.</summary>

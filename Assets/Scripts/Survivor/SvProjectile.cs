@@ -22,7 +22,7 @@ namespace ParryRL.Survivor
         private SvBillboard _art;
         private MeshRenderer _hitDisc;
         private Sprite[] _frames, _burst;
-        private float _phase;
+        private float _phase, _trail;
 
         public static void ResetPool()
         {
@@ -78,6 +78,7 @@ namespace ParryRL.Survivor
             _pos += _dir * step;
             _left -= step;
             transform.position = _pos;
+            SvSkillVfx.TalismanTrail(_pos, _dir, FlyHeight, ref _trail, Time.deltaTime);
             if (_frames != null)
             {
                 // 그림은 오른쪽으로 나는 부적 — 왼쪽으로 가면 뒤집는다
@@ -92,12 +93,13 @@ namespace ParryRL.Survivor
             {
                 var e = SvEnemy.Find(Hits[i]);
                 if (e == null || !e.isActiveAndEnabled || !_hit.Add(e)) continue;
+                SvSkillVfx.TalismanHit(_pos, _dir, FlyHeight);
                 SvWeapons.Hit(e, _damage, _dir, 3f, SvItems.Talisman);
                 var prog = SvGame.Instance != null ? SvGame.Instance.Progress : null;
                 if (prog != null && prog.HasCore(SvItems.CoreTalisman)) SvWeapons.TalismanBurst(e.Position, _damage, e);
                 if (_pierce-- <= 0)
                 {
-                    if (_burst != null) SvFx.Anim(_burst, _pos, FlyHeight, 0.9f, 0.3f, _dir.x < 0f);
+                    if (_burst != null && !SvVfx.Ready) SvFx.Anim(_burst, _pos, FlyHeight, 0.9f, 0.3f, _dir.x < 0f);
                     Release();
                     return;
                 }

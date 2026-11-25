@@ -41,9 +41,19 @@ namespace ParryRL.Survivor
         private CircleCollider2D _col;
         private Color _tint;
         private Vector2 _knock;
+        /// <summary>떠다니는 높이 (도깨비불처럼 뜬 적은 뛰어올라도 닿는다).</summary>
+        public float Hover => _hover;
+        /// <summary>프레임 사이를 채우는 움직임 (휘기·걸음·덮치기).</summary>
+        public SvMobMotion Motion { get; private set; }
+        /// <summary>부위를 나눈 뼈대 (그림이 없으면 null — 예전 그림 장면으로).</summary>
+        public SvMobRig Rig { get; private set; }
+        public Vector2 Velocity => _rb != null ? _rb.linearVelocity : Vector2.zero;
+        /// <summary>잡몹 공격 동작 진행 (0~1, 음수 = 아님).</summary>
+        public float AttackProgress => !IsBig && Attacking ? Mathf.Clamp01((Time.time - _attackAt) / AttackTime) : -1f;
         private float _flashUntil, _stunUntil, _hover, _surgeUntil, _nextSurge;
         // 잡몹 공격 동작 (S6·S7 그림): 판정은 그대로 몸에 닿는 피해, 붙었을 때 동작만 보여 준다
         private float _attackAt = -9f, _nextAttack;
+        private bool _swiped;
         /// <summary>잡몹 공격 동작 길이 · 동작을 시작하는 거리(몸 가장자리 사이) — 가안.</summary>
         public const float AttackTime = 0.55f, AttackReach = 0.55f;
         public bool Attacking => Time.time - _attackAt < AttackTime;
@@ -186,7 +196,7 @@ namespace ParryRL.Survivor
                     Radius = 0.32f; size = new Vector2(0.7f, 0.7f); _tint = new Color(0.45f, 0.85f, 0.85f); _hover = 0.45f;
                     break;
                 case SvEnemyKind.Elite:
-                    Radius = 0.7f; size = new Vector2(1.4f, 2.4f); _tint = new Color(0.62f, 0.45f, 0.82f); _hover = 0f;
+                    Radius = 0.85f; size = new Vector2(1.4f, 2.4f); _tint = new Color(0.62f, 0.45f, 0.82f); _hover = 0f;
                     _rb.mass = 20f;
                     break;
                 case SvEnemyKind.Dalgyal:
@@ -195,7 +205,7 @@ namespace ParryRL.Survivor
                     _col.isTrigger = true;
                     break;
                 case SvEnemyKind.Boss:
-                    Radius = 1.3f; size = new Vector2(4f, 3f); _tint = new Color(0.5f, 0.38f, 0.3f); _hover = 0f;
+                    Radius = 1.6f; size = new Vector2(4f, 3f); _tint = new Color(0.5f, 0.38f, 0.3f); _hover = 0f;
                     _rb.mass = 200f;
                     break;
                 case SvEnemyKind.SmallDokkaebi:
@@ -236,14 +246,17 @@ namespace ParryRL.Survivor
             }
             Art.Height = _hover;
             VisualHeight = _hover + size.y;
+            Motion = new SvMobMotion(this, Art);
+            if (_mob != null) Rig = SvMobRig.Create(this, Art);
             Art.Renderer.color = _tint;
-            SvBillboard.CreateShadow(transform, Radius * 2.6f);
+            SvBillboard.CreateShadow(transform, Radius * (IsBig ? 3.4f : 2.6f));
             // 빛 나는 적은 어두운 바닥에 제 빛을 드리운다 (설계서 2장)
             if (kind == SvEnemyKind.Dokkaebibul) SvBillboard.CreateGlow(transform, 2.2f, new Color(0.6f, 1f, 1f, 0.34f));
             else if (kind == SvEnemyKind.Elite) SvBillboard.CreateGlow(transform, 4.5f, new Color(0.7f, 0.45f, 1f, 0.28f));
             else if (kind == SvEnemyKind.Boss) SvBillboard.CreateGlow(transform, 9f, new Color(1f, 0.55f, 0.25f, 0.28f));
             _hitDisc = SvBillboard.CreateHitDisc(transform, Radius, new Color(1f, 0.6f, 0.2f, 0.45f));
-            if (kind == SvEnemyKind.Elite || kind == SvEnemyKind.Boss) MakeAura(kind == SvEnemyKind.Boss);
+            if (kind == SvEnemyKind.Elite || kind == SvEnemyKind.Boss)
+                if (Rig == null || SvFoePresence.Create(this) == null) MakeAura(kind == SvEnemyKind.Boss);
             ByCollider[_col] = this;
         }
 
@@ -271,6 +284,8 @@ namespace ParryRL.Survivor
             _tint = _baseTint;
             Fierce = false;
             Art.Scale = 1f;
+            Motion?.Born();
+            Rig?.Born();
             // 짙은 변종이나 보스 2페이즈로 그림을 갈아입었으면 원래대로
             if (_baseMob != null && _mob != _baseMob) SetMob(_baseMob);
             Art.Renderer.color = _tint;
@@ -286,6 +301,7 @@ namespace ParryRL.Survivor
             int dealt = Mathf.Min(amount, Hp);
             Hp -= amount;
             _flashUntil = Time.time + 0.08f;
+            Motion?.Hurt(knockDir, knock);
             if (knock > 0f) _knock += knockDir.normalized * knock / (IsBoss ? 30f : IsElite ? 4f : 1f);
             if (Hp <= 0) Die();
             return dealt;
@@ -306,12 +322,15 @@ namespace ParryRL.Survivor
         {
             SvGame.Instance?.OnEnemyKilled(this);
             // 쓰러지는 그림은 적 대신 이펙트가 재생한다 (적은 바로 풀로 돌아감)
-            bool drawn = _mob != null && SvFx.Anim(_mob.death, Position, Art.Height, 1f, IsBoss ? 2.2f : IsElite ? 0.9f : 0.45f, Art.FacingLeft,
+            bool drawn = Rig != null;
+            if (Rig != null) Rig.Corpse(SvWeapons.KillDir);
+            else drawn = _mob != null && SvFx.Anim(_mob.death, Position, Art.Height, 1f, IsBoss ? 2.2f : IsElite ? 0.9f : 0.45f, Art.FacingLeft,
                 hold: true, order: SvOrder.Actor);
             if (!drawn) SvFx.Spark(Position, VisualHeight * 0.5f, new Color(0.85f, 0.85f, 0.9f, 0.9f), IsElite ? 2.2f : 1.0f, 0.25f);
             // 혼이 빠져나가는 불꽃 (짙은 변종은 푸른 불) — 이펙트가 많을 땐 건너뛴다
             var art = SvGame.Instance != null ? SvGame.Instance.Art : null;
-            if (art != null && SvFx.ActiveCount < 90)
+            if (SvVfx.Ready) SvSkillVfx.Death(this, SvWeapons.KillDir);
+            else if (art != null && SvFx.ActiveCount < 90)
                 SvFx.Anim(Fierce ? art.fxKillBurstB : art.fxKillBurst, Position, VisualHeight * 0.45f, IsBig ? 2.2f : Fierce ? 1.3f : 1f, 0.5f, Random.value < 0.5f);
             Despawn();
         }
@@ -397,7 +416,8 @@ namespace ParryRL.Survivor
             }
             if (Scripted) { _hitDisc.enabled = false; return; }
             // 공격 자세 중엔 돌아서지 않는다 (예고한 방향 그대로)
-            if (player != null && PoseOverride == null) Art.FacingLeft = player.Position.x < _rb.position.x;
+            // 겹쳐 있을 때 좌우로 파르르 떨지 않게, 조금이라도 벌어졌을 때만 돌아선다
+            if (player != null && PoseOverride == null && Mathf.Abs(player.Position.x - _rb.position.x) > 0.2f) Art.FacingLeft = player.Position.x < _rb.position.x;
             bool flash = Time.time < _flashUntil;
             Color c = flash ? Color.white : _tint;
             if (Stunned) c = Color.Lerp(_tint, new Color(0.5f, 0.7f, 1f), 0.6f);
@@ -405,7 +425,7 @@ namespace ParryRL.Survivor
             c.a = Surging ? 0.55f : 1f;
             Art.Renderer.color = c;
             // 맞으면 잠깐 눌렸다 펴짐 (그림은 흰색으로 더 밝힐 수 없어서)
-            Art.Squash = flash ? new Vector2(1.12f, 0.9f) : Vector2.one;
+            if (_mob == null) Art.Squash = flash ? new Vector2(1.12f, 0.9f) : Vector2.one;
             if (_mob != null)
             {
                 bool walking = !Holding && !Stunned && SurvivorArt.Ok(_mob.move);
@@ -414,6 +434,7 @@ namespace ParryRL.Survivor
                     && (player.Position - _rb.position).magnitude <= Radius + player.HurtRadius + AttackReach)
                 {
                     _attackAt = Time.time;
+                    _swiped = false;
                     _nextAttack = Time.time + AttackTime + Random.Range(0.8f, 1.5f);
                 }
                 Art.Renderer.sprite = PoseOverride != null ? PoseOverride
@@ -421,6 +442,17 @@ namespace ParryRL.Survivor
                     : walking ? _mob.move[(int)((Time.time + _phase) * _mob.moveFps) % _mob.move.Length] : _mob.idle;
             }
             if (_hover > 0f) Art.Height = _hover + Mathf.Sin(Time.time * 4f + _phase) * 0.08f;
+            if (_mob != null && Motion != null)
+            {
+                float attack = !IsBig && Attacking ? Mathf.Clamp01((Time.time - _attackAt) / AttackTime) : -1f;
+                if (attack > 0.4f && !_swiped && player != null)
+                {
+                    _swiped = true;
+                    Vector2 to = player.Position - _rb.position;
+                    SvFoeVfx.MobSwipe(this, to.sqrMagnitude > 0.001f ? to.normalized : Vector2.right);
+                }
+                Motion.Tick(_rb.linearVelocity, !Holding && !Stunned, Stunned, attack, Surging, Time.deltaTime);
+            }
             UpdateStatus();
             _hitDisc.enabled = SvGame.ShowHitboxes;
         }

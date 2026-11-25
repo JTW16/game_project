@@ -78,7 +78,8 @@ namespace ParryRL.Survivor
             game?.Hud.Flash(new Color(0.75f, 1f, 0.95f), 0.25f, windup);
             game?.Hud.Popup("귀문봉인!", new Color(0.7f, 1f, 0.9f), 1.4f);
             Sfx.Play(SfxId.HeavyParry);
-            if (art != null) SvFx.Anim(art.fxLevelUp, _player.Position, 1.6f, 3.2f, windup);
+            SvSkillVfx.UltGather(_player.transform, _player.Position, windup);
+            if (art != null && !SvVfx.Ready) SvFx.Anim(art.fxLevelUp, _player.Position, 1.6f, 3.2f, windup);
             _fireAt = Time.unscaledTime + windup;
             return true;
         }
@@ -92,7 +93,8 @@ namespace ParryRL.Survivor
             float r = SvView.Instance != null ? SvView.Instance.OffscreenRadius * 0.85f : 14f;
 
             // 2) 화면을 덮는 봉인진 + 솟는 빛기둥 + 큰 번쩍임
-            if (art != null)
+            SvSkillVfx.UltFire(_player.transform, at, r);
+            if (art != null && !SvVfx.Ready)
             {
                 bool seal = SvFx.FlatAnim(art.fxUltSeal, at, 0f, r * 2.2f, 1.1f);
                 if (!seal)
@@ -106,8 +108,8 @@ namespace ParryRL.Survivor
                 if (!SvFx.Anim(art.fxUltPillar, at, 4f, 8f, 1.0f))
                     SvFx.Anim(art.fxLevelUp, at, 3.5f, 7f, 1.0f);
             }
-            SvFx.Debris(art != null ? art.fxDebris : null, at, 14, 8f, 10f, 0.4f, new Color(0.75f, 1f, 0.9f));
-            game?.Hud.Flash(Color.white, 0.75f, 0.6f);
+            if (!SvVfx.Ready) SvFx.Debris(art != null ? art.fxDebris : null, at, 14, 8f, 10f, 0.4f, new Color(0.75f, 1f, 0.9f));
+            game?.Hud.Flash(Color.white, 0.5f, 0.45f);
             game?.Shake(0.6f, 0.7f);
             SvView.Instance?.Punch(0.1f, 0.6f);
             Sfx.Play(SfxId.SkillSlam);
@@ -120,6 +122,7 @@ namespace ParryRL.Survivor
             {
                 var e = SvEnemy.Find(Hits[i]);
                 if (e == null || !e.isActiveAndEnabled) continue;
+                SvSkillVfx.SoulPull(e.Position, at);
                 int dmg = e.IsBoss ? Mathf.RoundToInt(e.MaxHp * bossPercent) : e.IsElite ? Mathf.RoundToInt(eliteDamage * mul) : Mathf.RoundToInt(damage * mul);
                 SvWeapons.Hit(e, dmg, e.Position - at, 14f, Source);
             }

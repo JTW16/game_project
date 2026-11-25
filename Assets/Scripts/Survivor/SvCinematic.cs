@@ -186,6 +186,7 @@ namespace ParryRL.Survivor
                 SvFx.Anim(art.fxBossRoar != null && SurvivorArt.Ok(art.fxBossRoar) ? art.fxBossRoar : art.fxHitSpark, at, 1.5f, 5f, 0.6f);
             }
             SvFx.Debris(art != null ? art.fxDebris : null, at, 16, 7f, 12f, 0.5f);
+            SvFoeVfx.Roar(at, true);
             Sfx.Play(SfxId.BossSlam);
             game?.Shake(0.55f, 0.6f);
             view?.Punch(0.05f, 0.4f);
@@ -215,7 +216,8 @@ namespace ParryRL.Survivor
             // 포효 그림은 왼쪽 입에서 오른쪽으로 뿜는 모양 → 보스가 보는 쪽으로 몸 앞에 놓는다
             float side = boss.Art.FacingLeft ? -1f : 1f;
             if (roar != null) SvFx.Anim(roar, at + new Vector2(side * 3.2f, 0f), 2.2f, 6.5f, 1.0f, boss.Art.FacingLeft);
-            if (art != null) SvFx.Anim(art.fxBossRoarRing, at, 2f, 7f, 0.9f);
+            SvFoeVfx.Roar(at, false);
+            if (art != null && !SvVfx.Ready) SvFx.Anim(art.fxBossRoarRing, at, 2f, 7f, 0.9f);
             else if (art != null) SvFx.FlatAnim(art.fxCounter, at, 0f, 14f, 0.9f, new Color(1f, 0.6f, 0.25f, 0.85f));
             ShowCard("불가살이  <size=56>不可殺伊</size>", "쇠를 먹고 자라는, 죽일 수 없는 짐승");
             yield return WaitRoutine(2.2f);

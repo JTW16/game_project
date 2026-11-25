@@ -92,6 +92,7 @@ namespace ParryRL.Survivor
                 _tiger.transform.parent.gameObject.SetActive(true);
                 _tiger.FacingLeft = _tigerDir.x < 0f;
             }
+            SvSkillVfx.TigerStart(_tigerFrom, _tigerDir, tigerLength + 2f, tigerWidth);
             Sfx.Play(SfxId.BossDash, 0.6f);
             SvGame.Instance?.Hud.Popup("산군!", new Color(1f, 0.8f, 0.45f), 0.8f);
             return true;
@@ -106,6 +107,7 @@ namespace ParryRL.Survivor
             float cur = _tigerT * total;
             Vector2 pos = _tigerFrom + _tigerDir * cur;
             var art = Art;
+            SvSkillVfx.TigerRun(pos, _tigerDir, Time.deltaTime);
             if (_tiger != null && _tiger.transform.parent.gameObject.activeSelf)
             {
                 _tiger.transform.parent.position = pos;
@@ -138,13 +140,15 @@ namespace ParryRL.Survivor
                 if (Mathf.Abs(side) > half + e.Radius) continue;
                 _tigerHit.Add(e);
                 Vector2 push = new Vector2(_tigerDir.y, -_tigerDir.x) * Mathf.Sign(side == 0f ? 1f : side);
-                if (art != null) SvFx.Anim(art.fxEliteRend, e.Position, e.VisualHeight * 0.5f, 1.4f, 0.22f, _tigerDir.x < 0f, new Color(1f, 0.85f, 0.5f, 1f));
+                SvSkillVfx.Claw(e, _tigerDir);
+                if (art != null && !SvVfx.Ready) SvFx.Anim(art.fxEliteRend, e.Position, e.VisualHeight * 0.5f, 1.4f, 0.22f, _tigerDir.x < 0f, new Color(1f, 0.85f, 0.5f, 1f));
                 SvWeapons.Hit(e, dmg, push, tigerKnock, "tiger");
             }
             if (_tigerT >= 1f)
             {
                 _tigerT = -1f;
                 if (_tiger != null) _tiger.transform.parent.gameObject.SetActive(false);
+                SvSkillVfx.Roar(pos);
                 Summon(pos, art);
             }
         }
@@ -162,6 +166,8 @@ namespace ParryRL.Survivor
             var art = Art;
             _player.PlayAction(SummonPose(art), 0.4f, _player.Facing);
             Vector2 at = _wardAt + new Vector2(_player.Facing.x < 0f ? 1f : -1f, 0.4f);
+            SvSkillVfx.WardOpen(_wardAt, wardRadius, shamanTime);
+            SvSkillVfx.Puff(at);
             Summon(at, art);
             if (art != null && SurvivorArt.Ok(art.shamanDance))
             {
@@ -190,6 +196,7 @@ namespace ParryRL.Survivor
                 if (_shaman != null && _shaman.transform.parent.gameObject.activeSelf)
                 {
                     _shaman.transform.parent.gameObject.SetActive(false);
+                    SvSkillVfx.Puff(_shaman.transform.parent.position);
                     Summon(_shaman.transform.parent.position, Art);
                 }
                 if (_wardGlow != null) _wardGlow.gameObject.SetActive(false);
@@ -211,7 +218,8 @@ namespace ParryRL.Survivor
             _wardTickAt = Time.time + 0.5f;
             // 결계 바닥 고리 (S8 그림 없으면 방울 울림 그림을 옥빛으로)
             // 0.5초마다 다시 깔리므로 가운데 번쩍임이 거슬리지 않게 조금 옅게
-            if (art != null && !SvFx.FlatAnim(art.fxWard, _wardAt, 0f, wardRadius * 2.2f, 0.5f, new Color(1f, 1f, 1f, 0.8f)))
+            SvSkillVfx.WardTick(_wardAt, wardRadius);
+            if (art != null && !SvVfx.Ready && !SvFx.FlatAnim(art.fxWard, _wardAt, 0f, wardRadius * 2.2f, 0.5f, new Color(1f, 1f, 1f, 0.8f)))
                 SvFx.FlatAnim(art.fxBellRing, _wardAt, Random.value * 360f, wardRadius * 2.2f, 0.5f, new Color(0.55f, 1f, 0.85f, 0.75f));
             int hits = Physics2D.OverlapCircle(_wardAt, wardRadius, ContactFilter2D.noFilter, Hits);
             for (int i = 0; i < hits; i++)
@@ -233,6 +241,7 @@ namespace ParryRL.Survivor
         private static void Summon(Vector2 at, SurvivorArt art)
         {
             if (art == null) return;
+            if (SvVfx.Ready) return;
             if (!SvFx.Anim(art.fxSummon, at, 0.9f, 2.4f, 0.4f))
                 SvFx.Anim(art.fxTalismanBurst, at, 0.8f, 2.2f, 0.35f);
         }

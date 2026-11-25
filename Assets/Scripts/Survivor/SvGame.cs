@@ -91,6 +91,7 @@ namespace ParryRL.Survivor
             }
 
             Player = SvPlayer.Create(art, Vector2.zero);
+            Player.Momentum = Player.gameObject.AddComponent<SvMomentum>();
             Progress = Player.gameObject.AddComponent<SvProgress>();
             Weapons = Player.gameObject.AddComponent<SvWeapons>();
             Ultimate = Player.gameObject.AddComponent<SvUltimate>();
@@ -118,6 +119,8 @@ namespace ParryRL.Survivor
             }
             view.Target = Player.transform;
             view.SnapToTarget();
+            SvWind.Create(Player);
+            SvPost.Attach(view.GetComponent<Camera>()); // 빛 번짐 · 일렁임 (스킬 이펙트)
             SvForeground.Create(art, view.GetComponent<Camera>()); // 씬에 있는 카메라는 아직 Awake 전일 수 있다
 
             OnTitle = ShowTitle && !_skipTitleOnce && !IsBench;
@@ -130,6 +133,7 @@ namespace ParryRL.Survivor
 
         private void Start()
         {
+            SvVfx.Warm(Player != null ? Player.Position : Vector2.zero);
             if (IsBench) StartCoroutine(Bench());
         }
 
@@ -149,17 +153,22 @@ namespace ParryRL.Survivor
             yield return new WaitForSecondsRealtime(1f);
             var times = new List<float>();
             float end = Time.realtimeSinceStartup + 8f;
+            float nextGiant = 0f;
+            // 가장 무거운 경우: 자동 무기 넷 다 8단계 + 긴 봉·내려찍기를 1초마다
+            for (int i = 0; i < 8; i++) foreach (var id in new[] { SvItems.Staff, SvItems.Talisman, SvItems.Orbit, SvItems.Bell }) Progress.Take(SvItems.Get(id), Player, Weapons);
             while (Time.realtimeSinceStartup < end)
             {
                 if (SvEnemy.Active.Count < 200) Spawner.Burst(200 - SvEnemy.Active.Count);
+                if (Time.realtimeSinceStartup > nextGiant) { nextGiant = Time.realtimeSinceStartup + 1f; Weapons.GiantSlam(); SvSkillVfx.SlamLand(Player.Position, 3f, 1f); } // 스킬 이펙트까지 얹은 무게
                 times.Add(Time.unscaledDeltaTime * 1000f);
                 yield return null;
             }
+            int worstAt = times.IndexOf(Mathf.Max(times.ToArray()));
             times.Sort();
             float avg = 0f;
             foreach (var t in times) avg += t;
             avg /= times.Count;
-            Debug.Log($"[SvBench] 적 {SvEnemy.Active.Count}마리 · {Screen.width}x{Screen.height} · 평균 {avg:0.00}ms ({1000f / avg:0}fps) · 99% {times[(int)(times.Count * 0.99f)]:0.00}ms · 최악 {times[^1]:0.00}ms · {times.Count}프레임");
+            Debug.Log($"[SvBench] 적 {SvEnemy.Active.Count}마리 · {Screen.width}x{Screen.height} · 평균 {avg:0.00}ms ({1000f / avg:0}fps) · 99% {times[(int)(times.Count * 0.99f)]:0.00}ms · 최악 {times[^1]:0.00}ms · {times.Count}프레임 (최악은 {worstAt}번째)");
             Application.Quit();
         }
 
@@ -322,12 +331,14 @@ namespace ParryRL.Survivor
             Hud.Popup("정예 출현 — 범탈 창귀", new Color(0.8f, 0.65f, 1f), 1.6f);
             Sfx.Play(SfxId.HeavyCue, 0.7f);
             Shake(0.12f, 0.3f);
-            if (art != null) SvFx.Anim(art.fxEliteSpawn, elite.Position, 1.6f, 3.2f, 0.8f, order: SvOrder.Overhead);
+            SvFoeVfx.EliteArrive(elite.Position);
+            if (art != null && !SvVfx.Ready) SvFx.Anim(art.fxEliteSpawn, elite.Position, 1.6f, 3.2f, 0.8f, order: SvOrder.Overhead);
         }
 
         public void OnEnemyKilled(SvEnemy e)
         {
             Kills++;
+            Player?.Momentum?.OnKill();
             // 궁극기로 잡은 적은 도력을 채우지 않는다 (채우면 후반에 궁극기를 끝없이 이어 쓴다 — 2026-11-18 사용자 요청)
             if (SvWeapons.KillSource != SvUltimate.Source) Ultimate.AddKill(e);
             if (e.IsBoss)
@@ -365,7 +376,8 @@ namespace ParryRL.Survivor
         {
             player.OnParrySuccess();
             Ultimate.AddParry();
-            if (art != null) SvFx.Anim(art.fxParry, player.Position, 1.5f, 1.8f, 0.4f, player.Facing.x < 0f);
+            SvSkillVfx.Parry(player.Position, elite != null ? elite.Position : player.Position + player.Facing);
+            if (art != null && !SvVfx.Ready) SvFx.Anim(art.fxParry, player.Position, 1.5f, 1.8f, 0.4f, player.Facing.x < 0f);
             Weapons.CounterWave(player.Position, counterRadius, counterDamage);
             if (elite != null && elite.isActiveAndEnabled) SvWeapons.Hit(elite, counterDamage, elite.Position - player.Position, 0f, "counter");
             HitStop(parryHitStop);

@@ -41,6 +41,9 @@ namespace ParryRL.Survivor
         public int giantDamage = 40;
         public float giantLength = 7.5f;
         public float giantWidth = 1.2f;
+        [Tooltip("선풍격: 양옆 줄이 벌어지는 각 (도) · 길이 배율 (가안)")]
+        public float giantFanAngle = 30f;
+        public float giantFanLength = 0.85f;
         public float giantCooldown = 4f;
         [Tooltip("봉을 세워 길게 늘이는 준비 시간 (초)")]
         public float giantWindup = 0.24f;
@@ -51,6 +54,9 @@ namespace ParryRL.Survivor
         public int slamDamage = 28;
         public float slamRadius = 2.6f;
         public float slamKnock = 10f;
+        [Tooltip("급강하: 가장 높은 데서 내리꽂을 때 더해지는 범위·피해 배율 (가안)")]
+        public float diveRadiusBonus = 0.6f;
+        public float diveDamageBonus = 1f;
 
         public int SwingCount { get; private set; }
         public int ThrowCount { get; private set; }
@@ -93,7 +99,10 @@ namespace ParryRL.Survivor
 
         // ---------- 단계·비급으로 정해지는 수치 ----------
         public float DamageMul => 1f + 0.1f * Lv(SvItems.Ink);
-        public float CooldownMul => 1f - 0.06f * Lv(SvItems.Hand);
+        public float CooldownMul => (1f - 0.06f * Lv(SvItems.Hand)) * (_player.Momentum != null ? _player.Momentum.CooldownMul : 1f);
+        /// <summary>이보다 높이 떠 있으면 봉과 호신부는 땅의 적에게 닿지 않는다 (가안).</summary>
+        public const float MeleeReachHeight = 1.6f;
+        private bool TooHigh => _player.Height > MeleeReachHeight;
         public float AreaMul => 1f + 0.1f * Lv(SvItems.Aura);
 
         public int SwingDamage => Mathf.RoundToInt(swingDamage * (1f + 0.2f * Steps(Lv(SvItems.Staff), 2, 5)) * DamageMul);
@@ -132,14 +141,20 @@ namespace ParryRL.Survivor
         {
             if (_player.Dead) { HideOrbs(); return; }
             if (SvGame.InputBlocked) return;
-            if (Lv(SvItems.Staff) > 0 && Time.time >= _swingAt) Swing();
+            Windup();
+            if (Lv(SvItems.Staff) > 0 && Time.time >= _swingAt && !TooHigh) Swing();
             if (_backSwingAt > 0f && Time.time >= _backSwingAt)
             {
                 _backSwingAt = -1f;
                 // 몸을 뒤로 돌려 친다 (전에는 궤적만 뒤에 나오고 몸은 앞을 본 채라 어색했다 — 2026-11-18 플레이 피드백)
-                if (Art != null && _comboLeft == 0) _player.PlayAction(Art.heroSwing, 0.26f, _backSwingDir);
-                SwingArc(_player.Position, _backSwingDir, SwingRadius * 0.85f, back: true);
+                if (Art != null && _comboLeft == 0)
+                {
+                    _player.SwingSign = _player.Rig != null ? _player.Rig.TakeSwingSign() : 1f;
+                    _player.PlayAction(Art.heroSwing, 0.26f, _backSwingDir);
+                }
+                SwingArc(_player.Position, _backSwingDir, SwingRadius * 0.85f, back: true, flip: _player.SwingSign > 0f);
             }
+            if (TooHigh) { _comboLeft = 0; _backSwingAt = -1f; }
             if (_comboLeft > 0 && Time.time >= _comboAt) ComboSwing();
             if (Lv(SvItems.Talisman) > 0 && Time.time >= _talismanAt) Throw();
             if (Lv(SvItems.Bell) > 0)
@@ -169,6 +184,18 @@ namespace ParryRL.Survivor
 
         private static SurvivorArt Art => SvGame.Instance != null ? SvGame.Instance.Art : null;
 
+        /// <summary>자동 봉이 나가기 직전, 닿을 적이 있으면 미리 당겨 든다 (뼈대의 준비 동작 — 판정 시각은 그대로).</summary>
+        private void Windup()
+        {
+            float left = _swingAt - Time.time;
+            _player.WindupAmount = 0f;
+            if (_player.Rig == null || Lv(SvItems.Staff) <= 0 || left > 0.16f) return;
+            var t = Nearest(_player.Position, SwingRadius + 1.5f);
+            if (t == null) return;
+            _player.WindupAmount = Mathf.Clamp01(1f - left / 0.16f);
+            _player.WindupDir = (t.Position - _player.Position).normalized;
+        }
+
         public void Swing()
         {
             _swingAt = Time.time + SwingCooldown;
@@ -177,9 +204,12 @@ namespace ParryRL.Survivor
             var target = Nearest(at, r + 1.5f);
             Vector2 dir = target != null ? (target.Position - at).normalized : _player.Facing;
             SwingCount++;
+            // 뼈대: 번갈아 쓸고(앞으로 → 되받아), 궤적 그림도 같은 쪽으로
+            float sign = _player.Rig != null ? _player.Rig.TakeSwingSign() : -1f;
+            _player.SwingSign = sign;
             if (Art != null) _player.PlayAction(Art.heroSwing, 0.34f, dir);
             Sfx.Play(SfxId.StaffSwing1, 0.55f);
-            SwingArc(at, dir, r);
+            SwingArc(at, dir, r, flip: sign > 0f);
             // 핵심 비급 삼재격: 같은 쪽으로 두 번 더 (0.14초 간격, 마지막이 가장 크다)
             if (HasCore(SvItems.CoreStaff)) { _comboLeft = 2; _comboAt = Time.time + 0.14f; _comboDir = dir; }
             // 뒤쪽은 앞을 친 뒤 몸을 돌려 이어 치는 느낌으로 조금 늦게 (동시에 그리면 몸 위에서 X자로 엉킨다 — 2차 플레이 피드백)
@@ -201,9 +231,12 @@ namespace ParryRL.Survivor
                 Vector2 d = (target.Position - _player.Position).normalized;
                 if (Vector2.Dot(d, _comboDir) > 0.3f) _comboDir = d;
             }
+            float sign = _player.Rig != null ? _player.Rig.TakeSwingSign() : last ? -1f : 1f;
+            _player.SwingSign = sign;
+            _player.SwingPower = last ? 1.3f : 1f;
             if (Art != null) _player.PlayAction(Art.heroSwing, last ? 0.3f : 0.2f, _comboDir);
             Sfx.Play(SfxId.StaffSwing1, last ? 0.7f : 0.5f);
-            SwingArc(_player.Position, _comboDir, SwingRadius * (last ? 1.25f : 1f), dmgMul: last ? 1.5f : 1f, flip: !last);
+            SwingArc(_player.Position, _comboDir, SwingRadius * (last ? 1.25f : 1f), dmgMul: last ? 1.5f : 1f, flip: sign > 0f);
             if (last) SvGame.Instance?.MicroStop(0.04f);
         }
 
@@ -224,7 +257,9 @@ namespace ParryRL.Survivor
             // 뒤쪽은 조금 더 밀어 그린다 (몸 위를 덮지 않게). 8단계의 곧은 칼바람(fxSweep)은 반원 궤적과 따로 놀아
             // 몸 옆에 세로 막대처럼 보여서 뺐다 (2026-11-18 플레이 피드백) — 반원은 큰 궤적 하나로 보여 준다
             Vector2 front = at + dir * r * (back ? 0.42f : 0.32f);
-            bool drawn = a != null && SvFx.FlatAnim(trail, front, SvGeom.AngleOf(dir) + 180f, r * (lv >= 8 ? 2.1f : 1.8f) * (back ? 0.85f : 1f),
+            float turn = (flip ? 1f : -1f) * (_player.Facing.x < 0f ? -1f : 1f);
+            if (SvVfx.Ready) SvSkillVfx.Swing(follow, at, dir, r, angle, _player.Rig != null ? turn : -1f, dmgMul > 1f ? 1.4f : 1f);
+            bool drawn = SvVfx.Ready || a != null && SvFx.FlatAnim(trail, front, SvGeom.AngleOf(dir) + 180f, r * (lv >= 8 ? 2.1f : 1.8f) * (back ? 0.85f : 1f),
                 back ? 0.15f : FrontTrailTime, follow: follow, mirror: back || flip);
             // 판정 부채꼴은 궤적 그림이 없을 때만 (있으면 뿌옇게 덮어 그림을 흐린다)
             if (!drawn) SvFx.Sector(at, dir, r, angle, new Color(0.75f, 1f, 0.85f, 0.45f), 0.16f, follow);
@@ -247,7 +282,9 @@ namespace ParryRL.Survivor
             Vector2 dir = target != null ? (target.Position - at).normalized : _player.Facing;
             ThrowCount++;
             // 던지는 동작은 서 있을 때만 (달리며 매초 던지면 다리가 멈춘 그림이 계속 끼어든다)
-            if (Art != null && _player.MoveInput.sqrMagnitude < 0.01f && _player.Pose == "idle") _player.PlayAction(Art.heroThrow, 0.3f, dir);
+            // 뼈대는 상체만 던지므로 달리면서도 던진다
+            if (Art != null && (_player.Rig != null ? !_player.BusyAct : _player.MoveInput.sqrMagnitude < 0.01f && _player.Pose == "idle"))
+                _player.PlayAction(Art.heroThrow, 0.3f, dir);
             const float spread = 14f;
             int count = TalismanCount;
             for (int i = 0; i < count; i++)
@@ -271,6 +308,8 @@ namespace ParryRL.Survivor
             float r = OrbitRadius * OrbitPulse();
             int dmg = OrbitDamage;
             var frames = Art != null ? Art.fxTalisman : null;
+            bool pulsing = r > OrbitRadius * 1.05f;
+            SvSkillVfx.OrbitGround(_player.transform, r, _orbitAngle, pulsing, Time.deltaTime);
             for (int i = 0; i < n; i++)
             {
                 float a = _orbitAngle + 360f / n * i;
@@ -280,6 +319,8 @@ namespace ParryRL.Survivor
                 if (SurvivorArt.Ok(frames)) orb.Renderer.sprite = frames[(int)(Time.time * 12f + i) % frames.Length];
                 // 도는 방향(접선)을 따라 좌우를 뒤집는다
                 orb.FacingLeft = Mathf.Cos((a + 90f) * Mathf.Deg2Rad) < 0f;
+                SvSkillVfx.Orbit(_player.Position, p, a * Mathf.Rad2Deg, r, pulsing, Time.deltaTime);
+                if (TooHigh) continue;
                 int hits = Physics2D.OverlapCircle(p, 0.45f, ContactFilter2D.noFilter, Hits);
                 for (int k = 0; k < hits; k++)
                 {
@@ -339,7 +380,8 @@ namespace ParryRL.Survivor
             BellCount++;
             Vector2 at = _player.Position;
             float r = BellRadius;
-            bool drawn = Art != null && (SvFx.FlatAnim(Art.fxBellRing, at, Random.value * 360f, r * 2.3f, 0.45f)
+            SvSkillVfx.Bell(at, r, echo);
+            bool drawn = SvVfx.Ready || Art != null && (SvFx.FlatAnim(Art.fxBellRing, at, Random.value * 360f, r * 2.3f, 0.45f)
                 || SvFx.FlatAnim(Art.fxCounter, at, Random.value * 360f, r * 2.2f, 0.4f, new Color(1f, 0.85f, 0.45f, 0.9f)));
             if (!drawn) SvFx.Ring(at, 0.5f, r, new Color(1f, 0.85f, 0.45f, 0.9f), 0.35f);
             Sfx.Play(SfxId.DefendStart, 0.45f);
@@ -396,7 +438,11 @@ namespace ParryRL.Survivor
             CancelInvoke(nameof(GiantLand));
             Invoke(nameof(GiantLand), total);
             GiantCount++;
+            _player.HoldAir(total + 0.08f);
             float len = GiantLength;
+            SvSkillVfx.GiantGather(_player.transform, _giantFrom, _giantDir, len, GiantWidth, giantWindup, giantSwing);
+            foreach (var (d, l) in GiantLines(len))
+                if (d != _giantDir) SvSkillVfx.GiantPath(_player.transform, _giantFrom, d, l, GiantWidth, total);
             // 퇴마사 뒤에서 혼백 봉이 서며 길어졌다가 앞으로 쓰러진다 (플레이 피드백: "봉으로 내리찍는 느낌")
             if (art != null && SurvivorArt.Ok(art.fxGiantStaff))
             {
@@ -424,9 +470,11 @@ namespace ParryRL.Survivor
             foreach (var (d, l) in GiantLines(len))
             {
                 Vector2 mid = _giantFrom + d * (l * 0.5f + 0.3f);
-                if (_giantImpact != null) SvFx.FlatAnim(_giantImpact, mid, SvGeom.AngleOf(d), l * 1.1f, 0.4f);
+                // 기운이 차례로 솟아 달려 나간다 (새 이펙트가 없을 때만 예전 한 장짜리 충격)
+                if (SvVfx.Ready) SvSkillVfx.GiantImpact(_giantFrom, d, l, GiantWidth, d == _giantDir);
+                else if (_giantImpact != null) SvFx.FlatAnim(_giantImpact, mid, SvGeom.AngleOf(d), l * 1.1f, 0.4f);
                 if (a != null) SvFx.FlatAnim(a.fxLineCrack, mid, SvGeom.AngleOf(d), l * 1.05f, 0.6f, new Color(1f, 0.92f, 0.7f, 0.95f));
-                SvFx.Debris(a != null ? a.fxDebris : null, _giantFrom + d * l * 0.6f, 5, 3f, 6f, 0.26f);
+                if (!SvVfx.Ready) SvFx.Debris(a != null ? a.fxDebris : null, _giantFrom + d * l * 0.6f, 5, 3f, 6f, 0.26f);
                 // 판정: 봉이 놓인 띠 (시작점에서 길이만큼, 폭 = 양옆) — 몸 반지름만큼 너그럽게
                 var list = SvEnemy.Active;
                 for (int i = list.Count - 1; i >= 0; i--)
@@ -438,7 +486,7 @@ namespace ParryRL.Survivor
                     float along = Vector2.Dot(to, d);
                     if (along < -e.Radius || along > l + 0.3f + e.Radius) continue;
                     if (Mathf.Abs(to.x * d.y - to.y * d.x) > half + e.Radius) continue;
-                    if (!hit.Add(e)) continue; // 십자 가운데에서 두 번 맞지 않게
+                    if (!hit.Add(e)) continue; // 줄이 겹치는 가운데에서 두 번 맞지 않게
                     Hit(e, dmg, to - d * along, 3f, SvItems.Giant); // 띠 바깥쪽으로 살짝 밀림
                 }
             }
@@ -447,16 +495,16 @@ namespace ParryRL.Survivor
             SvGame.Instance?.Shake(0.32f, 0.25f);
         }
 
-        /// <summary>내리찍는 줄들: 앞(8단계면 뒤도) + 십자격이면 옆 두 줄(길이 ×0.7).</summary>
+        /// <summary>내리찍는 줄들: 앞 + 선풍격이면 양옆으로 벌어진 두 줄 (부채꼴).</summary>
         private List<(Vector2 dir, float len)> GiantLines(float len)
         {
             var lines = new List<(Vector2, float)> { (_giantDir, len) };
             if (GiantBoth) lines.Add((-_giantDir, len));
             if (HasCore(SvItems.CoreGiant))
             {
-                var side = new Vector2(-_giantDir.y, _giantDir.x);
-                lines.Add((side, len * 0.7f));
-                lines.Add((-side, len * 0.7f));
+                float a = SvGeom.AngleOf(_giantDir);
+                lines.Add((SvGeom.FromAngle(a + giantFanAngle), len * giantFanLength));
+                lines.Add((SvGeom.FromAngle(a - giantFanAngle), len * giantFanLength));
             }
             return lines;
         }
@@ -487,10 +535,15 @@ namespace ParryRL.Survivor
         private void OnSlam(Vector2 at)
         {
             SlamCount++;
-            float r = SlamRadius;
+            // 높은 데서 급강하할수록 크고 세다
+            float power = _player.DivePower;
+            float r = SlamRadius * (1f + diveRadiusBonus * power);
+            SvSkillVfx.SlamLand(at, r, power);
+            if (power > 0.3f) SvGame.Instance?.MicroStop(0.04f + 0.05f * power);
+            _player.Momentum?.OnDive(power);
             // 위에서 세로로 내리꽂는 빛기둥 + 갈라지는 땅 + 튀는 파편 (S4 그림이 오면 그 그림으로)
             var a = Art;
-            if (a != null)
+            if (a != null && !SvVfx.Ready)
             {
                 if (!SvFx.Anim(a.fxStrikePillar, at, 2.2f, 4.4f, 0.35f))
                     SvFx.Anim(a.fxLevelUp, at, 1.9f, 3.8f, 0.3f);
@@ -498,17 +551,17 @@ namespace ParryRL.Survivor
                     SvFx.FlatAnim(a.fxSlamRing, at, Random.value * 360f, r * 2.2f, 0.4f);
                 SvFx.FlatAnim(a.fxCrack, at, Random.value * 360f, r * 1.6f, 0.55f, new Color(1f, 0.85f, 0.55f, 0.85f));
             }
-            SvFx.Disc(at, r, new Color(1f, 0.85f, 0.5f, a != null ? 0.18f : 0.5f), 0.25f);
+            if (!SvVfx.Ready) SvFx.Disc(at, r, new Color(1f, 0.85f, 0.5f, a != null ? 0.18f : 0.5f), 0.25f);
             if (a == null) SvFx.Ring(at, r * 0.4f, r, new Color(1f, 0.9f, 0.6f, 0.9f), 0.3f);
-            SvFx.Debris(a != null ? a.fxDebris : null, at, 9, 4.5f, 8f, 0.32f);
+            if (!SvVfx.Ready) SvFx.Debris(a != null ? a.fxDebris : null, at, 9, 4.5f, 8f, 0.32f);
             // 내리꽂은 자리에 그을음이 잠깐 남는다
-            if (a != null && SurvivorArt.Ok(a.fxScorch))
+            if (a != null && SurvivorArt.Ok(a.fxScorch) && !SvVfx.Ready)
                 SvFx.FlatAnim(new[] { a.fxScorch[Random.Range(0, a.fxScorch.Length)] }, at, Random.value * 360f, r * 1.7f, 2.5f, new Color(1f, 1f, 1f, 0.8f), hold: true);
             Sfx.Play(SfxId.SkillSlam, 0.9f);
             SvGame.Instance?.Shake(0.3f, 0.25f);
             SvView.Instance?.Punch(0.05f, 0.22f);
             int n = Physics2D.OverlapCircle(at, r, ContactFilter2D.noFilter, Hits);
-            int dmg = SlamDamage;
+            int dmg = Mathf.RoundToInt(SlamDamage * (1f + diveDamageBonus * power));
             for (int i = 0; i < n; i++)
             {
                 var e = SvEnemy.Find(Hits[i]);
@@ -521,9 +574,10 @@ namespace ParryRL.Survivor
         public static void TalismanBurst(Vector2 at, int damage, SvEnemy except)
         {
             var art = Art;
-            // S9 폭렬부 폭발 (금빛 불·먹 파편·연기) → 없으면 S2 부적 터짐
-            if (art == null || (!SvFx.Anim(art.fxTalismanBlast, at, 0.7f, 3f, 0.42f, Random.value < 0.5f)
-                                && !SvFx.Anim(art.fxTalismanBurst, at, 0.6f, 1.6f, 0.3f, Random.value < 0.5f)))
+            SvSkillVfx.TalismanBlast(at, 1.4f);
+            // (새 이펙트가 없을 때만) S9 폭렬부 폭발 → 없으면 S2 부적 터짐
+            if (!SvVfx.Ready && (art == null || (!SvFx.Anim(art.fxTalismanBlast, at, 0.7f, 3f, 0.42f, Random.value < 0.5f)
+                                && !SvFx.Anim(art.fxTalismanBurst, at, 0.6f, 1.6f, 0.3f, Random.value < 0.5f))))
                 SvFx.Ring(at, 0.3f, 1.4f, new Color(1f, 0.8f, 0.4f, 0.9f), 0.25f);
             int n = Physics2D.OverlapCircle(at, 1.4f, ContactFilter2D.noFilter, Hits);
             int dmg = Mathf.Max(1, damage / 2);
@@ -538,8 +592,9 @@ namespace ParryRL.Survivor
         /// <summary>패링 반격: 플레이어 둘레 원 안의 적 전부.</summary>
         public void CounterWave(Vector2 at, float radius, int damage)
         {
-            bool drawn = Art != null && SvFx.FlatAnim(Art.fxCounter, at, 0f, radius * 2.2f, 0.45f);
-            SvFx.Disc(at, radius, new Color(0.7f, 1f, 0.95f, drawn ? 0.2f : 0.45f), 0.35f);
+            SvSkillVfx.Counter(at, radius);
+            bool drawn = SvVfx.Ready || Art != null && SvFx.FlatAnim(Art.fxCounter, at, 0f, radius * 2.2f, 0.45f);
+            if (!SvVfx.Ready) SvFx.Disc(at, radius, new Color(0.7f, 1f, 0.95f, drawn ? 0.2f : 0.45f), 0.35f);
             if (!drawn) SvFx.Ring(at, 0.5f, radius, new Color(0.85f, 1f, 1f, 1f), 0.35f);
             int n = Physics2D.OverlapCircle(at, radius, ContactFilter2D.noFilter, Hits);
             for (int i = 0; i < n; i++)
@@ -567,6 +622,8 @@ namespace ParryRL.Survivor
 
         /// <summary>지금 처리 중인 피해의 출처 (Hit 안에서만 값이 있다).</summary>
         public static string KillSource { get; private set; }
+        /// <summary>그 피해가 밀어낸 쪽 (쓰러질 때 먹이 튀는 방향).</summary>
+        public static Vector2 KillDir { get; private set; }
 
         public static void Hit(SvEnemy e, int damage, Vector2 knockDir, float knock, string source = null)
         {
@@ -578,12 +635,14 @@ namespace ParryRL.Survivor
             if ((crit && e.IsBig) || source == "slam" || source == "counter") SvGame.Instance?.MicroStop(source == "slam" ? 0.06f : 0.045f);
             // 큰 한 방(내려찍기·반격·궁극기)이나 정예·보스는 굵은 타격 불꽃
             bool big = crit || source == "slam" || source == "counter" || source == "ultimate" || e.IsBig;
-            if (big && art != null && SvFx.Anim(art.fxHitBig, e.Position, e.VisualHeight * 0.55f, e.IsBig ? 1.8f : 1.2f, 0.22f, Random.value < 0.5f)) { }
+            if (SvVfx.Ready) SvSkillVfx.HitSpark(e, knockDir, source, crit);
+            else if (big && art != null && SvFx.Anim(art.fxHitBig, e.Position, e.VisualHeight * 0.55f, e.IsBig ? 1.8f : 1.2f, 0.22f, Random.value < 0.5f)) { }
             else if (art == null || !SvFx.Anim(art.fxHitSpark, e.Position, e.VisualHeight * 0.55f, e.IsBig ? 1.3f : 0.8f, 0.16f, Random.value < 0.5f))
                 SvFx.Spark(e.Position, e.VisualHeight * 0.55f, new Color(1f, 0.95f, 0.75f, 1f), 0.5f, 0.12f);
             Sfx.Play(SfxId.HitLight, 0.35f);
             // 이 피해로 쓰러지면 처치 처리(OnEnemyKilled)가 무엇에 맞았는지 알 수 있게
             KillSource = source;
+            KillDir = knockDir;
             int dealt;
             try { dealt = e.TakeDamage(damage, knockDir, knock); }
             finally { KillSource = null; }

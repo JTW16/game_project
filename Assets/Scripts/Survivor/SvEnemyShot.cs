@@ -71,6 +71,7 @@ namespace ParryRL.Survivor
             _pos += _dir * step;
             _left -= step;
             transform.position = _pos;
+            SvFoeVfx.ShotTrail(_pos, _dir, FlyHeight * 0.8f, Time.deltaTime);
             _hitDisc.enabled = SvGame.ShowHitboxes;
             var p = SvPlayer.Instance;
             if (p != null && !p.Dead && (p.Position - _pos).sqrMagnitude <= (HitRadius + p.HurtRadius) * (HitRadius + p.HurtRadius))

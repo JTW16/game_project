@@ -18,6 +18,10 @@ namespace ParryRL.Survivor
         [Tooltip("적이 많을수록 이만큼까지 멀리서 본다 (거리 배율, 가안)")]
         [SerializeField] private float crowdZoomOut = 0.14f;
         [SerializeField] private int crowdFull = 200;
+        [Tooltip("높이 뛰면 이만큼까지 멀리서 본다 (거리 배율) · 다 차는 높이 · 퇴마사를 따라 올라가는 정도 (가안)")]
+        [SerializeField] private float leapZoomOut = 0.36f;
+        [SerializeField] private float leapFull = 4.2f;
+        [SerializeField, Range(0f, 1f)] private float leapFollow = 0.42f;
 
         public static SvView Instance { get; private set; }
         public static Quaternion Rotation { get; private set; } = Quaternion.identity;
@@ -38,6 +42,9 @@ namespace ParryRL.Survivor
         public float HoldSharpness { get; set; } = 3.5f;
 
         public float Tilt => tilt;
+        /// <summary>높이 떠서 카메라가 물러난 정도 (0~1).</summary>
+        public float Lift { get; private set; }
+        private float _rise;
 
         private void Awake()
         {
@@ -64,6 +71,7 @@ namespace ParryRL.Survivor
         public void SnapToTarget()
         {
             if (Target != null) _focus = Target.position;
+            Lift = _rise = 0f;
             Place();
         }
 
@@ -78,6 +86,12 @@ namespace ParryRL.Survivor
             float crowd = Mathf.Clamp01(SvEnemy.Active.Count / (float)Mathf.Max(1, crowdFull));
             float zoomGoal = (1f + crowdZoomOut * crowd) * HoldZoom;
             _zoom = Mathf.Lerp(_zoom, zoomGoal, 1f - Mathf.Exp(-(Hold.HasValue ? 3f : 1.5f) * Time.unscaledDeltaTime));
+            // 경공: 1단 점프는 살짝, 2단은 확 물러나 멀리까지 보인다. 오를 때 빠르고 내릴 때는 조금 늦게 돌아온다
+            var hero = SvPlayer.Instance;
+            float h = hero != null && !Hold.HasValue ? hero.Height : 0f;
+            float liftGoal = Mathf.SmoothStep(0f, 1f, (h - 0.6f) / Mathf.Max(0.1f, leapFull - 0.6f));
+            Lift = Mathf.Lerp(Lift, liftGoal, 1f - Mathf.Exp(-(liftGoal > Lift ? 7f : 4.5f) * Time.deltaTime));
+            _rise = Mathf.Lerp(_rise, h * leapFollow, 1f - Mathf.Exp(-9f * Time.deltaTime));
             Vector3 goal = Target != null ? Target.position : _focus;
             if (Hold.HasValue)
                 _focus = Vector3.Lerp(_focus, Hold.Value, 1f - Mathf.Exp(-HoldSharpness * Time.unscaledDeltaTime));
@@ -89,7 +103,8 @@ namespace ParryRL.Survivor
                 goal = Vector3.Lerp(goal, _lookAt, w);
                 _focus = goal;
             }
-            else _focus = Vector3.Lerp(_focus, goal, 1f - Mathf.Exp(-followSharpness * Time.unscaledDeltaTime));
+            // 보법을 밟는 동안은 카메라가 한 박자 늦게 따라온다 (확 튀어 나가는 느낌)
+            else _focus = Vector3.Lerp(_focus, goal, 1f - Mathf.Exp(-(hero != null && hero.Dashing ? followSharpness * 0.55f : followSharpness) * Time.unscaledDeltaTime));
             Place();
         }
 
@@ -114,7 +129,7 @@ namespace ParryRL.Survivor
                 float k = _shakeAmp * left / Mathf.Max(0.01f, _shakeLen);
                 shake = new Vector3(Random.Range(-k, k), Random.Range(-k, k), 0f);
             }
-            transform.position = new Vector3(_focus.x, _focus.y, 0f) + shake - Rotation * Vector3.forward * distance * _zoom;
+            transform.position = new Vector3(_focus.x, _focus.y, 0f) + Up * _rise + shake - Rotation * Vector3.forward * distance * _zoom * (1f + leapZoomOut * Lift);
         }
 
         /// <summary>순간 확대 (amount = 시야각을 줄이는 비율, 0.05 = 5%). 흔들림 설정이 꺼져 있으면 약하게.</summary>

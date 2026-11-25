@@ -92,6 +92,8 @@ namespace ParryRL.Survivor
                 r.transform.localScale = new Vector3(flip ? -s : s, s, 1f);
                 // 나뭇가지는 위 끝에 걸치고, 갈대는 아래 끝에서 솟는다 — 절반 남짓만 화면에 들어온다
                 float y = top ? halfH - size * 0.1f : -halfH + size * 0.15f;
+                // 높이 뛰면 가까운 것들은 화면 밖으로 물러난다
+                if (SvView.Instance != null) y += (top ? 1f : -1f) * size * 1.1f * SvView.Instance.Lift;
                 float sway = Mathf.Sin(Time.time * 0.8f + i * 1.7f) * 1.5f;
                 r.transform.localPosition = new Vector3(x, y, Depth);
                 r.transform.localRotation = Quaternion.Euler(0f, 0f, sway);

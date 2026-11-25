@@ -125,7 +125,7 @@ namespace ParryRL.Survivor
             _mainList.AddButton("시작", () => Game?.StartRun());
             _mainList.AddButton("설정", () => OpenSettings(() => ShowMain(true)));
             _mainList.AddButton("끝내기", () => SvGame.Quit());
-            Label(_main, "방향키 이동 · Space 점프 · Shift 대시 · A 내려찍기 · S 긴 봉 · D 궁극기 · Q 패링 (정예·보스의 <color=#ff6a50>빨간 예고</color>만) · W·E 조력자\n봉·부적은 저절로 나간다 — 밤을 버티며 강해지고, 9분에 깨어나는 불가살이를 쓰러뜨려라",
+            Label(_main, "방향키 이동 · Space 경공(2단) · Shift 보법 · A 내려찍기(공중 = 급강하) · S 긴 봉 · D 궁극기 · Q 패링 (정예·보스의 <color=#ff6a50>빨간 예고</color>만) · W·E 조력자\n봉·부적은 저절로 나간다 — 밤을 버티며 강해지고, 9분에 깨어나는 불가살이를 쓰러뜨려라",
                 26, new Vector2(0.5f, 0f), new Vector2(0f, 60f), new Vector2(1600f, 90f), TextAnchor.LowerCenter, new Color(1f, 1f, 1f, 0.7f));
         }
 
