@@ -745,6 +745,57 @@ Any character or yokai that appears must match its attached reference sprite exa
 | `gourd_pull.png` | 4 | 2048x512 | a wide spiral around one person, standing | the soul-drinking gourd activating: a huge spiral vortex of violet and cyan wind with tiny gem sparkles being sucked INWARD toward the center, tightening each frame, then a bright pop | violet, cyan, white | seen from the side, standing upright |
 | `thunder_strike.png` | 4 | 2048x1024 | a TALL narrow vertical bolt, from the very top of the cell down to the bottom | the thunderbolt talisman: a jagged lightning bolt strikes straight down from the sky onto one yokai, a burst of white sparks and burning paper scraps at the bottom, then a thin scorch and smoke | white, pale cyan, gold | seen from the side, standing upright |
 
+## 6S14. S14 — 기술 수련 · 공용 칸 · 핵심 비급 갈림길 · 경공 · 주먹밥 (사용자가 "S14 진행"이라고 하면, 2026-11-25 추가)
+
+> S11~S13 번호는 건너뛴다 (`fx11`~`fx13` 폴더가 이미 쓰였다). 기획 근거: `docs/2026-11-25_난이도_기술수련_기획.md` (Claude용, Codex는 읽지 않아도 된다).
+
+무엇에 쓰나 (한 줄씩):
+- **기술 수련**: 직접 쓰는 기술(내려찍기 · 긴 봉 · 궁극기 · 산군 · 무녀 · 경공)을 레벨업 카드로 키운다 → **다섯째 족자 카드**가 필요하다.
+- **공용 6칸**: 무기와 기술이 6칸을 나눠 쓴다 → 왼쪽 위 칸에서 **무기 칸과 기술 칸이 틀 모양으로 구분**되어야 한다. 시작 무기 봉은 칸 밖의 고정 칸.
+- **핵심 비급 갈림길**: 레벨 4 · 8 · 12 · 16에 핵심 비급 전용 창이 뜨고, 대상마다 두 갈래 중 하나를 고른다 → 창 장식 + **새 핵심 15개 아이콘** + 새 동작 이펙트.
+- **경공(Space)**: 쿨타임이 생기며 기술이 된다 → 기술 아이콘 1개.
+- **주먹밥**: 잡몹이 드물게 떨구는 회복 아이템 (사라지지 않고 땅에 남는다).
+
+규칙은 6장 맨 위 "밤새 한 번에 돌릴 때"와 같다 (순서 6S14-1 → 6S14-4, 멈추지 않음 · 이어 하기 · 한 장마다 로그). **빨강 금지는 그대로** (적 공격 경고 전용). 보라는 핵심 비급(보라 · 금)에만 쓴다.
+
+### 6S14-1. 카드 · 칸 · 창 · `ArtSource/v2/ui/` (4장)
+
+| 파일 | 캔버스 | 내용 | 배경 | 참고 |
+|---|---|---|---|---|
+| `card_skill.png` | 1024x1536 | SKILL TRAINING card — a fifth scroll that must look clearly different from the other four at a glance (weapon = ink-black scroll with brass, passive = jade silk, heal = plain hanji paper, core = plum-violet silk with gold dragons). Same layout as `ui/card_weapon.png`: vertical scroll, an EMPTY square icon window at the top center (17–42% from the top), a wide EMPTY text area below. Deep INDIGO-NAVY silk with fine SILVER-WHITE wind-and-cloud thread patterns at the edges, dark iron rods whose caps are small silver wind-swirls, a short white tassel with a small silver bell hanging from the top rod. Calm, disciplined, "martial training" feel. No text. | #FF00FF | `ui/card_weapon.png` (배치만), `ui/card_core.png` (재질 비교용 — 따라 하지 말 것) |
+| `slot_frames2.png` | 2172x724 | three separate square slot frames in a row with wide gaps, same size and ink style as `ui/slot_frames.png`, each with an EMPTY center: 1 SKILL slot — dark iron frame with silver corner pieces shaped like small wind swirls (clearly different from the brass weapon frame and the bone-white passive frame), 2 an EMPTY shared slot — a thin dashed ink outline with faint brush corners (means "not chosen yet"), 3 the STARTING STAFF slot — the brass weapon frame but slightly heavier, with a tiny brass seal stamp on the top-left corner (fixed, always owned) | #FF00FF | `ui/slot_frames.png` (크기 · 그림체 그대로) |
+| `core_window.png` | 2048x1024 | two separate pieces with a wide gap, no text: 1 a wide horizontal title banner for the "choose your core technique" window — plum-violet silk band with gold-leaf cloud edges and a gold wish-pearl (yeouiju) at the center, empty middle area for text (the game writes the title), 2 a small "fork in the road" ornament — one gold line splitting into two curling gold branches, each ending in a small wish-pearl (shown between the two choices of one target) | #00FF00 | `ui/card_core.png`, `ui/core_parts.png` (색 · 금박 그대로) |
+| `core_icons.png` | 2560x1536 | 15 square icons in a 5x3 grid, **exactly the same ink frame and style as `ui/skill_icons.png`**, each clearly separate, each showing the NEW technique as a bold readable picture (48px): **row 1** 1 a staff spun in a full glowing circle (spinning-staff sweep), 2 a yellow talisman bouncing between three ghosts with a jade chain line (chain talisman), 3 orbiting talismans forming a shield that a spike breaks against (shield talisman), 4 a brass bell with a cracked violet soul-sigil (soul-breaking bell: enemies take more damage), 5 a giant spirit staff slamming the same line twice with an afterimage (double slam) / **row 2** 6 cracked earth rippling in rings under a staff (earthquake slam), 7 the exorcist bouncing up from a slam crater with falling petals (petal combo slam), 8 a ghost gate opening with light pouring onto a running exorcist (gate-opening frenzy), 9 a half-moon seal circle (small half seal), 10 two golden tigers leaping side by side (tiger pack) / **row 3** 11 three glowing claw scars left on the ground (lingering claw marks), 12 a ring of upright straw-cutter blades around a shaman ward (blade-dancing ward), 13 a hand scooping a soul-fire from a ward with gems spilling (soul harvest), 14 an exorcist landing with a huge round wind shockwave (heavenly landing), 15 a swallow-shaped wind streak behind a running exorcist (swallow step) | #FF00FF | `ui/skill_icons.png` (틀 · 그림체 그대로) |
+
+### 6S14-2. 기술 아이콘 · 주먹밥 · `ArtSource/v2/ui/`, `items/` (2장)
+
+| 파일 | 틀 | 캔버스 | 내용 | 배경 | 참고 |
+|---|---|---|---|---|---|
+| `ui/skill_icon_leap.png` | — | 768x768 | ONE square skill icon, exactly the same ink frame and style as `ui/skill_icons.png`: the exorcist (sage-green robe, black gat) leaping high in a mid-air somersault with jade wind lines below — the "light-body leap" skill (Space) | #FF00FF | `ui/skill_icons.png`, `hero/base.png` |
+| `items/riceball.png` | `[PROP]` | 1024x768 | `{prop}` = a Korean rice ball (jumeokbap) on a green bamboo leaf, a little steam rising and a faint warm cream glow drawn as flat shapes — a healing item lying on the ground; same size and ink style as the items in `items/elite_drops.png`, readable at 40px | #FF00FF | `items/elite_drops.png` (그림체 · 크기) |
+
+### 6S14-3. 핵심 비급 이펙트 · `ArtSource/v2/fx14/` (11장, 새 폴더 · `[FX_VIVID]`, 배경 #000000)
+
+이펙트에 글자·사람·바닥을 넣지 않는다. "위" = `seen from directly above, lying flat on the ground`, "옆" = `seen from the side, standing upright`.
+
+| 파일 | 프레임 | 캔버스 | 모양 (반드시 지킬 것) | `{effect}` | `{colors}` | `{view}` |
+|---|---|---|---|---|---|---|
+| `slash_ring.png` | 5 | 2560x768 | a FULL CIRCLE ring (360°), hollow in the middle | the spinning-staff sweep: one thick jade-white crescent stroke that travels all the way around into a complete ring, sparks thrown outward, then the ring breaks into ink droplets | jade, white, a little gold | 위 |
+| `chain_link.png` | 4 | 2048x512 | a long thin horizontal streak between two points (left end to right end) | the chain talisman jumping between enemies: a jagged jade-gold energy line with a tiny yellow talisman riding it, small sparks at both ends | jade, gold, yellow | 옆 |
+| `block_spark.png` | 4 | 2048x512 | small, a flat round shield burst about the size of a head | an orbiting talisman blocking an enemy spike: a round paper-talisman shield flashes, the spike shatters into metal shards bouncing away | gold, white, ink black | 옆 |
+| `soul_crack.png` | 4 | 2048x512 | small mark floating above an enemy's head, loop | soul-breaking debuff (enemy takes more damage): a cracked violet-white soul sigil spinning slowly, small shards falling from the crack | violet, white, ink black | 옆 |
+| `quake.png` | 4 | 2048x768 | a wide flat circular area, loop | the earthquake left by a slam: ground cracks radiating from the center with dust rings pulsing outward and small stones hopping | earth brown, gold light in the cracks, dust white | 위 |
+| `gate_aura.png` | 4 | 2048x512 | a tall narrow pillar around one person, hollow in the middle, loop | gate-opening frenzy buff on the exorcist: two faint ghost-gate pillars of jade light on either side, rising light streaks and spinning paper talismans | jade, white, gold | 옆 |
+| `claw_marks.png` | 4 (변형 4개, 애니메이션 아님) | 2048x512 | three parallel long slashes on the ground, each variant a different angle | lingering tiger claw scars on the ground, glowing gold-orange inside dark ink gashes, fading embers | gold, orange, ink black | 위 |
+| `ward_blades.png` | 4 | 2048x768 | a flat RING of many small upright blades along a circle, hollow center, loop | the blade-dancing ward: straw-cutter blades (jakdu) standing around the shaman's jade ritual circle, gleaming as they turn slowly, small white paper strips fluttering | jade green, steel white, cream | 위 |
+| `leap_landing.png` | 5 | 2560x768 | a huge flat round shockwave, bigger than the slam ring | heavenly landing: a ring of white-jade wind bursting outward from the landing point with leaves and dust swept away, a second thinner ring following | white, jade, dust beige | 위 |
+| `swallow_trail.png` | 3 | 1536x512 | a horizontal streak pointing LEFT behind a runner (the runner moves right) | swallow-step speed buff: sleek wind ribbons shaped like a swallow's forked tail streaming behind, small feathers of light | jade, white, pale sky blue | 옆 |
+| `stun.png` | 4 | 2048x512 | small, circling above an enemy's head, loop | stunned (tiger's pounce, etc.): three small spinning gold talisman stars and dizzy ink swirls | gold, white, ink black | 옆 |
+
+### 6S14-4. 참고 — 이번에 새로 그리지 않는 것 (기존 그림을 다시 쓴다)
+
+연환격(긴 봉 두 번) · 낙화연격 · 반쪽 봉인 · 범의 무리 · 넋건지기 · 기술 수련 4 · 8단계 동작(충격파 두 겹 · 여진 · 균열 · 되돌아오는 산군 · 느려짐)은 지금 있는 이펙트를 크기 · 색 · 횟수만 바꿔 쓴다. 해 보고 모자라면 다음 요청서에 넣는다.
+
 ## 7. 다 만든 뒤 (Claude가 할 일 — Codex는 하지 않음)
 
 - 배경 지우기 · 프레임 자르기 · 기준점 맞추기 · 게임 크기로 줄이기
