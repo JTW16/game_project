@@ -14,19 +14,21 @@ namespace ParryRL.Survivor
     public class SvHelpers : MonoBehaviour
     {
         [Header("산군 (W)")]
-        [SerializeField] private float tigerCooldown = 16f;
-        [SerializeField] private int tigerDamage = 45;
+        // 기술 수련 1단계 세기 — 처음엔 약하게 (2026-11-25, 전에는 쿨 16 · 피해 45)
+        [SerializeField] private float tigerCooldown = 20f;
+        [SerializeField] private int tigerDamage = 30;
         [SerializeField] private float tigerLength = 10f;
         [SerializeField] private float tigerWidth = 1.8f;
         [SerializeField] private float tigerTime = 0.45f;
         [SerializeField] private float tigerKnock = 7f;
 
         [Header("무녀 (E)")]
-        [SerializeField] private float shamanCooldown = 24f;
-        [SerializeField] private float shamanTime = 4f;
+        // 기술 수련 1단계 세기 (2026-11-25, 전에는 쿨 24 · 4초 · 회복 5)
+        [SerializeField] private float shamanCooldown = 28f;
+        [SerializeField] private float shamanTime = 3f;
         [SerializeField] private float wardRadius = 3.2f;
         [Tooltip("결계 안의 퇴마사가 1초에 회복하는 체력")]
-        [SerializeField] private float healPerSecond = 5f;
+        [SerializeField] private float healPerSecond = 3f;
         [SerializeField] private float slowMul = 0.5f;
         [SerializeField] private int wardDamage = 6;
 

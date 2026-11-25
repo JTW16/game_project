@@ -3,11 +3,12 @@ using UnityEngine;
 
 namespace ParryRL.Survivor
 {
-    public enum SvPickupKind { Gourd, Thunder }
+    public enum SvPickupKind { Gourd, Thunder, Riceball }
 
     /// <summary>
     /// 정예가 떨구는 특수 아이템 (설계서 4장 4차 결정): 밟으면 바로 쓴다.
     /// 흡혼 호리병 = 맵의 경험치 보석 전부를 빨아들임 · 벽력부 = 화면 안 잡몹을 벼락으로 쓸고 정예·보스는 체력 20%.
+    /// 주먹밥 = 잡몹이 드물게 떨구는 회복 (2026-11-25 사용자 결정 — 저절로 차는 회복을 없앤 대신). 떨어진 것은 모두 사라지지 않는다.
     /// </summary>
     public class SvPickup : MonoBehaviour
     {
@@ -17,6 +18,13 @@ namespace ParryRL.Survivor
         /// <summary>줍는 거리(몸 가장자리부터) · 큰 적이 잃는 체력 비율 · 벼락 그림 최대 수 — 가안.</summary>
         public const float Reach = 0.6f, BigDamage = 0.2f;
         public const int MaxBolts = 40;
+        /// <summary>주먹밥: 잡몹이 떨굴 확률 · 들판에 동시에 있을 수 있는 수 · 회복량 (가안).</summary>
+        public const float RiceballChance = 0.01f;
+        public const int MaxRiceballs = 5, RiceballHeal = 25;
+        /// <summary>테스트용: 주먹밥을 떨굴 확률을 덮어쓴다 (null = 원래대로).</summary>
+        public static float? RiceballChanceOverride;
+        public static int RiceballUses;
+        public static int RiceballCount { get { int n = 0; foreach (var p in Live) if (p.Kind == SvPickupKind.Riceball) n++; return n; } }
 
         public SvPickupKind Kind { get; private set; }
         public Vector2 Position => _pos;
@@ -35,15 +43,23 @@ namespace ParryRL.Survivor
         {
             Live.Clear();
             _root = null;
-            GourdUses = ThunderUses = LastThunderKills = LastThunderBig = 0;
+            GourdUses = ThunderUses = LastThunderKills = LastThunderBig = RiceballUses = 0;
         }
 
         public static SvPickupKind RandomKind() => Random.value < 0.5f ? SvPickupKind.Gourd : SvPickupKind.Thunder;
 
+        /// <summary>잡몹이 쓰러질 때: 확률에 맞고 들판에 자리가 있으면 주먹밥을 떨군다.</summary>
+        public static SvPickup TryDropRiceball(Vector2 at)
+        {
+            if (RiceballCount >= MaxRiceballs) return null;
+            if (Random.value >= (RiceballChanceOverride ?? RiceballChance)) return null;
+            return Drop(at, SvPickupKind.Riceball);
+        }
+
         public static SvPickup Drop(Vector2 at, SvPickupKind kind)
         {
             if (_root == null) _root = new GameObject("Pickups").transform;
-            var go = new GameObject(kind == SvPickupKind.Gourd ? "Gourd" : "Thunder");
+            var go = new GameObject(kind.ToString());
             go.transform.SetParent(_root, false);
             var p = go.AddComponent<SvPickup>();
             p.Kind = kind;
@@ -56,14 +72,14 @@ namespace ParryRL.Survivor
             go.transform.position = at;
             var art = SvGame.Instance != null ? SvGame.Instance.Art : null;
             Sprite sprite = Sprite(art, kind);
-            float size = 1.25f;
+            float size = kind == SvPickupKind.Riceball ? 0.95f : 1.25f;
             p._art = SvBillboard.Create(go.transform, "Art", sprite != null ? sprite : SvSprites.Gem, new Vector2(size, size));
             if (sprite != null)
             {
                 Vector2 n = sprite.bounds.size;
                 p._art.SetSize(new Vector2(size * n.x / Mathf.Max(n.x, n.y), size * n.y / Mathf.Max(n.x, n.y)));
             }
-            else p._art.Renderer.color = kind == SvPickupKind.Gourd ? new Color(0.6f, 0.9f, 1f) : new Color(1f, 0.9f, 0.4f);
+            else p._art.Renderer.color = kind == SvPickupKind.Gourd ? new Color(0.6f, 0.9f, 1f) : kind == SvPickupKind.Riceball ? new Color(1f, 0.97f, 0.85f) : new Color(1f, 0.9f, 0.4f);
             // 그림 피벗이 가운데라 띄운다
             p._lift = size * 0.55f;
             SvBillboard.CreateShadow(go.transform, 0.7f);
@@ -76,6 +92,8 @@ namespace ParryRL.Survivor
         private static Sprite Sprite(SurvivorArt art, SvPickupKind kind)
         {
             if (art == null) return null;
+            // 주먹밥: 그림(S14 items/riceball)이 오기 전엔 레벨업 카드의 주먹밥 아이콘(icons2 12번)
+            if (kind == SvPickupKind.Riceball) return art.icons2 != null && art.icons2.Length > 11 ? art.icons2[11] : null;
             if (kind == SvPickupKind.Gourd)
             {
                 if (art.itemGourd != null) return art.itemGourd;
@@ -86,7 +104,9 @@ namespace ParryRL.Survivor
         }
 
         private static Color Glow(SvPickupKind kind) =>
-            kind == SvPickupKind.Gourd ? new Color(0.6f, 0.75f, 1f, 0.45f) : new Color(1f, 0.92f, 0.55f, 0.45f);
+            kind == SvPickupKind.Gourd ? new Color(0.6f, 0.75f, 1f, 0.45f)
+            : kind == SvPickupKind.Riceball ? new Color(1f, 0.95f, 0.75f, 0.4f)
+            : new Color(1f, 0.92f, 0.55f, 0.45f);
 
         private void Update()
         {
@@ -106,6 +126,8 @@ namespace ParryRL.Survivor
             _glow.color = c;
             if (p == null || p.Dead) return;
             float r = p.HurtRadius + Reach;
+            // 체력이 가득하면 주먹밥은 밟아도 먹지 않고 남겨 둔다 (아껴 두기)
+            if (Kind == SvPickupKind.Riceball && p.Hp >= p.MaxHp) return;
             if ((p.Position - _pos).sqrMagnitude <= r * r) Take();
         }
 
@@ -120,7 +142,20 @@ namespace ParryRL.Survivor
         public static void Use(SvPickupKind kind)
         {
             if (kind == SvPickupKind.Gourd) UseGourd();
+            else if (kind == SvPickupKind.Riceball) UseRiceball();
             else UseThunder();
+        }
+
+        private static void UseRiceball()
+        {
+            RiceballUses++;
+            var player = SvPlayer.Instance;
+            player?.Heal(RiceballHeal);
+            var game = SvGame.Instance;
+            var art = game != null ? game.Art : null;
+            if (player != null && art != null) SvFx.Anim(art.fxLevelUp, player.Position, 1.1f, 1.4f, 0.4f, color: new Color(1f, 0.95f, 0.75f));
+            game?.Hud.Popup($"주먹밥 — 체력 +{RiceballHeal}", new Color(1f, 0.95f, 0.75f), 0.9f);
+            Sfx.Play(SfxId.LevelUp, 0.4f);
         }
 
         private static void UseGourd()

@@ -14,9 +14,9 @@ namespace ParryRL.Survivor
         [SerializeField] private float maxGauge = 100f;
         [SerializeField] private float perKill = 1f, perElite = 10f, perParry = 15f;
         [Tooltip("잡몹에게 주는 피해 (짙은 먹 배율을 받음)")]
-        [SerializeField] private int damage = 400;
+        [SerializeField] private int damage = 300;
         [Tooltip("정예에게 주는 피해")]
-        [SerializeField] private int eliteDamage = 300;
+        [SerializeField] private int eliteDamage = 200;
         [Tooltip("보스 최대 체력의 몇 %")]
         [SerializeField] private float bossPercent = 0.12f;
         [Tooltip("멈춘 채 기를 모으는 시간 (초)")]

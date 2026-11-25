@@ -44,6 +44,10 @@ namespace ParryRL.Survivor
         /// <summary>긴 봉 내리찍기는 단계가 없는 기본 기술이라 선풍격은 퇴마사 레벨로 연다 (가안).</summary>
         public const int GiantCoreLevel = 6;
         public const float CoreChance = 0.25f;
+        /// <summary>체력이 이 비율 아래일 때 레벨업 카드에 주먹밥이 섞일 확률 (가안).</summary>
+        public const float LowHpLine = 0.5f, LowHpHealChance = 0.5f;
+        /// <summary>테스트용 (null = 원래대로).</summary>
+        public static float? LowHpHealChanceOverride;
         public static readonly int[] CoreGuaranteeLevels = { 6, 12 };
 
         public static readonly List<SvItem> Cores = new()
@@ -67,13 +71,13 @@ namespace ParryRL.Survivor
         public static readonly List<SvItem> All = new()
         {
             new() { Id = Staff, Name = "봉 휘두르기", Kind = SvItemKind.Weapon, MaxLevel = 8, Icon = 0, Levels = new[]
-                { "가장 가까운 적 쪽으로 봉을 휘두른다", "피해 +20%", "범위 +15%", "뒤쪽도 함께 휘두른다", "피해 +20%", "간격 -15%", "범위 +15%", "반원으로 크게 휘두른다" } },
+                { "가장 가까운 적 쪽으로 봉을 휘두른다", "피해 +30%", "범위 +15%", "뒤쪽도 함께 휘두른다", "피해 크게 (×1.9)", "간격 -15%", "범위 +15%", "반원으로 크게 휘두른다, 피해 ×3" } },
             new() { Id = Talisman, Name = "부적 던지기", Kind = SvItemKind.Weapon, MaxLevel = 8, Icon = 2, Levels = new[]
-                { "가까운 적에게 부적을 던진다", "부적 +1장", "피해 +25%", "적 1명을 더 꿰뚫음", "부적 +1장", "간격 -15%", "피해 +25%", "부적 +2장, 꿰뚫음 +1" } },
+                { "가까운 적에게 부적을 던진다", "부적 +1장", "피해 +30%", "적 1명을 더 꿰뚫음", "부적 +1장", "간격 -15%", "피해 크게 (×1.9)", "부적 +2장, 꿰뚫음 +1, 피해 ×3" } },
             new() { Id = Orbit, Name = "호신부", Kind = SvItemKind.Weapon, MaxLevel = 8, Icon = 6, Levels = new[]
-                { "부적 두 장이 몸 둘레를 돌며 닿는 적을 벤다", "부적 +1장", "피해 +25%", "도는 반경 +20%", "부적 +1장", "더 빨리 돈다", "피해 +25%", "부적 +2장" } },
+                { "부적 두 장이 몸 둘레를 돌며 닿는 적을 벤다", "부적 +1장", "피해 +30%", "도는 반경 +20%", "부적 +1장", "더 빨리 돈다", "피해 크게 (×1.9)", "부적 +2장, 피해 ×3" } },
             new() { Id = Bell, Name = "방울 울림", Kind = SvItemKind.Weapon, MaxLevel = 8, Icon = 7, Levels = new[]
-                { "3초마다 방울을 울려 둘레의 적을 밀쳐 낸다", "피해 +25%", "범위 +15%", "간격 -15%", "피해 +25%", "범위 +15%", "간격 -15%", "두 번 울린다" } },
+                { "3초마다 방울을 울려 둘레의 적을 밀쳐 낸다", "피해 +30%", "범위 +15%", "간격 -15%", "피해 크게 (×1.9)", "범위 +15%", "간격 -15%", "두 번 울린다, 피해 ×3" } },
 
             new() { Id = Move, Name = "축지법", Kind = SvItemKind.Passive, Icon = 8, Levels = new[] { "이동 속도 +8%" } },
             new() { Id = Vital, Name = "질긴 몸", Kind = SvItemKind.Passive, Icon = 9, Levels = new[] { "최대 체력 +20, 체력 20 회복" } },
@@ -123,6 +127,10 @@ namespace ParryRL.Survivor
                 pool.RemoveAt(i);
             }
             if (pick.Count < n) pick.Add(HealItem);
+            // 체력이 절반 아래면 주먹밥이 반반으로 한 장 자리에 섞인다 — 위험할 때 "강화냐 회복이냐" (2026-11-25 사용자 결정, 가안)
+            var hero = SvPlayer.Instance;
+            if (hero != null && hero.Hp < hero.MaxHp * LowHpLine && !pick.Contains(HealItem) && pick.Count > 0 && Random.value < (LowHpHealChanceOverride ?? LowHpHealChance))
+                pick[Random.Range(0, pick.Count)] = HealItem;
             // 핵심 비급: 25% 확률로 한 장, 레벨 6·12에 처음 닿으면 반드시 (나올 수 있을 때)
             var cores = EligibleCores(prog);
             if (cores.Count > 0 && pick.Count > 0)

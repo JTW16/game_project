@@ -11,47 +11,47 @@ namespace ParryRL.Survivor
     [RequireComponent(typeof(SvPlayer))]
     public class SvWeapons : MonoBehaviour
     {
-        [Header("봉 휘두르기 — 1단계 기준")]
-        public int swingDamage = 15;
+        [Header("봉 휘두르기 — 1단계 기준 (2026-11-25: 약하게 시작해 8단계 ×3 — 전에는 15)")]
+        public int swingDamage = 10;
         public float swingRadius = 2.3f;
         public float swingAngle = 130f;
         public float swingCooldown = 0.95f;
         public float swingKnock = 6f;
 
         [Header("부적 — 1단계 기준")]
-        public int talismanDamage = 11;
+        public int talismanDamage = 7;
         public float talismanCooldown = 1.0f;
         public float talismanSpeed = 13f;
         public float talismanRange = 11f;
 
         [Header("호신부 — 1단계 기준")]
-        public int orbitDamage = 9;
+        public int orbitDamage = 6;
         public float orbitRadius = 1.7f;
         public float orbitSpeed = 200f;
         [Tooltip("같은 적을 다시 벨 수 있기까지 (초)")]
         public float orbitRehit = 0.45f;
 
         [Header("방울 울림 — 1단계 기준")]
-        public int bellDamage = 14;
+        public int bellDamage = 9;
         public float bellRadius = 2.8f;
         public float bellInterval = 3f;
         public float bellKnock = 9f;
 
         [Header("긴 봉 내리찍기 (S, 직접 쓰는 기본 기술 — 가안)")]
-        public int giantDamage = 40;
+        public int giantDamage = 30;
         public float giantLength = 7.5f;
         public float giantWidth = 1.2f;
         [Tooltip("선풍격: 양옆 줄이 벌어지는 각 (도) · 길이 배율 (가안)")]
         public float giantFanAngle = 30f;
         public float giantFanLength = 0.85f;
-        public float giantCooldown = 4f;
+        public float giantCooldown = 5f;
         [Tooltip("봉을 세워 길게 늘이는 준비 시간 (초)")]
         public float giantWindup = 0.24f;
         [Tooltip("선 봉이 앞으로 쓰러져 땅에 닿기까지 (초)")]
         public float giantSwing = 0.12f;
 
         [Header("내려찍기 (A)")]
-        public int slamDamage = 28;
+        public int slamDamage = 20;
         public float slamRadius = 2.6f;
         public float slamKnock = 10f;
         [Tooltip("급강하: 가장 높은 데서 내리꽂을 때 더해지는 범위·피해 배율 (가안)")]
@@ -105,7 +105,14 @@ namespace ParryRL.Survivor
         private bool TooHigh => _player.Height > MeleeReachHeight;
         public float AreaMul => 1f + 0.1f * Lv(SvItems.Aura);
 
-        public int SwingDamage => Mathf.RoundToInt(swingDamage * (1f + 0.2f * Steps(Lv(SvItems.Staff), 2, 5)) * DamageMul);
+        /// <summary>
+        /// 무기 피해 배율 (2026-11-25 사용자 결정 "처음엔 약하다가 강화될수록 강함이 체감되게", 가안):
+        /// 피해가 오르는 세 단계에서 ×1.3 → ×1.9 → ×3.0 (8단계는 늘 마지막 오름). 전에는 8단계 누적 ×1.4~1.5.
+        /// </summary>
+        private static float DamageScale(int lv, int first, int second) =>
+            lv >= 8 ? 3f : lv >= second ? 1.9f : lv >= first ? 1.3f : 1f;
+
+        public int SwingDamage => Mathf.RoundToInt(swingDamage * DamageScale(Lv(SvItems.Staff), 2, 5) * DamageMul);
         public float SwingRadius => swingRadius * (1f + 0.15f * Steps(Lv(SvItems.Staff), 3, 7)) * AreaMul;
         public float SwingAngle => Lv(SvItems.Staff) >= 8 ? 180f : swingAngle;
         public float SwingCooldown => swingCooldown * (Lv(SvItems.Staff) >= 6 ? 0.85f : 1f) * CooldownMul;
@@ -113,16 +120,16 @@ namespace ParryRL.Survivor
         public bool HasCore(string coreId) => Lv(coreId) > 0;
 
         public int TalismanCount => 1 + Steps(Lv(SvItems.Talisman), 2, 5) + (Lv(SvItems.Talisman) >= 8 ? 2 : 0);
-        public int TalismanDamage => Mathf.RoundToInt(talismanDamage * (1f + 0.25f * Steps(Lv(SvItems.Talisman), 3, 7)) * DamageMul);
+        public int TalismanDamage => Mathf.RoundToInt(talismanDamage * DamageScale(Lv(SvItems.Talisman), 3, 7) * DamageMul);
         public int TalismanPierce => Steps(Lv(SvItems.Talisman), 4, 8);
         public float TalismanCooldown => talismanCooldown * (Lv(SvItems.Talisman) >= 6 ? 0.85f : 1f) * CooldownMul;
 
         public int OrbitCount => Lv(SvItems.Orbit) <= 0 ? 0 : 2 + Steps(Lv(SvItems.Orbit), 2, 5) + (Lv(SvItems.Orbit) >= 8 ? 2 : 0);
-        public int OrbitDamage => Mathf.RoundToInt(orbitDamage * (1f + 0.25f * Steps(Lv(SvItems.Orbit), 3, 7)) * DamageMul);
+        public int OrbitDamage => Mathf.RoundToInt(orbitDamage * DamageScale(Lv(SvItems.Orbit), 3, 7) * DamageMul);
         public float OrbitRadius => orbitRadius * (Lv(SvItems.Orbit) >= 4 ? 1.2f : 1f) * AreaMul;
         public float OrbitSpeed => orbitSpeed * (Lv(SvItems.Orbit) >= 6 ? 1.4f : 1f);
 
-        public int BellDamage => Mathf.RoundToInt(bellDamage * (1f + 0.25f * Steps(Lv(SvItems.Bell), 2, 5)) * DamageMul);
+        public int BellDamage => Mathf.RoundToInt(bellDamage * DamageScale(Lv(SvItems.Bell), 2, 5) * DamageMul);
         public float BellRadius => bellRadius * (1f + 0.15f * Steps(Lv(SvItems.Bell), 3, 6)) * AreaMul;
         public float BellInterval => bellInterval * Mathf.Pow(0.85f, Steps(Lv(SvItems.Bell), 4, 7)) * CooldownMul;
 

@@ -38,6 +38,7 @@ namespace ParryRL.Tests
         [TearDown]
         public void Restore()
         {
+            SvPlayer.LeapCooldownOverride = null;
             SvGame.ShowTitle = true;
             SvGame.SimSpeed = 1f;
             Time.timeScale = 1f;

@@ -24,6 +24,7 @@ namespace ParryRL.Tests
             SvGame.ParryEnabled = true;
             SvGame.ShowHitboxes = false;
             SvGame.ShowTitle = false;
+            SvPlayer.LeapCooldownOverride = 0f; // 경공 쿨타임은 Leap_Has_Cooldown 테스트에서만 본다
             SvSettings.UseDefaultsForTests();
             SvGame.SkipCinematics = true;
 #if UNITY_EDITOR
@@ -40,6 +41,7 @@ namespace ParryRL.Tests
         [TearDown]
         public void Restore()
         {
+            SvPlayer.LeapCooldownOverride = null;
             SvGame.AutoSpawn = true;
             SvGame.ParryEnabled = true;
             SvGame.ShowHitboxes = false;
@@ -99,7 +101,118 @@ namespace ParryRL.Tests
             Assert.IsFalse(Player.TryJump(), "3단은 안 됨");
             yield return Wait(1.5f);
             Assert.AreEqual(0f, Player.Height, 0.001f);
-            Assert.IsTrue(Player.TryJump(), "착지하면 다시 뛸 수 있다");
+            Assert.IsTrue(Player.TryJump(), "착지하면 다시 뛸 수 있다 (테스트는 쿨타임 0)");
+        }
+
+        [UnityTest]
+        public IEnumerator Leap_Has_Cooldown()
+        {
+            SvPlayer.LeapCooldownOverride = null;
+            Player.ResetLeapCooldown();
+            Assert.IsTrue(Player.TryJump(), "1단");
+            yield return Wait(0.12f);
+            Assert.IsTrue(Player.TryJump(), "한 번 뛰면 2단까지 이어 쓴다");
+            Assert.Greater(Player.LeapCooldownLeft, 11f, "땅에서 뛸 때부터 12초");
+            yield return Capture("survivor_leap_cooldown");
+            yield return Wait(2.2f);
+            Assert.AreEqual(0f, Player.Height, 0.001f, "착지");
+            Assert.IsFalse(Player.TryJump(), "쿨타임 동안은 다시 못 뛴다");
+            Player.ResetLeapCooldown();
+            Assert.IsTrue(Player.TryJump(), "쿨타임이 끝나면 다시 뛴다");
+        }
+
+        // ---------- 2026-11-25 ① 난이도 · 회복 · 경공 ----------
+
+        [UnityTest]
+        public IEnumerator Mob_Hp_Follows_Curve_And_Elite_Keeps_Linear()
+        {
+            Game.Weapons.enabled = false;
+            Game.SetElapsed(0f);
+            var a = Game.Spawner.Spawn(SvEnemyKind.Changgwi, Player.Position + new Vector2(8f, 0f));
+            Assert.AreEqual(10, a.MaxHp, "0분 창귀 = 10 × 1.0 — 처음엔 봉 한 방");
+            Game.SetElapsed(120f);
+            var a2 = Game.Spawner.Spawn(SvEnemyKind.Changgwi, Player.Position + new Vector2(6f, 6f));
+            Assert.AreEqual(20, a2.MaxHp, "2분 = × 2.0 — 봉 1단계 2대");
+            Game.SetElapsed(360f);
+            var b = Game.Spawner.Spawn(SvEnemyKind.Changgwi, Player.Position + new Vector2(-8f, 0f));
+            Assert.AreEqual(17, b.MaxHp, "6분 = × 1.7");
+            Game.SetElapsed(540f);
+            var c = Game.Spawner.Spawn(SvEnemyKind.Changgwi, Player.Position + new Vector2(0f, 8f));
+            Assert.AreEqual(15, c.MaxHp, "9분 = × 1.5 — 후반엔 오히려 덜 단단하다");
+            var e = Game.Spawner.Spawn(SvEnemyKind.Elite, Player.Position + new Vector2(0f, -8f));
+            Assert.AreEqual(Mathf.RoundToInt(380 * (1f + 540f / 240f)), e.MaxHp, "정예는 지금처럼 곧게 늘어난다");
+            yield return null;
+        }
+
+        [Test]
+        public void Weapons_Start_Weak_And_Triple_By_Level_8()
+        {
+            var w = Game.Weapons;
+            Assert.AreEqual(10, w.SwingDamage, "봉 1단계 10");
+            while (Game.Progress.LevelOf(SvItems.Staff) < 8) Game.Progress.Take(SvItems.Get(SvItems.Staff), Player, w);
+            Assert.AreEqual(30, w.SwingDamage, "봉 8단계 = ×3");
+        }
+
+        [UnityTest]
+        public IEnumerator No_Auto_Regen()
+        {
+            Game.Weapons.enabled = false;
+            Player.ClearInvulnerability();
+            Player.TakeDamage(20);
+            int hp = Player.Hp;
+            yield return Wait(3.5f);
+            Assert.AreEqual(hp, Player.Hp, "저절로 차지 않는다");
+        }
+
+        [UnityTest]
+        public IEnumerator Riceball_Drops_Stays_And_Heals_Only_When_Hurt()
+        {
+            Game.Weapons.enabled = false;
+            SvPickup.RiceballChanceOverride = 1f;
+            try
+            {
+                var e = SpawnAt(SvEnemyKind.Changgwi, new Vector2(1f, 0f));
+                e.Speed = 0f;
+                SvWeapons.Hit(e, 999, Vector2.right, 0f, SvItems.Staff);
+                Assert.AreEqual(1, SvPickup.RiceballCount, "잡몹이 주먹밥을 떨군다");
+                yield return Wait(1f);
+                Assert.AreEqual(1, SvPickup.RiceballCount, "체력이 가득하면 밟아도 먹지 않는다");
+                Assert.AreEqual(1, Game.Hud.Minimap.RiceDots, "미니맵에 점");
+                yield return Capture("survivor_riceball");
+                // 떨어질 때 무작위로 튀므로 퇴마사를 주먹밥 위로 옮긴다
+                var rice = SvPickup.Live.Find(x => x.Kind == SvPickupKind.Riceball);
+                Player.transform.position = rice.Position;
+                yield return Wait(0.3f);
+                Assert.AreEqual(1, SvPickup.RiceballCount, "바로 위에 서도 가득하면 안 먹는다");
+                Player.ClearInvulnerability();
+                Player.TakeDamage(40);
+                int hp = Player.Hp;
+                yield return Wait(0.5f);
+                Assert.AreEqual(0, SvPickup.RiceballCount, "다치면 먹는다");
+                Assert.AreEqual(hp + SvPickup.RiceballHeal, Player.Hp, "체력 25");
+
+                // 들판에 5개까지만, 그리고 사라지지 않는다
+                for (int i = 0; i < 8; i++) SvPickup.TryDropRiceball(Player.Position + SvGeom.FromAngle(i * 45f) * 9f);
+                Assert.AreEqual(SvPickup.MaxRiceballs, SvPickup.RiceballCount, "최대 5개");
+                yield return Wait(5f);
+                Assert.AreEqual(SvPickup.MaxRiceballs, SvPickup.RiceballCount, "시간이 지나도 사라지지 않는다");
+            }
+            finally { SvPickup.RiceballChanceOverride = null; }
+        }
+
+        [Test]
+        public void Low_Hp_Mixes_Riceball_Into_Level_Up_Cards()
+        {
+            SvItems.LowHpHealChanceOverride = 1f;
+            try
+            {
+                Player.ClearInvulnerability();
+                Player.TakeDamage(Player.MaxHp / 2 + 5);
+                Assert.IsTrue(SvItems.Roll(Game.Progress, 3).Contains(SvItems.HealItem), "체력 절반 아래면 주먹밥 카드");
+                Player.Heal(999);
+                Assert.IsFalse(SvItems.Roll(Game.Progress, 3).Contains(SvItems.HealItem), "가득하면 안 섞인다 (올릴 게 남아 있을 때)");
+            }
+            finally { SvItems.LowHpHealChanceOverride = null; }
         }
 
         [UnityTest]

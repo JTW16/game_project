@@ -26,6 +26,7 @@ namespace ParryRL.Tests
             SvGame.AutoSpawn = false;
             SvGame.ParryEnabled = true;
             SvGame.ShowTitle = false;
+            SvPlayer.LeapCooldownOverride = 0f; // 경공 쿨타임은 Leap_Has_Cooldown 테스트에서만 본다
             SvSettings.UseDefaultsForTests();
             SvGame.SkipCinematics = true;
 #if UNITY_EDITOR
@@ -40,6 +41,7 @@ namespace ParryRL.Tests
         [TearDown]
         public void Restore()
         {
+            SvPlayer.LeapCooldownOverride = null;
             SvGame.AutoSpawn = true;
             SvHeroRig.Enabled = true;
             SvGame.ShowTitle = true;
