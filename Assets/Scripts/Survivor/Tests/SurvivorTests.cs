@@ -41,6 +41,7 @@ namespace ParryRL.Tests
         [TearDown]
         public void Restore()
         {
+            SvSkills.LevelOverride = 0;
             SvPlayer.LeapCooldownOverride = null;
             SvGame.AutoSpawn = true;
             SvGame.ParryEnabled = true;
@@ -215,6 +216,100 @@ namespace ParryRL.Tests
             finally { SvItems.LowHpHealChanceOverride = null; }
         }
 
+        // ---------- 2026-11-25 ②-a 공용 6칸 · 기술 수련 · 궁극기 도력 ----------
+
+        [Test]
+        public void Shared_Six_Slots_Hold_Weapons_And_Skills_But_Not_Staff()
+        {
+            var prog = Game.Progress;
+            Assert.AreEqual(0, prog.SharedCount, "봉은 공용 칸을 차지하지 않는다");
+            foreach (var id in new[] { SvItems.Talisman, SvItems.Orbit, SvItems.Bell, SvSkills.Slam, SvSkills.Ult, SvSkills.Leap })
+                prog.Take(SvItems.Get(id), Player, Game.Weapons);
+            Assert.AreEqual(6, prog.SharedCount);
+            for (int k = 0; k < 30; k++)
+                foreach (var it in SvItems.Roll(prog, 3))
+                    if (SvItems.UsesShared(it)) Assert.Greater(prog.LevelOf(it.Id), 0, $"6칸이 차면 가진 것만 나온다 ({it.Name})");
+            Assert.IsTrue(SvItems.All.Exists(u => u.Kind == SvItemKind.Skill && u.MaxLevel == 8), "기술 수련은 1~8단계");
+        }
+
+        [Test]
+        public void Skill_Levels_Change_Numbers()
+        {
+            var w = Game.Weapons;
+            SvPlayer.LeapCooldownOverride = null; // 테스트 기본값(0)이 아니라 실제 쿨로 비교
+            int slam1 = w.SlamDamage, giant1 = w.GiantDamage;
+            float len1 = w.GiantLength, slamCd1 = Player.SlamCooldown, leapCd1 = Player.LeapCooldown;
+            SvSkills.LevelOverride = 8;
+            Assert.Greater(w.SlamDamage, slam1 * 1.6f, "내려찍기 8단계 피해");
+            Assert.Greater(w.GiantDamage, giant1 * 1.6f, "긴 봉 8단계 피해");
+            Assert.Greater(w.GiantLength, len1 * 1.5f, "긴 봉 길이");
+            Assert.Less(Player.SlamCooldown, slamCd1, "내려찍기 쿨");
+            Assert.AreEqual(3f, SvSkills.UltGaugeMul, 0.001f, "궁극기 도력 ×3");
+            Assert.AreEqual(2, SvSkills.LeapCharges, "경공 충전 2회");
+            Assert.IsTrue(SvSkills.SlamAftershock && SvSkills.GiantCrack && SvSkills.TigerStun && SvSkills.ShamanVulnerable && SvSkills.LeapAirMelee);
+            Assert.Less(Player.LeapCooldown, leapCd1 * 0.65f, "경공 쿨 약 7.3초");
+        }
+
+        [Test]
+        public void Ult_Gauge_Fills_Slowly_Unless_Trained()
+        {
+            var e = SpawnAt(SvEnemyKind.Changgwi, new Vector2(5f, 0f));
+            float g0 = Game.Ultimate.Gauge;
+            SvWeapons.Hit(e, 999, Vector2.right, 0f, SvItems.Staff);
+            Assert.AreEqual(0.2f, Game.Ultimate.Gauge - g0, 0.001f, "강화 없으면 처치 +0.2");
+            SvSkills.LevelOverride = 8;
+            var e2 = SpawnAt(SvEnemyKind.Changgwi, new Vector2(-5f, 0f));
+            float g1 = Game.Ultimate.Gauge;
+            SvWeapons.Hit(e2, 999, Vector2.right, 0f, SvItems.Staff);
+            Assert.AreEqual(0.6f, Game.Ultimate.Gauge - g1, 0.001f, "다 키우면 ×3");
+        }
+
+        [UnityTest]
+        public IEnumerator Capture_Skill_Training_Cards_And_Slots()
+        {
+            Game.Weapons.enabled = false;
+            foreach (var id in new[] { SvItems.Talisman, SvSkills.Slam, SvSkills.Tiger, SvItems.Ink })
+                Game.Progress.Take(SvItems.Get(id), Player, Game.Weapons);
+            Game.Progress.Take(SvItems.Get(SvSkills.Slam), Player, Game.Weapons);
+            yield return Wait(0.3f);
+            yield return Capture("survivor_shared_slots");
+            var offer = new System.Collections.Generic.List<SvItem> { SvItems.Get(SvSkills.Giant), SvItems.Get(SvSkills.Slam), SvItems.Get(SvItems.Orbit) };
+            Game.Hud.ShowCards(offer, Game.Progress);
+            yield return Wait(0.6f);
+            yield return Capture("survivor_skill_cards");
+            Game.Hud.HideCards();
+        }
+
+        [UnityTest]
+        public IEnumerator Leap_Training_Gives_Two_Charges()
+        {
+            SvPlayer.LeapCooldownOverride = null;
+            SvSkills.LevelOverride = 4;
+            Player.ResetLeapCooldown();
+            Assert.IsTrue(Player.TryJump(), "첫 충전");
+            yield return Wait(1.0f);
+            Assert.AreEqual(0f, Player.Height, 0.001f);
+            Assert.IsTrue(Player.TryJump(), "둘째 충전");
+            yield return Wait(1.0f);
+            Assert.IsFalse(Player.TryJump(), "충전이 다 떨어지면 쿨타임");
+        }
+
+        [UnityTest]
+        public IEnumerator Shaman_Level8_Makes_Enemies_Take_More()
+        {
+            Game.Weapons.enabled = false;
+            SvSkills.LevelOverride = 8;
+            var e = SpawnAt(SvEnemyKind.Elite, new Vector2(1.5f, 0f));
+            e.GetComponent<SvEliteAttack>().enabled = false;
+            e.Speed = 0f;
+            Assert.IsTrue(Game.Helpers.TryShaman());
+            yield return Wait(0.7f);
+            Assert.AreEqual(1.5f, e.DamageTakenMul, 0.001f, "결계 안의 적은 ×1.5");
+            int hp = e.Hp;
+            e.TakeDamage(20, Vector2.zero, 0f);
+            Assert.AreEqual(hp - 30, e.Hp);
+        }
+
         [UnityTest]
         public IEnumerator Swing_Hits_Sector_Toward_Nearest_Enemy_Only()
         {
@@ -332,11 +427,13 @@ namespace ParryRL.Tests
         [UnityTest]
         public IEnumerator Weapon_Slots_Fill_Then_Only_Upgrades_Are_Offered()
         {
-            foreach (var id in new[] { SvItems.Talisman, SvItems.Orbit, SvItems.Bell })
+            // 공용 6칸 (무기 3 + 기술 수련 3) + 비급 4칸 — 2026-11-25부터 (전에는 무기 4 · 비급 4)
+            foreach (var id in new[] { SvItems.Talisman, SvItems.Orbit, SvItems.Bell, SvSkills.Slam, SvSkills.Giant, SvSkills.Tiger })
                 Game.Progress.Take(SvItems.Get(id), Player, Game.Weapons);
             foreach (var id in new[] { SvItems.Move, SvItems.Vital, SvItems.Magnet, SvItems.Ink })
                 Game.Progress.Take(SvItems.Get(id), Player, Game.Weapons);
             Assert.AreEqual(4, Game.Progress.Count(SvItemKind.Weapon));
+            Assert.AreEqual(SvItems.SharedSlots, Game.Progress.SharedCount);
             Assert.AreEqual(4, Game.Progress.Count(SvItemKind.Passive));
             for (int i = 0; i < 30; i++)
                 foreach (var u in SvItems.Roll(Game.Progress, 3))

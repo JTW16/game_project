@@ -67,6 +67,7 @@ namespace ParryRL.Survivor
         private class Slot { public Image Bg, Icon, Core; public Text Glyph, Lv; public string Id; }
         // 핵심 비급 색 (자줏빛 — 빨강은 적 경고 전용)
         private static readonly Color CoreCol = new(0.92f, 0.45f, 0.85f);
+        private static readonly Color SkillCol = new(0.55f, 0.65f, 1f);
         private class Ability { public Image Icon, Cover; public Text Glyph, Key, Info; }
 
         private static readonly Color Panel = new(0.08f, 0.07f, 0.07f, 0.96f);
@@ -340,7 +341,8 @@ namespace ParryRL.Survivor
 
         private void BuildBuildSlots()
         {
-            for (int i = 0; i < SvItems.WeaponSlots; i++) _weaponSlots.Add(MakeSlot(new Vector2(22f + i * 60f, -22f), 52f, 28, _art != null ? _art.slotWeapon : null));
+            // 윗줄 = 봉(고정) + 공용 6칸(무기 · 기술 수련), 아랫줄 = 비급 4칸 (2026-11-25)
+            for (int i = 0; i < 1 + SvItems.SharedSlots; i++) _weaponSlots.Add(MakeSlot(new Vector2(22f + i * 60f, -22f), 52f, 28, _art != null ? _art.slotWeapon : null));
             for (int i = 0; i < SvItems.PassiveSlots; i++) _passiveSlots.Add(MakeSlot(new Vector2(22f + i * 46f, -84f), 40f, 22, _art != null ? _art.slotPassive : null));
         }
 
@@ -382,15 +384,17 @@ namespace ParryRL.Survivor
             {
                 var item = SvItems.Get(id);
                 if (item == null || item.Kind == SvItemKind.Core) continue;
-                var list = item.Kind == SvItemKind.Weapon ? _weaponSlots : _passiveSlots;
-                int k = item.Kind == SvItemKind.Weapon ? w++ : p++;
+                bool top = item.Kind == SvItemKind.Weapon || item.Kind == SvItemKind.Skill;
+                var list = top ? _weaponSlots : _passiveSlots;
+                int k = top ? w++ : p++;
                 if (k >= list.Count) continue;
                 var slot = list[k];
                 slot.Id = id;
                 PaintIcon(slot.Icon, slot.Glyph, item);
                 int lv = prog.LevelOf(id);
                 slot.Lv.text = lv >= item.MaxLevel ? "<color=#ffd36a>최대</color>" : lv.ToString();
-                slot.Bg.color = new Color(0.1f, 0.09f, 0.08f, 0.9f);
+                // 기술 수련 칸은 남빛 바탕 (S14 칸 틀 그림이 오기 전까지 색으로 구분)
+                slot.Bg.color = item.Kind == SvItemKind.Skill ? new Color(0.08f, 0.1f, 0.2f, 0.92f) : new Color(0.1f, 0.09f, 0.08f, 0.9f);
                 // 핵심 비급을 가진 무기: 왼쪽 위에 자줏빛 보주 표식
                 var core = item.Kind == SvItemKind.Weapon ? SvItems.CoreOf(id) : null;
                 slot.Core.gameObject.SetActive(core != null && prog.HasCore(core.Id));
@@ -681,7 +685,8 @@ namespace ParryRL.Survivor
                     WindowW = a != null && a.cardCore != null ? 0.44f : 0.47f, NameY = 0.56f, DescY = 0.68f, PipY = 0.86f, KeyY = 0.9f,
                     NameCol = new Color(1f, 0.7f, 0.95f), DescCol = cream,
                 },
-                SvItemKind.Weapon => new CardLook
+                // 기술 수련: S14 남빛 족자(card_skill)가 오기 전엔 무기 족자를 남빛으로 물들여 쓴다 (ShowCards)
+                SvItemKind.Weapon or SvItemKind.Skill => new CardLook
                 {
                     Scroll = a?.cardWeapon, Frame = a?.frameWeapon, Emblem = Em(0), Pip = a?.pipGold, Round = false,
                     Aspect = 0.64f, WindowY = 0.355f, WindowW = 0.47f, NameY = 0.545f, DescY = 0.67f, PipY = 0.855f, KeyY = 0.915f,
@@ -723,7 +728,7 @@ namespace ParryRL.Survivor
                 var rt = c.Bg.rectTransform;
                 rt.sizeDelta = new Vector2(w, h);
                 c.Bg.sprite = art ? look.Scroll : (_art != null ? _art.card : null);
-                c.Bg.color = Color.white;
+                c.Bg.color = item.Kind == SvItemKind.Skill ? new Color(0.62f, 0.72f, 1f) : Color.white;
                 if (!art && c.Bg.sprite == null) c.Bg.color = Panel;
                 float win = w * look.WindowW;
                 Vector2 At(float y01) => new(0f, -h * y01);
@@ -736,9 +741,9 @@ namespace ParryRL.Survivor
                 c.Emblem.sprite = look.Emblem;
                 c.Emblem.enabled = look.Emblem != null;
                 c.Ribbon.gameObject.SetActive(!art);
-                var col = item.Kind switch { SvItemKind.Weapon => WeaponCol, SvItemKind.Passive => PassiveCol, SvItemKind.Core => CoreCol, _ => HealCol };
+                var col = item.Kind switch { SvItemKind.Weapon => WeaponCol, SvItemKind.Passive => PassiveCol, SvItemKind.Core => CoreCol, SvItemKind.Skill => SkillCol, _ => HealCol };
                 c.Ribbon.color = col;
-                c.Kind.text = item.Kind switch { SvItemKind.Weapon => "무기", SvItemKind.Passive => "비급", SvItemKind.Core => "핵심 비급", _ => "회복" };
+                c.Kind.text = item.Kind switch { SvItemKind.Weapon => "무기", SvItemKind.Passive => "비급", SvItemKind.Core => "핵심 비급", SvItemKind.Skill => "기술 수련", _ => "회복" };
                 bool seal = _art != null && _art.cardSeal != null;
                 c.Stamp.sprite = seal ? _art.cardSeal : SvSprites.Circle;
                 c.Stamp.color = seal ? Color.white : new Color(0.15f, 0.12f, 0.35f, 0.92f);

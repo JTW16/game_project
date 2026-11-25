@@ -102,7 +102,7 @@ namespace ParryRL.Survivor
         public float CooldownMul => (1f - 0.06f * Lv(SvItems.Hand)) * (_player.Momentum != null ? _player.Momentum.CooldownMul : 1f);
         /// <summary>이보다 높이 떠 있으면 봉과 호신부는 땅의 적에게 닿지 않는다 (가안).</summary>
         public const float MeleeReachHeight = 1.6f;
-        private bool TooHigh => _player.Height > MeleeReachHeight;
+        private bool TooHigh => !SvSkills.LeapAirMelee && _player.Height > MeleeReachHeight; // 경공 수련 8단계면 떠 있어도 닿는다
         public float AreaMul => 1f + 0.1f * Lv(SvItems.Aura);
 
         /// <summary>
@@ -134,15 +134,15 @@ namespace ParryRL.Survivor
         public float BellInterval => bellInterval * Mathf.Pow(0.85f, Steps(Lv(SvItems.Bell), 4, 7)) * CooldownMul;
 
         // 기본 기술이라 단계는 없고, 비급(짙은 먹·넓은 기운·빠른 손)만 먹는다
-        public int GiantDamage => Mathf.RoundToInt(giantDamage * DamageMul);
-        public float GiantLength => giantLength * AreaMul;
-        public float GiantWidth => giantWidth * AreaMul;
-        public float GiantCooldown => giantCooldown * CooldownMul;
+        public int GiantDamage => Mathf.RoundToInt(giantDamage * SvSkills.GiantDamageMul * DamageMul);
+        public float GiantLength => giantLength * SvSkills.GiantLengthMul * AreaMul;
+        public float GiantWidth => giantWidth * (SvSkills.GiantWide ? 1.5f : 1f) * AreaMul;
+        public float GiantCooldown => giantCooldown * SvSkills.GiantCooldownMul * CooldownMul;
         public float GiantCooldownLeft => Mathf.Max(0f, _giantAt - Time.time);
         public bool GiantBoth => false;
 
-        public int SlamDamage => Mathf.RoundToInt(slamDamage * DamageMul);
-        public float SlamRadius => slamRadius * AreaMul;
+        public int SlamDamage => Mathf.RoundToInt(slamDamage * SvSkills.SlamDamageMul * DamageMul);
+        public float SlamRadius => slamRadius * SvSkills.SlamRadiusMul * AreaMul;
 
         private void Update()
         {
@@ -494,12 +494,38 @@ namespace ParryRL.Survivor
                     if (along < -e.Radius || along > l + 0.3f + e.Radius) continue;
                     if (Mathf.Abs(to.x * d.y - to.y * d.x) > half + e.Radius) continue;
                     if (!hit.Add(e)) continue; // 줄이 겹치는 가운데에서 두 번 맞지 않게
-                    Hit(e, dmg, to - d * along, 3f, SvItems.Giant); // 띠 바깥쪽으로 살짝 밀림
+                    Hit(e, dmg, to - d * along, SvSkills.GiantWide ? 9f : 3f, SvItems.Giant); // 띠 바깥쪽으로 밀림 (수련 4단계부터 크게)
                 }
             }
+            // 수련 8단계: 내리찍은 줄에 2초 동안 균열 — 0.5초마다 피해의 25%
+            if (SvSkills.GiantCrack) StartCoroutine(GiantCrackRoutine(_giantFrom, GiantLines(len), half, Mathf.Max(1, Mathf.RoundToInt(dmg * 0.25f))));
             Sfx.Play(SfxId.SkillSlam, 0.9f);
             Sfx.Play(SfxId.BossLand, 0.45f);
             SvGame.Instance?.Shake(0.32f, 0.25f);
+        }
+
+        private System.Collections.IEnumerator GiantCrackRoutine(Vector2 from, List<(Vector2 dir, float len)> lines, float half, int dmg)
+        {
+            for (int tick = 0; tick < 4; tick++)
+            {
+                yield return new WaitForSeconds(0.5f);
+                foreach (var (d, l) in lines)
+                {
+                    if (SvVfx.Ready) SvSkillVfx.GiantImpact(from, d, l, half * 2f, false);
+                    var list = SvEnemy.Active;
+                    for (int i = list.Count - 1; i >= 0; i--)
+                    {
+                        if (i >= list.Count) continue;
+                        var e = list[i];
+                        if (e == null || !e.isActiveAndEnabled) continue;
+                        Vector2 to = e.Position - from;
+                        float along = Vector2.Dot(to, d);
+                        if (along < -e.Radius || along > l + 0.3f + e.Radius) continue;
+                        if (Mathf.Abs(to.x * d.y - to.y * d.x) > half + e.Radius) continue;
+                        Hit(e, dmg, Vector2.zero, 0f, SvItems.Giant);
+                    }
+                }
+            }
         }
 
         /// <summary>내리찍는 줄들: 앞 + 선풍격이면 양옆으로 벌어진 두 줄 (부채꼴).</summary>
@@ -567,14 +593,32 @@ namespace ParryRL.Survivor
             Sfx.Play(SfxId.SkillSlam, 0.9f);
             SvGame.Instance?.Shake(0.3f, 0.25f);
             SvView.Instance?.Punch(0.05f, 0.22f);
-            int n = Physics2D.OverlapCircle(at, r, ContactFilter2D.noFilter, Hits);
             int dmg = Mathf.RoundToInt(SlamDamage * (1f + diveDamageBonus * power));
+            SlamHit(at, 0f, r, dmg);
+            // 수련 4단계: 바깥으로 한 겹 더 (0.15초 뒤, 반지름 r~1.6r, 피해 절반) · 8단계: 0.4초 뒤 같은 자리에 여진
+            if (SvSkills.SlamDoubleRing) StartCoroutine(SlamLater(at, 0.15f, r, r * 1.6f, Mathf.Max(1, dmg / 2)));
+            if (SvSkills.SlamAftershock) StartCoroutine(SlamLater(at, 0.4f, 0f, r, dmg));
+        }
+
+        private void SlamHit(Vector2 at, float inner, float r, int dmg)
+        {
+            int n = Physics2D.OverlapCircle(at, r, ContactFilter2D.noFilter, Hits);
             for (int i = 0; i < n; i++)
             {
                 var e = SvEnemy.Find(Hits[i]);
                 if (e == null || !e.isActiveAndEnabled) continue;
+                if (inner > 0f && (e.Position - at).magnitude + e.Radius < inner) continue;
                 Hit(e, dmg, e.Position - at, slamKnock, "slam");
             }
+        }
+
+        private System.Collections.IEnumerator SlamLater(Vector2 at, float delay, float inner, float r, int dmg)
+        {
+            yield return new WaitForSeconds(delay);
+            SvSkillVfx.SlamLand(at, r, inner > 0f ? 0.3f : 0.6f);
+            SvGame.Instance?.Shake(0.18f, 0.18f);
+            Sfx.Play(SfxId.SkillSlam, 0.6f);
+            SlamHit(at, inner, r, dmg);
         }
 
         /// <summary>폭렬부: 부적이 맞힌 자리에서 터져 둘레(반지름 1.4)에 부적 피해의 절반. 맞은 그 적은 빼고.</summary>

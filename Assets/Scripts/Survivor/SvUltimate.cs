@@ -12,7 +12,8 @@ namespace ParryRL.Survivor
     public class SvUltimate : MonoBehaviour
     {
         [SerializeField] private float maxGauge = 100f;
-        [SerializeField] private float perKill = 1f, perElite = 10f, perParry = 15f;
+        // 강화하지 않으면 잘 안 찬다 — 궁극기 수련(D)으로 얻는 양이 ×3까지 오른다 (2026-11-25 사용자 결정, 전에는 처치 1 · 정예 10 · 패링 15)
+        [SerializeField] private float perKill = 0.2f, perElite = 5f, perParry = 10f;
         [Tooltip("잡몹에게 주는 피해 (짙은 먹 배율을 받음)")]
         [SerializeField] private int damage = 300;
         [Tooltip("정예에게 주는 피해")]
@@ -37,8 +38,8 @@ namespace ParryRL.Survivor
 
         private void Awake() => _player = GetComponent<SvPlayer>();
 
-        public void AddKill(SvEnemy e) => Add(e.IsBig ? perElite : perKill);
-        public void AddParry() => Add(perParry);
+        public void AddKill(SvEnemy e) => Add((e.IsBig ? perElite : perKill) * SvSkills.UltGaugeMul);
+        public void AddParry() => Add(perParry * SvSkills.UltGaugeMul);
 
         public void Add(float amount)
         {
@@ -123,8 +124,11 @@ namespace ParryRL.Survivor
                 var e = SvEnemy.Find(Hits[i]);
                 if (e == null || !e.isActiveAndEnabled) continue;
                 SvSkillVfx.SoulPull(e.Position, at);
-                int dmg = e.IsBoss ? Mathf.RoundToInt(e.MaxHp * bossPercent) : e.IsElite ? Mathf.RoundToInt(eliteDamage * mul) : Mathf.RoundToInt(damage * mul);
+                float m = mul * SvSkills.UltDamageMul;
+                int dmg = e.IsBoss ? Mathf.RoundToInt(e.MaxHp * bossPercent * SvSkills.UltBigMul) : e.IsElite ? Mathf.RoundToInt(eliteDamage * m * SvSkills.UltBigMul) : Mathf.RoundToInt(damage * m);
                 SvWeapons.Hit(e, dmg, e.Position - at, 14f, Source);
+                // 수련 4단계: 살아남은 적은 3초 동안 느려진다
+                if (SvSkills.UltSlow && e.isActiveAndEnabled && e.Hp > 0) e.Slow(0.5f, 3f);
             }
         }
     }

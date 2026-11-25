@@ -222,9 +222,9 @@ namespace ParryRL.Survivor
             var item = SvItems.Get(id);
             if (g == null || item == null) return "";
             int lv = g.Progress.LevelOf(id);
-            bool weapon = item.Kind == SvItemKind.Weapon;
+            bool weapon = item.Kind == SvItemKind.Weapon, skill = item.Kind == SvItemKind.Skill;
             var sb = new StringBuilder();
-            sb.Append($"<size=28><b>{item.Name}</b></size>   <color={(weapon ? "#f0b860" : "#7fd6c0")}>{(weapon ? "무기" : "비급")}</color>   Lv {lv}/{item.MaxLevel}\n");
+            sb.Append($"<size=28><b>{item.Name}</b></size>   <color={(weapon ? "#f0b860" : skill ? "#9fb0ff" : "#7fd6c0")}>{(weapon ? "무기" : skill ? "기술 수련" : "비급")}</color>   Lv {lv}/{item.MaxLevel}\n");
             sb.Append($"<color=#d8d0c0>{item.Levels[0]}</color>\n");
             string stat = StatLine(id);
             if (stat.Length > 0) sb.Append($"<color=#9fd8c8>지금: {stat}</color>");
@@ -256,6 +256,7 @@ namespace ParryRL.Survivor
                 var it = SvItems.Get(id);
                 if (it == null) continue;
                 if (it.Kind == SvItemKind.Core) continue; // 핵심 비급은 그 무기 줄에 함께 적는다
+                if (it.Kind == SvItemKind.Skill) continue; // 기술 수련은 게임 화면 왼쪽 위 칸에서 본다 (일시 정지 화면 자리는 다음에)
                 (it.Kind == SvItemKind.Weapon ? weapons : passives).Add(it);
             }
             int maxDmg = 1;

@@ -33,8 +33,11 @@ namespace ParryRL.Survivor
         [SerializeField] private int wardDamage = 6;
 
 
-        public float TigerCooldown => tigerCooldown;
-        public float ShamanCooldown => shamanCooldown;
+        // 기술 수련 단계가 곱해진 값 (SvSkills)
+        public float TigerCooldown => tigerCooldown * SvSkills.TigerCooldownMul;
+        public float ShamanCooldown => shamanCooldown * SvSkills.ShamanCooldownMul;
+        private float TigerLength => tigerLength * SvSkills.TigerLengthMul;
+        private float ShamanTime => shamanTime + SvSkills.ShamanTimeAdd;
         public float TigerLeft => Mathf.Max(0f, _tigerReadyAt - Time.time);
         public float ShamanLeft => Mathf.Max(0f, _shamanReadyAt - Time.time);
         public bool TigerRunning => _tigerT >= 0f;
@@ -42,12 +45,14 @@ namespace ParryRL.Survivor
         public int TigerCount { get; private set; }
         public int ShamanCount { get; private set; }
         public Vector2 WardCenter => _wardAt;
-        public float WardRadius => wardRadius;
+        public float WardRadius => wardRadius * SvSkills.ShamanRadiusMul;
 
         private SvPlayer _player;
         private float _tigerReadyAt, _shamanReadyAt;
         // 범: 달리기 진행(0~1, 음수 = 없음) · 출발점 · 방향 · 이미 친 적
         private float _tigerT = -1f, _tigerTrailAt;
+        // 수련 4단계: 끝까지 달린 뒤 되돌아오는 중인가
+        private bool _tigerBack;
         private Vector2 _tigerFrom, _tigerDir;
         private readonly HashSet<SvEnemy> _tigerHit = new();
         private SvBillboard _tiger;
@@ -78,9 +83,10 @@ namespace ParryRL.Survivor
         public bool TryTiger()
         {
             if (_player.Dead || TigerLeft > 0f || TigerRunning) return false;
-            _tigerReadyAt = Time.time + tigerCooldown;
+            _tigerReadyAt = Time.time + TigerCooldown;
+            _tigerBack = false;
             TigerCount++;
-            _tigerDir = BestLine(_player.Position, tigerLength, tigerWidth);
+            _tigerDir = BestLine(_player.Position, TigerLength, tigerWidth);
             // 퇴마사 조금 뒤에서 뛰어나와 앞쪽 끝까지
             _tigerFrom = _player.Position - _tigerDir * 2f;
             _tigerT = 0f;
@@ -94,7 +100,7 @@ namespace ParryRL.Survivor
                 _tiger.transform.parent.gameObject.SetActive(true);
                 _tiger.FacingLeft = _tigerDir.x < 0f;
             }
-            SvSkillVfx.TigerStart(_tigerFrom, _tigerDir, tigerLength + 2f, tigerWidth);
+            SvSkillVfx.TigerStart(_tigerFrom, _tigerDir, TigerLength + 2f, tigerWidth);
             Sfx.Play(SfxId.BossDash, 0.6f);
             SvGame.Instance?.Hud.Popup("산군!", new Color(1f, 0.8f, 0.45f), 0.8f);
             return true;
@@ -103,7 +109,7 @@ namespace ParryRL.Survivor
         private void TickTiger()
         {
             if (_tigerT < 0f) return;
-            float total = tigerLength + 2f;
+            float total = TigerLength + 2f;
             float prev = _tigerT * total;
             _tigerT = Mathf.Min(1f, _tigerT + Time.deltaTime / tigerTime);
             float cur = _tigerT * total;
@@ -128,7 +134,7 @@ namespace ParryRL.Survivor
             }
             // 지나간 구간 안의 적을 한 번씩
             float half = tigerWidth * 0.5f;
-            int dmg = Mathf.RoundToInt(tigerDamage * (SvGame.Instance != null ? SvGame.Instance.Weapons.DamageMul : 1f));
+            int dmg = Mathf.RoundToInt(tigerDamage * SvSkills.TigerDamageMul * (SvGame.Instance != null ? SvGame.Instance.Weapons.DamageMul : 1f));
             var list = SvEnemy.Active;
             for (int i = list.Count - 1; i >= 0; i--)
             {
@@ -145,6 +151,18 @@ namespace ParryRL.Survivor
                 SvSkillVfx.Claw(e, _tigerDir);
                 if (art != null && !SvVfx.Ready) SvFx.Anim(art.fxEliteRend, e.Position, e.VisualHeight * 0.5f, 1.4f, 0.22f, _tigerDir.x < 0f, new Color(1f, 0.85f, 0.5f, 1f));
                 SvWeapons.Hit(e, dmg, push, tigerKnock, "tiger");
+                if (SvSkills.TigerStun && !e.IsBoss && e.isActiveAndEnabled && e.Hp > 0) e.Stun(1f); // 수련 8단계
+            }
+            if (_tigerT >= 1f && SvSkills.TigerReturn && !_tigerBack)
+            {
+                // 수련 4단계: 끝에서 돌아서 왔던 길을 한 번 더 (적마다 다시 한 번씩)
+                _tigerBack = true;
+                _tigerFrom = pos;
+                _tigerDir = -_tigerDir;
+                _tigerT = 0f;
+                _tigerHit.Clear();
+                if (_tiger != null) _tiger.FacingLeft = _tigerDir.x < 0f;
+                return;
             }
             if (_tigerT >= 1f)
             {
@@ -160,15 +178,15 @@ namespace ParryRL.Survivor
         public bool TryShaman()
         {
             if (_player.Dead || ShamanLeft > 0f || ShamanActive) return false;
-            _shamanReadyAt = Time.time + shamanCooldown;
+            _shamanReadyAt = Time.time + ShamanCooldown;
             ShamanCount++;
             _wardAt = _player.Position;
-            _shamanUntil = Time.time + shamanTime;
+            _shamanUntil = Time.time + ShamanTime;
             _wardTickAt = Time.time;
             var art = Art;
             _player.PlayAction(SummonPose(art), 0.4f, _player.Facing);
             Vector2 at = _wardAt + new Vector2(_player.Facing.x < 0f ? 1f : -1f, 0.4f);
-            SvSkillVfx.WardOpen(_wardAt, wardRadius, shamanTime);
+            SvSkillVfx.WardOpen(_wardAt, WardRadius, ShamanTime);
             SvSkillVfx.Puff(at);
             Summon(at, art);
             if (art != null && SurvivorArt.Ok(art.shamanDance))
@@ -184,7 +202,7 @@ namespace ParryRL.Survivor
                 _wardGlow = SvBillboard.CreateGlow(g, 1f, new Color(0.55f, 1f, 0.85f, 0.35f));
             }
             _wardGlow.transform.parent.position = _wardAt;
-            _wardGlow.transform.localScale = new Vector3(wardRadius * 2.4f, wardRadius * 2.4f * 0.8f, 1f);
+            _wardGlow.transform.localScale = new Vector3(WardRadius * 2.4f, WardRadius * 2.4f * 0.8f, 1f);
             _wardGlow.gameObject.SetActive(true);
             Sfx.Play(SfxId.DefendStart, 0.7f);
             SvGame.Instance?.Hud.Popup("무녀!", new Color(0.6f, 1f, 0.9f), 0.8f);
@@ -211,24 +229,25 @@ namespace ParryRL.Survivor
                 _shaman.FacingLeft = _player.Position.x < _shaman.transform.parent.position.x;
             }
             // 퇴마사가 결계 안이면 회복 (소수점은 모아서)
-            if ((_player.Position - _wardAt).sqrMagnitude <= wardRadius * wardRadius)
+            if ((_player.Position - _wardAt).sqrMagnitude <= WardRadius * WardRadius)
             {
-                _healAcc += healPerSecond * Time.deltaTime;
+                _healAcc += healPerSecond * SvSkills.ShamanHealMul * Time.deltaTime;
                 if (_healAcc >= 1f) { int n = (int)_healAcc; _healAcc -= n; _player.Heal(n); }
             }
             if (Time.time < _wardTickAt) return;
             _wardTickAt = Time.time + 0.5f;
             // 결계 바닥 고리 (S8 그림 없으면 방울 울림 그림을 옥빛으로)
             // 0.5초마다 다시 깔리므로 가운데 번쩍임이 거슬리지 않게 조금 옅게
-            SvSkillVfx.WardTick(_wardAt, wardRadius);
-            if (art != null && !SvVfx.Ready && !SvFx.FlatAnim(art.fxWard, _wardAt, 0f, wardRadius * 2.2f, 0.5f, new Color(1f, 1f, 1f, 0.8f)))
-                SvFx.FlatAnim(art.fxBellRing, _wardAt, Random.value * 360f, wardRadius * 2.2f, 0.5f, new Color(0.55f, 1f, 0.85f, 0.75f));
-            int hits = Physics2D.OverlapCircle(_wardAt, wardRadius, ContactFilter2D.noFilter, Hits);
+            SvSkillVfx.WardTick(_wardAt, WardRadius);
+            if (art != null && !SvVfx.Ready && !SvFx.FlatAnim(art.fxWard, _wardAt, 0f, WardRadius * 2.2f, 0.5f, new Color(1f, 1f, 1f, 0.8f)))
+                SvFx.FlatAnim(art.fxBellRing, _wardAt, Random.value * 360f, WardRadius * 2.2f, 0.5f, new Color(0.55f, 1f, 0.85f, 0.75f));
+            int hits = Physics2D.OverlapCircle(_wardAt, WardRadius, ContactFilter2D.noFilter, Hits);
             for (int i = 0; i < hits; i++)
             {
                 var e = SvEnemy.Find(Hits[i]);
                 if (e == null || !e.isActiveAndEnabled) continue;
                 e.Slow(slowMul, 0.6f);
+                if (SvSkills.ShamanVulnerable) e.MarkVulnerable(SvSkills.ShamanVulnerableMul, 0.6f); // 수련 8단계
                 SvWeapons.Hit(e, wardDamage, e.Position - _wardAt, 0f, "shaman");
             }
         }

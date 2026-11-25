@@ -4,7 +4,8 @@ using UnityEngine;
 namespace ParryRL.Survivor
 {
     /// <summary>Core = 핵심 비급 (가진 무기의 동작을 바꾸는 드문 카드, 한 판에 2장까지 — 스텔라 소라 참고, 2026-11-11 가안).</summary>
-    public enum SvItemKind { Weapon, Passive, Heal, Core }
+    /// <summary>Skill = 기술 수련 (직접 쓰는 기술을 키우는 카드, 2026-11-25 — <see cref="SvSkills"/>).</summary>
+    public enum SvItemKind { Weapon, Passive, Heal, Core, Skill }
 
     /// <summary>
     /// 레벨업 카드로 얻고 키우는 것 하나 (뱀서·메가봉크처럼 무기 + 보조 강화). 수치 효과는 무기·플레이어가 단계를 읽어 계산한다.
@@ -66,7 +67,15 @@ namespace ParryRL.Survivor
 
         /// <summary>그 무기의 핵심 비급 (없으면 null).</summary>
         public static SvItem CoreOf(string weaponId) => Cores.Find(c => c.For == weaponId);
-        public const int WeaponSlots = 4, PassiveSlots = 4;
+        /// <summary>
+        /// 공용 6칸 = 봉을 뺀 무기 3종 + 기술 6종 중 6개 · 비급 4칸 (2026-11-25 사용자 결정 — 전에는 무기 4 · 비급 4).
+        /// 봉은 늘 따로 있어 칸을 차지하지 않는다.
+        /// </summary>
+        public const int SharedSlots = 6, PassiveSlots = 4;
+        /// <summary>무기 종류 수 (봉 포함) — 일시 정지 화면의 무기 줄 수.</summary>
+        public const int WeaponSlots = 4;
+        /// <summary>공용 칸을 쓰는 것인가 (봉을 뺀 무기 + 기술 수련).</summary>
+        public static bool UsesShared(SvItem u) => u != null && (u.Kind == SvItemKind.Skill || (u.Kind == SvItemKind.Weapon && u.Id != Staff));
 
         public static readonly List<SvItem> All = new()
         {
@@ -78,6 +87,20 @@ namespace ParryRL.Survivor
                 { "부적 두 장이 몸 둘레를 돌며 닿는 적을 벤다", "부적 +1장", "피해 +30%", "도는 반경 +20%", "부적 +1장", "더 빨리 돈다", "피해 크게 (×1.9)", "부적 +2장, 피해 ×3" } },
             new() { Id = Bell, Name = "방울 울림", Kind = SvItemKind.Weapon, MaxLevel = 8, Icon = 7, Levels = new[]
                 { "3초마다 방울을 울려 둘레의 적을 밀쳐 낸다", "피해 +30%", "범위 +15%", "간격 -15%", "피해 크게 (×1.9)", "범위 +15%", "간격 -15%", "두 번 울린다, 피해 ×3" } },
+
+            // 기술 수련 (1단계 = 칸에 안 넣어도 쓰는 기본 세기, 4 · 8단계는 동작이 바뀐다)
+            new() { Id = SvSkills.Slam, Name = "내려찍기 수련", Kind = SvItemKind.Skill, MaxLevel = 8, Icon = 1, Levels = new[]
+                { "내려찍기(A)를 칸에 넣는다", "피해 +25%", "범위 +20%", "충격파가 두 겹으로 퍼진다", "쿨타임 -20%", "피해 +35%", "범위 +20%", "0.4초 뒤 여진이 한 번 더" } },
+            new() { Id = SvSkills.Giant, Name = "긴 봉 수련", Kind = SvItemKind.Skill, MaxLevel = 8, Icon = 19, Levels = new[]
+                { "긴 봉 내리찍기(S)를 칸에 넣는다", "피해 +25%", "길이 +25%", "폭 ×1.5, 맞은 적을 크게 밀어낸다", "쿨타임 -20%", "피해 +35%", "길이 +25%", "내리찍은 줄에 2초 동안 균열 (지속 피해)" } },
+            new() { Id = SvSkills.Ult, Name = "귀문봉인 수련", Kind = SvItemKind.Skill, MaxLevel = 8, Glyph = "封", Levels = new[]
+                { "궁극기(D)를 칸에 넣는다", "도력 얻는 양 ×1.5", "피해 +30%", "봉인 뒤 3초 동안 적이 느려진다", "도력 얻는 양 ×2", "피해 +40%", "도력 얻는 양 ×2.5", "도력 얻는 양 ×3, 정예 · 보스 피해 +50%" } },
+            new() { Id = SvSkills.Tiger, Name = "산군 수련", Kind = SvItemKind.Skill, MaxLevel = 8, Glyph = "虎", Levels = new[]
+                { "산군(W)을 칸에 넣는다", "피해 +30%", "쿨타임 -15%", "끝까지 달린 뒤 되돌아오며 한 번 더", "피해 +30%", "길이 +30%", "쿨타임 -20%", "맞은 적 1초 기절 (보스 제외)" } },
+            new() { Id = SvSkills.Shaman, Name = "무녀 수련", Kind = SvItemKind.Skill, MaxLevel = 8, Glyph = "巫", Levels = new[]
+                { "무녀(E)를 칸에 넣는다", "결계 +1초", "회복 +50%", "결계 반경 +30%", "쿨타임 -15%", "회복 +50%", "결계 +1초", "결계 안의 적이 받는 피해 ×1.5" } },
+            new() { Id = SvSkills.Leap, Name = "경공 수련", Kind = SvItemKind.Skill, MaxLevel = 8, Glyph = "躍", Levels = new[]
+                { "경공(Space)을 칸에 넣는다", "쿨타임 -10%", "2단 높이 +20%", "두 번 연달아 쓸 수 있다 (충전 2회)", "쿨타임 -15%", "허공답보 +1회", "쿨타임 -20%", "떠 있어도 봉 휘두르기 · 호신부가 땅에 닿는다" } },
 
             new() { Id = Move, Name = "축지법", Kind = SvItemKind.Passive, Icon = 8, Levels = new[] { "이동 속도 +8%" } },
             new() { Id = Vital, Name = "질긴 몸", Kind = SvItemKind.Passive, Icon = 9, Levels = new[] { "최대 체력 +20, 체력 20 회복" } },
@@ -110,14 +133,14 @@ namespace ParryRL.Survivor
         /// <summary>올릴 수 있는 가진 것 + (빈칸이 있으면) 새것 중 서로 다른 n장. 모자라면 주먹밥으로 채운다.</summary>
         public static List<SvItem> Roll(SvProgress prog, int n)
         {
-            int weapons = prog.Count(SvItemKind.Weapon), passives = prog.Count(SvItemKind.Passive);
+            int shared = prog.SharedCount, passives = prog.Count(SvItemKind.Passive);
             var pool = All.FindAll(u =>
             {
                 if (u.Available != null && !u.Available()) return false;
                 int lv = prog.LevelOf(u.Id);
                 if (lv >= u.MaxLevel) return false;
                 if (lv > 0) return true;
-                return u.Kind == SvItemKind.Weapon ? weapons < WeaponSlots : passives < PassiveSlots;
+                return UsesShared(u) ? shared < SharedSlots : u.Kind == SvItemKind.Passive && passives < PassiveSlots;
             });
             var pick = new List<SvItem>();
             while (pick.Count < n && pool.Count > 0)

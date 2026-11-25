@@ -273,7 +273,7 @@ namespace ParryRL.Survivor
             Exp = exp;
             _knock = Vector2.zero;
             _nextPath = 0f;
-            _stunUntil = _flashUntil = _surgeUntil = _boundUntil = _slowUntil = 0f;
+            _stunUntil = _flashUntil = _surgeUntil = _boundUntil = _slowUntil = _vulnUntil = 0f;
             _nextSurge = Time.time + Random.Range(1.5f, SurgeEvery);
             Holding = false;
             PoseOverride = null;
@@ -295,9 +295,22 @@ namespace ParryRL.Survivor
         }
 
         /// <summary>실제로 깎인 체력을 돌려준다 (무적·이미 쓰러짐이면 0).</summary>
+        // 받는 피해 증가 (무녀 수련 8단계 등): 배율 · 끝나는 때
+        private float _vulnMul = 1f, _vulnUntil;
+
+        /// <summary>잠깐 받는 피해가 늘어난다 (같은 때 여러 번이면 큰 쪽, 시간은 새로).</summary>
+        public void MarkVulnerable(float mul, float seconds)
+        {
+            _vulnMul = Time.time < _vulnUntil ? Mathf.Max(_vulnMul, mul) : mul;
+            _vulnUntil = Time.time + seconds;
+        }
+
+        public float DamageTakenMul => Time.time < _vulnUntil ? _vulnMul : 1f;
+
         public int TakeDamage(int amount, Vector2 knockDir, float knock)
         {
             if (Hp <= 0 || amount <= 0 || Invulnerable) return 0;
+            if (Time.time < _vulnUntil) amount = Mathf.RoundToInt(amount * _vulnMul);
             int dealt = Mathf.Min(amount, Hp);
             Hp -= amount;
             _flashUntil = Time.time + 0.08f;
