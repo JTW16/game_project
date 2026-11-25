@@ -367,7 +367,11 @@ namespace ParryRL.Survivor
                 Shake(0.25f, 0.3f);
                 SvView.Instance?.Punch(0.04f, 0.3f);
             }
-            else SvGem.Drop(e.Position, e.Exp);
+            else
+            {
+                SvGem.Drop(e.Position, e.Exp);
+                SvPickup.TryDropRiceball(e.Position);
+            }
             Sfx.Play(SfxId.EnemyDie, 0.4f);
         }
 

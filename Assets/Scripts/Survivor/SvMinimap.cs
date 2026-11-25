@@ -84,6 +84,9 @@ namespace ParryRL.Survivor
 
         public int EliteDots { get; private set; }
         public int GateDots { get; private set; }
+        /// <summary>미니맵에 보이는 주먹밥 수 (멀리 두고 온 것도 찾을 수 있게).</summary>
+        public int RiceDots { get; private set; }
+        private readonly System.Collections.Generic.List<RectTransform> _rice = new();
         public Vector2 PlayerDot => _player.anchoredPosition;
 
         private void LateUpdate()
@@ -107,6 +110,17 @@ namespace ParryRL.Survivor
             }
             for (int i = n; i < _elites.Count; i++) _elites[i].gameObject.SetActive(false);
             EliteDots = n;
+            int r = 0;
+            foreach (var pk in SvPickup.Live)
+            {
+                if (pk.Kind != SvPickupKind.Riceball) continue;
+                if (r >= _rice.Count) _rice.Add(Icon(null, new Color(1f, 0.95f, 0.75f), 12f));
+                _rice[r].gameObject.SetActive(true);
+                _rice[r].anchoredPosition = ToMap(pk.Position);
+                r++;
+            }
+            for (int i = r; i < _rice.Count; i++) _rice[i].gameObject.SetActive(false);
+            RiceDots = r;
             _boss.gameObject.SetActive(boss != null && boss.Hp > 0);
             if (boss != null) _boss.anchoredPosition = ToMap(boss.Position);
             // 퇴마사는 맨 위에

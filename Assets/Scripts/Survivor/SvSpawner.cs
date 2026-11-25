@@ -42,22 +42,28 @@ namespace ParryRL.Survivor
         [Header("스탯")]
         [Tooltip("퇴마사가 빨라진 만큼 잡몹 걸음도 올린다 (가안)")]
         [SerializeField] private float mobSpeedMul = 1.15f;
-        [Tooltip("이 시간(초)마다 잡몹 체력이 기본만큼 더 늘어난다")]
+        [Tooltip("정예 체력이 이 시간(초)마다 기본만큼 더 늘어난다")]
         [SerializeField] private float hpDoubleTime = 240f;
+        [Tooltip("잡몹 체력 배율 (x = 초, y = 배율, 사이는 직선) — 처음 1분은 한 방, 2분부터 단단하게, 후반은 무기 성장이 앞지르게 (2026-11-25 사용자 결정 B안 + 봇 점검 뒤 \"처음 1분은 한 방\", 가안)")]
+        [SerializeField] private Vector2[] mobHpCurve = { new(0f, 1f), new(120f, 2f), new(360f, 1.7f), new(540f, 1.5f) };
 
         public static SvSpawner Instance { get; private set; }
         public bool Running { get; set; } = true;
         public int SpawnedTotal { get; private set; }
         public int TargetAlive => Mathf.Min(BossSpawned ? aliveDuringBoss : maxAlive, Mathf.RoundToInt(Curve(SvGame.Elapsed)));
 
-        private float Curve(float t)
+        private float Curve(float t) => aliveCurve == null || aliveCurve.Length == 0 ? 20f : Sample(aliveCurve, t);
+
+        /// <summary>지금 잡몹 체력 배율 (곡선 표).</summary>
+        public float MobHpMul(float t) => mobHpCurve == null || mobHpCurve.Length == 0 ? 1f : Sample(mobHpCurve, t);
+
+        private static float Sample(Vector2[] curve, float t)
         {
-            if (aliveCurve == null || aliveCurve.Length == 0) return 20f;
-            if (t <= aliveCurve[0].x) return aliveCurve[0].y;
-            for (int i = 1; i < aliveCurve.Length; i++)
-                if (t <= aliveCurve[i].x)
-                    return Mathf.Lerp(aliveCurve[i - 1].y, aliveCurve[i].y, Mathf.InverseLerp(aliveCurve[i - 1].x, aliveCurve[i].x, t));
-            return aliveCurve[^1].y;
+            if (t <= curve[0].x) return curve[0].y;
+            for (int i = 1; i < curve.Length; i++)
+                if (t <= curve[i].x)
+                    return Mathf.Lerp(curve[i - 1].y, curve[i].y, Mathf.InverseLerp(curve[i - 1].x, curve[i].x, t));
+            return curve[^1].y;
         }
 
         /// <summary>경이 바뀌면 화면 밖 둘레를 한꺼번에 둘러싼다 (<see cref="SvNight"/>가 부름).</summary>
@@ -213,14 +219,15 @@ namespace ParryRL.Survivor
             if (!_free.TryGetValue(kind, out var stack)) _free[kind] = stack = new Stack<SvEnemy>();
             var e = stack.Count > 0 ? stack.Pop() : SvEnemy.Create(kind, _root);
             at = SvBounds.Clamp(at, 1f);
-            float scale = 1f + SvGame.Elapsed / hpDoubleTime;
+            float eliteScale = 1f + SvGame.Elapsed / hpDoubleTime;
+            float scale = MobHpMul(SvGame.Elapsed);
             // 밤이 깊을수록 보석 값이 오른다 (초반 레벨업은 느리게, 후반은 따라잡게 — 가안)
             float xpMul = 1f + 0.5f * SvNight.Phase;
             int Xp(int b) => Mathf.RoundToInt(b * xpMul);
             switch (kind)
             {
                 case SvEnemyKind.Dokkaebibul: e.Spawn(at, Mathf.RoundToInt(7 * scale), 3.2f, 6, Xp(2)); break;
-                case SvEnemyKind.Elite: e.Spawn(at, Mathf.RoundToInt(380 * scale), 2.1f, 18, 15); break;
+                case SvEnemyKind.Elite: e.Spawn(at, Mathf.RoundToInt(380 * eliteScale), 2.1f, 18, 15); break;
                 case SvEnemyKind.Boss: e.Spawn(at, bossHp, 1.6f, 18, 0); break;
                 case SvEnemyKind.Dalgyal: e.Spawn(at, Mathf.RoundToInt(40 * scale), 1.6f, 12, Xp(4)); break;
                 case SvEnemyKind.SmallDokkaebi: e.Spawn(at, Mathf.RoundToInt(6 * scale), 3.7f, 5, Xp(1)); break;

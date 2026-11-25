@@ -14,7 +14,7 @@ namespace ParryRL.Survivor
         [SerializeField] private int maxHp = 100;
         [SerializeField] private float hurtInvulnerable = 0.6f;
         [Tooltip("1초에 차는 체력 (가안)")]
-        [SerializeField] private float regenPerSecond = 0.3f;
+        [SerializeField] private float regenPerSecond = 0f; // 저절로 차는 회복은 없앰 — 주먹밥 · 무녀로만 (2026-11-25 사용자 결정, 전에는 0.3)
 
         [Header("이동")]
         [SerializeField] private float moveSpeed = 5.5f;
@@ -27,6 +27,8 @@ namespace ParryRL.Survivor
         [SerializeField] private float apexGravity = 0.6f;
         [SerializeField] private float fallGravity = 1.25f;
         [SerializeField] private int maxJumps = 2;
+        [Tooltip("경공 쿨타임 (초) — 땅에서 뛸 때부터 센다. 한 번 뛰면 2단까지 이어 쓴다 (2026-11-25 사용자 결정 — 쿨 없이 계속 뛰면 잡귀에게 거의 안 맞아서, 가안)")]
+        [SerializeField] private float leapCooldown = 12f;
         [Tooltip("2단 점프 때 가던 쪽으로 더해지는 속도")]
         [SerializeField] private float leapPush = 3f;
         [Tooltip("이보다 높으면 땅의 잡귀에게 닿지 않는다")]
@@ -46,7 +48,7 @@ namespace ParryRL.Survivor
         [SerializeField] private float dashCarry = 0.9f;
 
         [Header("내려찍기 (A)")]
-        [SerializeField] private float slamCooldown = 2.5f;
+        [SerializeField] private float slamCooldown = 3f; // 기술 수련 1단계 (2026-11-25, 전에는 2.5)
         [SerializeField] private float slamFallSpeed = 28f;
         [SerializeField] private float slamHop = 7f;
 
@@ -78,6 +80,13 @@ namespace ParryRL.Survivor
         public bool Airborne => Height > 0f || _vy > 0f;
         public bool Slamming { get; private set; }
         public float SlamCooldownLeft => Mathf.Max(0f, _slamReadyAt - Time.time);
+        public float LeapCooldownLeft => Mathf.Max(0f, _leapReadyAt - Time.time);
+        public float LeapCooldown => LeapCooldownOverride ?? leapCooldown;
+        /// <summary>테스트용: 경공 쿨타임을 덮어쓴다 (null = 원래대로). 동작을 찍는 테스트는 여러 번 뛰므로 0으로 둔다.</summary>
+        public static float? LeapCooldownOverride;
+        private float _leapReadyAt;
+        /// <summary>테스트용: 경공 쿨타임을 비운다.</summary>
+        public void ResetLeapCooldown() => _leapReadyAt = 0f;
         public float SlamCooldown => slamCooldown;
         public int DashChargesLeft { get; private set; }
         public bool Dashing => Time.time < _dashUntil;
@@ -205,6 +214,11 @@ namespace ParryRL.Survivor
         public bool TryJump()
         {
             if (Dead || Slamming || _jumpsUsed >= maxJumps) return false;
+            if (_jumpsUsed == 0)
+            {
+                if (Time.time < _leapReadyAt) return false;
+                _leapReadyAt = Time.time + LeapCooldown;
+            }
             _jumpsUsed++;
             bool second = _jumpsUsed >= 2;
             _vy = second ? leapVelocity : jumpVelocity;

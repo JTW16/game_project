@@ -44,7 +44,7 @@ namespace ParryRL.Survivor
         private static readonly Color MomentumColor = new(0.45f, 0.86f, 0.8f);
         private readonly Image[] _momentum = new Image[3];
         private Text _momentumName;
-        private Ability _slam, _dash, _parry, _ult, _tiger, _shaman, _giant;
+        private Ability _slam, _dash, _parry, _ult, _tiger, _shaman, _giant, _leap;
         private Image _ultFill, _bannerBg;
         private readonly List<Image> _arrows = new();
         private readonly List<SvEnemy> _bigs = new();
@@ -159,7 +159,15 @@ namespace ParryRL.Survivor
             UiKit.Place(_momentumName.rectTransform, new Vector2(0.5f, 0f), new Vector2(0f, 168f), new Vector2(240f, 28f));
 
             // 아래 가운데: 직접 쓰는 기술
-            // Shift | A S D | Q W E (2026-11-12: S = 긴 봉, 패링은 Q)
+            // Space Shift | A S D | Q W E (2026-11-12: S = 긴 봉, 패링은 Q · 2026-11-25: 경공에 쿨타임이 생겨 칸 추가)
+            _leap = MakeAbility(-336f, -1, "Space", "경공");
+            _leap.Glyph.text = "躍"; // 경공 아이콘(S14 ui/skill_icon_leap)이 오기 전까지
+            AbilityHover(_leap, () =>
+            {
+                var p = SvPlayer.Instance;
+                return $"<size=28><b>경공</b></size>   Space\n<color=#d8d0c0>몸을 가볍게 띄워 뛰어오른다. 한 번 뛰면 허공을 딛고 한 번 더 높이 오른다. 높이 뜨면 땅의 잡귀에게 닿지 않는다</color>\n" +
+                       $"<color=#9fd8c8>쿨타임 {(p != null ? p.LeapCooldown : 0f):0.#}초</color>";
+            });
             _dash = MakeAbility(-252f, 3, "Shift", "보법");
             _slam = MakeAbility(-168f, 1, "A", "내려찍기");
             _giant = MakeAbility(-84f, 19, "S", "긴 봉");
@@ -900,6 +908,7 @@ namespace ParryRL.Survivor
 
             UpdateSlots(prog);
             SetAbility(_slam, p.SlamCooldownLeft, p.SlamCooldown, p.SlamCooldownLeft > 0f ? $"{p.SlamCooldownLeft:0.0}" : "");
+            SetAbility(_leap, p.LeapCooldownLeft, Mathf.Max(0.01f, p.LeapCooldown), p.LeapCooldownLeft > 0f ? $"{p.LeapCooldownLeft:0}" : "");
             // 보법은 늘 쓸 수 있으니 칸을 가리지 않고, 남은 무적 수만 보인다
             SetAbility(_dash, 0f, p.DashRecharge, $"<size=22>{p.DashChargesLeft}</size>");
             var mo = p.Momentum;
