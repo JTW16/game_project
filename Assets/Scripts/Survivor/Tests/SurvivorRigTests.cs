@@ -669,6 +669,78 @@ namespace ParryRL.Tests
             yield return Screen("vfx_orbit", 4f, i => { }, () => Around(30, 1.4f, 5f, 200));
         }
 
+        /// <summary>새 핵심 비급 이펙트 11가지 (아직 기술에 잇지 않아 이펙트만 부른다).</summary>
+        [UnityTest, Explicit]
+        public IEnumerator Capture_Core_Vfx()
+        {
+            Player.MaxHp = 100000;
+            Player.Heal(100000);
+            Game.Weapons.enabled = false;
+            Game.Progress.HoldLevelUps = true;
+            Time.captureFramerate = 30;
+            yield return Wait(0.4f);
+            SvEnemy[] Around(int n, float r0, float r1)
+            {
+                var list = new SvEnemy[n];
+                for (int k = 0; k < n; k++)
+                {
+                    var e = list[k] = Game.Spawner.Spawn(k % 5 == 4 ? SvEnemyKind.SmallDokkaebi : SvEnemyKind.Changgwi, Player.Position + SvGeom.FromAngle(k * 137.5f) * Mathf.Lerp(r0, r1, Mathf.Sqrt(k / (float)n)));
+                    e.Speed = 0f;
+                    e.SetHealth(500);
+                }
+                return list;
+            }
+            void Face(Vector2 d) { Player.TryMove(d); Player.TryMove(Vector2.zero); }
+            SvEnemy[] mobs = null;
+            yield return Screen("core_spin", 1.4f, i => { if (i is 4 or 24) SvSkillVfx.SpinSwing(Player.transform, Player.Position, Vector2.right, 3f, 1f); }, () => { Face(Vector2.right); Around(24, 1.6f, 4f); });
+            yield return Screen("core_chain", 1.6f, i =>
+            {
+                if (i is not (4 or 12 or 20)) return;
+                int k = (i - 4) / 8;
+                SvSkillVfx.Chain(k == 0 ? Player.Position : mobs[k * 5 - 2].Position, mobs[k * 5 + 3].Position, 0.8f);
+            }, () => { Face(Vector2.right); mobs = Around(18, 2.5f, 5f); });
+            yield return Screen("core_block", 1.4f, i => { if (i is 4 or 12 or 22) SvSkillVfx.Block(Player.Position + SvGeom.FromAngle(i * 20f) * 1.6f, Player.Position + SvGeom.FromAngle(i * 20f) * 5f, 0.8f); }, () => Face(Vector2.right));
+            yield return Screen("core_soulcrack", 2.4f, i => { if (i == 4) foreach (var e in mobs) SvSkillVfx.SoulCrack(e, 1.8f); if (i == 40) mobs[0].TakeDamage(9999, Vector2.right, 0f); }, () => { mobs = Around(9, 1.8f, 3.4f); });
+            yield return Screen("core_quake", 3.6f, i => { if (i == 4) SvSkillVfx.Quake(Player.Position, 3.4f, 3f); }, () => Around(22, 1.4f, 4.4f));
+            yield return Screen("core_gate", 3.2f, i => { if (i == 4) SvSkillVfx.GateAura(Player.transform, 2.8f); if (i == 40) Player.TryMove(Vector2.right); if (i == 70) Player.TryMove(Vector2.zero); }, () => { Face(Vector2.right); Around(16, 2.4f, 5f); });
+            yield return Screen("core_claws", 3.4f, i => { if (i == 4) SvSkillVfx.ClawScars(Player.Position + Vector2.right, Vector2.right, 9f, 2.4f, 3f); }, () => Face(Vector2.right));
+            yield return Screen("core_blades", 3.4f, i => { if (i == 4) SvSkillVfx.WardBlades(Player.Position, 3.2f, 3f); if (i is 30 or 50) foreach (var e in mobs) SvSkillVfx.BladeCut(e, e.Position - Player.Position); }, () => { mobs = Around(14, 3.1f, 3.9f); });
+            yield return Screen("core_landing", 1.6f, i => { if (i == 4) SvSkillVfx.LeapLanding(Player.Position, 5f); }, () => Around(26, 1.6f, 5.4f));
+            yield return Screen("core_swallow", 2.6f, i => { if (i == 3) { Player.TryMove(Vector2.right); SvSkillVfx.SwallowTrail(Player.transform, 2.4f); } if (i == 34) Player.TryMove(new Vector2(-0.8f, 0.6f)); if (i == 70) Player.TryMove(Vector2.zero); }, () => Face(Vector2.right));
+            yield return Screen("core_stun", 2.2f, i => { if (i == 4) foreach (var e in mobs) SvSkillVfx.Stun(e, 1.7f); }, () => { mobs = Around(8, 1.8f, 3.2f); var el = Game.Spawner.Spawn(SvEnemyKind.Elite, Player.Position + Vector2.right * 4f); el.Speed = 0f; mobs[0].Despawn(); mobs[0] = el; });
+        }
+
+        [UnityTest]
+        public IEnumerator Core_Vfx_End_And_Marks_Go_With_The_Foe()
+        {
+            Game.Weapons.enabled = false;
+            var e = Game.Spawner.Spawn(SvEnemyKind.Changgwi, Player.Position + Vector2.right * 2f);
+            e.Speed = 0f;
+            e.SetHealth(500);
+            yield return Wait(0.3f);
+            int before = SvVfx.PieceCount;
+            SvSkillVfx.SoulCrack(e, 30f);
+            SvSkillVfx.Stun(e, 30f);
+            yield return Wait(0.8f);
+            Assert.GreaterOrEqual(SvVfx.PieceCount, before + 5, "표식 하나 + 소용돌이 + 별 셋이 떠 있다");
+            e.Despawn();
+            yield return Wait(0.2f);
+            Assert.LessOrEqual(SvVfx.PieceCount, before + 1, "적이 사라지면 표식도 사라진다");
+            SvSkillVfx.SpinSwing(Player.transform, Player.Position, Vector2.right, 3f, -1f);
+            SvSkillVfx.Chain(Player.Position, Player.Position + Vector2.right * 4f, 0.8f);
+            SvSkillVfx.Block(Player.Position, Player.Position + Vector2.up, 0.8f);
+            SvSkillVfx.Quake(Player.Position, 3f, 0.8f);
+            SvSkillVfx.GateAura(Player.transform, 0.8f);
+            SvSkillVfx.ClawScars(Player.Position, Vector2.left, 6f, 2f, 0.8f);
+            SvSkillVfx.WardBlades(Player.Position, 3f, 0.8f);
+            SvSkillVfx.LeapLanding(Player.Position, 4f);
+            SvSkillVfx.SwallowTrail(Player.transform, 0.8f);
+            yield return Wait(0.3f);
+            Assert.Greater(SvVfx.PieceCount, before + 20);
+            yield return Wait(3f);
+            Assert.LessOrEqual(SvVfx.PieceCount, before + 4, "다 끝나면 남지 않는다");
+        }
+
         /// <summary>같은 장면을 예전 톤(SvTone 끔)과 새 톤으로 경마다 찍는다 — 파일 이름에 꺼짐/켜짐.</summary>
         [UnityTest, Explicit]
         public IEnumerator Capture_Tone()
