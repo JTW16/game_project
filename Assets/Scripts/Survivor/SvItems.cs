@@ -136,9 +136,9 @@ namespace ParryRL.Survivor
             // 치명타 (설계서 4장 "피해 숫자 강화 + 치명타", 가안) — 그림은 S6 icons3
             new() { Id = Eye, Name = "매의 눈", Kind = SvItemKind.Passive, Icon = 18, Glyph = "眼", Levels = new[] { "치명타 확률 +8%" } },
             new() { Id = Wind, Name = "바람걸음", Kind = SvItemKind.Passive, Icon = 14, Levels = new[] { "보법 무적 충전 -12%" } },
-            new() { Id = ParryBell, Name = "맑은 방울", Kind = SvItemKind.Passive, MaxLevel = 3, Icon = 15, Available = () => SvGame.ParryEnabled,
+            new() { Id = ParryBell, Name = "맑은 방울", Kind = SvItemKind.Passive, MaxLevel = 3, Icon = 15,
                 Levels = new[] { "패링 받는 시간 +0.05초" } },
-            new() { Id = Counter, Name = "되받아치기", Kind = SvItemKind.Passive, MaxLevel = 3, Icon = 16, Available = () => SvGame.ParryEnabled,
+            new() { Id = Counter, Name = "되받아치기", Kind = SvItemKind.Passive, MaxLevel = 3, Icon = 16,
                 Levels = new[] { "패링 반격 피해 +30%, 범위 +10%" } },
         };
 

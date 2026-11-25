@@ -417,7 +417,6 @@ namespace ParryRL.Survivor
             list.AddOption("화면 흔들림", () => SvSettings.Shake switch { 0 => "끔", 1 => "약하게", _ => "보통" }, d => SvSettings.Shake = (SvSettings.Shake + d + 3) % 3);
             list.AddOption("피해 숫자", () => SvSettings.DamageNumbers ? "켬" : "끔", _ => SvSettings.DamageNumbers = !SvSettings.DamageNumbers);
             list.AddOption("번쩍임 줄이기", () => SvSettings.ReduceFlash ? "켬" : "끔", _ => SvSettings.ReduceFlash = !SvSettings.ReduceFlash);
-            list.AddOption("패링", () => SvSettings.Parry ? "켬 (정예·보스 예고 공격)" : "끔", _ => { SvSettings.Parry = !SvSettings.Parry; SvGame.ParryEnabled = SvSettings.Parry; });
             list.AddButton("돌아가기", CloseSettings);
             Label(_settings, "↑↓ 고르기 · ←→ 바꾸기 · Esc 돌아가기", 24, new Vector2(0.5f, 0f), new Vector2(0f, 40f), new Vector2(900f, 40f), TextAnchor.LowerCenter, new Color(1f, 1f, 1f, 0.6f));
         }

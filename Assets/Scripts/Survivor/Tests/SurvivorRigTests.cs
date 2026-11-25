@@ -24,7 +24,6 @@ namespace ParryRL.Tests
         public IEnumerator Load()
         {
             SvGame.AutoSpawn = false;
-            SvGame.ParryEnabled = true;
             SvGame.ShowTitle = false;
             SvPlayer.LeapCooldownOverride = 0f; // 경공 쿨타임은 Leap_Has_Cooldown 테스트에서만 본다
             SvSettings.UseDefaultsForTests();

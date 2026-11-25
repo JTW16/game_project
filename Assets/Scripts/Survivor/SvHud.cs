@@ -133,7 +133,7 @@ namespace ParryRL.Survivor
             _help = UiKit.Text("Help", _root, 18, TextAnchor.UpperRight);
             UiKit.Place(_help.rectTransform, new Vector2(1f, 1f), new Vector2(-28f, -92f), new Vector2(900f, 60f));
             _help.color = new Color(1f, 1f, 1f, 0.55f);
-            _help.text = "F2 디버그 끄기 · F3 패링 켜기/끄기 · F4 판정 보기 · F5 적 200마리\nF6 정예 부르기 · F7 보스 부르기 · F8 다음 경으로";
+            _help.text = "F2 디버그 끄기 · F4 판정 보기 · F5 적 200마리\nF6 정예 부르기 · F7 보스 부르기 · F8 다음 경으로";
 
             BuildBuildSlots();
             Minimap = SvMinimap.Create(_root, _art);
@@ -213,9 +213,7 @@ namespace ParryRL.Survivor
             AbilityHover(_parry, () =>
             {
                 var p = SvPlayer.Instance;
-                return SvGame.ParryEnabled
-                    ? $"<size=28><b>패링</b></size>   Q\n<color=#d8d0c0>정예·보스의 예고 공격(느낌표)에 맞춰 누르면 막고 되받아친다</color>\n<color=#9fd8c8>쿨타임 {(p != null ? p.ParryCooldown : 0f):0.#}초</color>"
-                    : "<size=28><b>패링</b></size>\n<color=#a0a0a0>설정에서 꺼져 있다</color>";
+                return $"<size=28><b>패링</b></size>   Q\n<color=#d8d0c0>정예·보스의 예고 공격(느낌표)에 맞춰 누르면 막고 되받아친다</color>\n<color=#9fd8c8>쿨타임 {(p != null ? p.ParryCooldown : 0f):0.#}초</color>";
             });
             AbilityHover(_ult, () =>
             {
@@ -997,7 +995,7 @@ namespace ParryRL.Survivor
                 _momentumName.text = SvMomentum.Names[mo.Stage];
                 _momentumName.color = mo.Stage >= 3 ? new Color(0.9f, 1f, 0.97f) : new Color(0.6f, 0.92f, 0.82f, 0.9f);
             }
-            SetAbility(_parry, p.ParryCooldownLeft, p.ParryCooldown, p.ParryCooldownLeft > 0f ? $"{p.ParryCooldownLeft:0.0}" : "", !SvGame.ParryEnabled);
+            SetAbility(_parry, p.ParryCooldownLeft, p.ParryCooldown, p.ParryCooldownLeft > 0f ? $"{p.ParryCooldownLeft:0.0}" : "", false);
             var wpn = g.Weapons;
             if (wpn != null) SetAbility(_giant, wpn.GiantCooldownLeft, wpn.GiantCooldown, wpn.GiantCooldownLeft > 0f ? $"{wpn.GiantCooldownLeft:0.0}" : "");
             var helpers = g.Helpers;

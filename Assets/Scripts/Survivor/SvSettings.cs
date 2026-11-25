@@ -24,7 +24,6 @@ namespace ParryRL.Survivor
         public static int Shake { get => Get("shake", 2); set => Set("shake", value); }
         public static bool DamageNumbers { get => Get("dmgnum", 1) == 1; set => Set("dmgnum", value ? 1 : 0); }
         public static bool ReduceFlash { get => Get("noflash", 0) == 1; set => Set("noflash", value ? 1 : 0); }
-        public static bool Parry { get => Get("parry", 1) == 1; set => Set("parry", value ? 1 : 0); }
 
         public static float ShakeScale => Shake switch { 0 => 0f, 1 => 0.5f, _ => 1f };
         public static readonly int[] FpsValues = { 60, 120, 144, -1 };
@@ -58,7 +57,7 @@ namespace ParryRL.Survivor
             Cache.Clear();
             Cache["fullscreen"] = 1; Cache["resolution"] = -1; Cache["vsync"] = 1; Cache["fps"] = 3;
             Cache["vol.master"] = 8; Cache["vol.sfx"] = 10; Cache["vol.music"] = 7;
-            Cache["shake"] = 2; Cache["dmgnum"] = 1; Cache["noflash"] = 0; Cache["parry"] = 1;
+            Cache["shake"] = 2; Cache["dmgnum"] = 1; Cache["noflash"] = 0;
         }
 
         /// <summary>쓸 수 있는 해상도 (같은 크기는 하나로, 작은 것 → 큰 것).</summary>

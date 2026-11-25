@@ -20,7 +20,6 @@ namespace ParryRL.Survivor
 
         public static SvGame Instance { get; private set; }
         public static bool ShowHitboxes { get; set; }
-        public static bool ParryEnabled { get; set; } = true;
         public static float Elapsed => Instance != null ? Instance._elapsed : 0f;
         /// <summary>카드 창·메뉴·결과 화면 중엔 조작을 막는다.</summary>
         public static bool InputBlocked => Instance == null || Instance._menu || Instance.Over || Instance.Paused || Instance.OnTitle || Instance.InCinematic;
@@ -80,7 +79,6 @@ namespace ParryRL.Survivor
                 // 설정은 실행할 때 한 번 (다시 하기마다 창 크기를 다시 정하지 않게)
                 _settingsApplied = true;
                 SvSettings.ApplyDisplay();
-                ParryEnabled = SvSettings.Parry;
             }
             SvSettings.ApplyAudio();
 
@@ -211,11 +209,6 @@ namespace ParryRL.Survivor
         {
             if (Input.GetKeyDown(KeyCode.F2)) SvHud.DebugShown = !SvHud.DebugShown;
             if (Input.GetKeyDown(SvKeys.ToggleHitboxes)) ShowHitboxes = !ShowHitboxes;
-            if (Input.GetKeyDown(SvKeys.ToggleParry))
-            {
-                ParryEnabled = !ParryEnabled;
-                Hud.Popup(ParryEnabled ? "패링 켬" : "패링 끔", Color.white, 0.8f);
-            }
             if (Input.GetKeyDown(SvKeys.Stress)) Spawner.Burst(200);
             if (Input.GetKeyDown(SvKeys.SpawnElite)) OnEliteAppeared(Spawner.Spawn(SvEnemyKind.Elite, Player.Position + Player.Facing * 6f));
             if (Input.GetKeyDown(KeyCode.F9)) Ultimate.Fill();

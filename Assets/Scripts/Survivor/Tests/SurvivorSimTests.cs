@@ -26,7 +26,6 @@ namespace ParryRL.Tests
             SvSettings.UseDefaultsForTests();
             SvGame.SkipCinematics = true;
             SvGame.AutoSpawn = true;
-            SvGame.ParryEnabled = true;
 #if UNITY_EDITOR
             yield return UnityEditor.SceneManagement.EditorSceneManager.LoadSceneAsyncInPlayMode(ScenePath,
                 new LoadSceneParameters(LoadSceneMode.Single));

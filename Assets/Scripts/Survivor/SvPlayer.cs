@@ -323,7 +323,7 @@ namespace ParryRL.Survivor
 
         public bool TryParry()
         {
-            if (Dead || !SvGame.ParryEnabled || ParryCooldownLeft > 0f) return false;
+            if (Dead || ParryCooldownLeft > 0f) return false;
             _parryUntil = Time.time + parryWindow;
             _parryAt = Time.time;
             _parryReadyAt = Time.time + parryCooldown;
