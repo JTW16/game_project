@@ -211,6 +211,7 @@ namespace ParryRL.Survivor
                 SvItems.Bell => $"피해 {w.BellDamage} · 범위 {w.BellRadius:0.0} · 간격 {w.BellInterval:0.0}초",
                 SvItems.Giant => $"피해 {w.GiantDamage} · 길이 {w.GiantLength:0.0} · 폭 {w.GiantWidth:0.0} · 간격 {w.GiantCooldown:0.0}초{(w.GiantBoth ? " · 앞뒤" : "")}",
                 SvItems.Eye => $"치명타 확률 {SvWeapons.CritChance:P0} · 치명타 피해 ×{SvWeapons.CritMul:0.#}",
+                _ when item != null && item.Kind == SvItemKind.Skill => $"{SvSkills.Stage(lv)}단계 — 다음: {(lv < item.MaxLevel ? item.DescFor(lv + 1) : "최대")}",
                 _ => item != null && lv > 0 ? $"{item.Levels[0]} × {lv}" : "",
             };
         }
@@ -224,8 +225,9 @@ namespace ParryRL.Survivor
             int lv = g.Progress.LevelOf(id);
             bool weapon = item.Kind == SvItemKind.Weapon, skill = item.Kind == SvItemKind.Skill;
             var sb = new StringBuilder();
-            sb.Append($"<size=28><b>{item.Name}</b></size>   <color={(weapon ? "#f0b860" : skill ? "#9fb0ff" : "#7fd6c0")}>{(weapon ? "무기" : skill ? "기술 수련" : "비급")}</color>   Lv {lv}/{item.MaxLevel}\n");
-            sb.Append($"<color=#d8d0c0>{item.Levels[0]}</color>\n");
+            sb.Append($"<size=28><b>{item.Name}</b></size>   <color={(weapon ? "#f0b860" : skill ? "#9fb0ff" : "#7fd6c0")}>{(weapon ? "무기" : skill ? "기술 수련" : "비급")}</color>   {(skill ? $"{SvSkills.Stage(lv)}단계/{SvSkills.MaxLevel}" : $"Lv {lv}/{item.MaxLevel}")}\n");
+            // 기술 수련은 이미 쓰는 기술을 키우는 카드라 첫 줄은 설명, 단계별 내용은 아래 "다음 단계"
+            sb.Append($"<color=#d8d0c0>{(skill ? "이미 쓰는 기술을 한 단계씩 키운다 (4 · 8단계는 동작이 바뀐다)" : item.Levels[0])}</color>\n");
             string stat = StatLine(id);
             if (stat.Length > 0) sb.Append($"<color=#9fd8c8>지금: {stat}</color>");
             if (SvWeapons.DamageBy.TryGetValue(id, out int d)) sb.Append($"\n<color=#9fd8c8>준 피해 {d:N0}</color>");
@@ -239,6 +241,7 @@ namespace ParryRL.Survivor
 
         private static readonly Color WeaponCol = new(0.93f, 0.66f, 0.22f);
         private static readonly Color PassiveCol = new(0.3f, 0.72f, 0.62f);
+        private static readonly Color SkillCol = new(0.6f, 0.68f, 1f);
 
         /// <summary>
         /// 무기 = 큰 줄 (그림 · 이름 · 단계 구슬 · 지금 수치 · 준 피해 막대), 비급 = 작은 칸 (그림 · 이름 · 단계 구슬).
@@ -251,23 +254,28 @@ namespace ParryRL.Survivor
             if (g == null) return;
             var weapons = new List<SvItem>();
             var passives = new List<SvItem>();
+            var skills = new List<SvItem>();
             foreach (var id in g.Progress.Owned)
             {
                 var it = SvItems.Get(id);
                 if (it == null) continue;
                 if (it.Kind == SvItemKind.Core) continue; // 핵심 비급은 그 무기 줄에 함께 적는다
-                if (it.Kind == SvItemKind.Skill) continue; // 기술 수련은 게임 화면 왼쪽 위 칸에서 본다 (일시 정지 화면 자리는 다음에)
+                if (it.Kind == SvItemKind.Skill) { skills.Add(it); continue; }
                 (it.Kind == SvItemKind.Weapon ? weapons : passives).Add(it);
             }
             int maxDmg = 1;
             foreach (var it in weapons) if (SvWeapons.DamageBy.TryGetValue(it.Id, out int d)) maxDmg = Mathf.Max(maxDmg, d);
 
-            Section("무기", WeaponCol, -96f);
+            // 무기 4줄 · 기술 수련 한 줄(공용 칸이라 최대 6) · 비급 4칸 (2026-11-25 기술 수련 줄을 넣으며 줄 높이를 줄임)
+            Section("무기", WeaponCol, -84f);
             for (int i = 0; i < SvItems.WeaponSlots; i++)
-                WeaponRow(i < weapons.Count ? weapons[i] : null, -134f - i * 100f, maxDmg);
-            Section("비급", PassiveCol, -540f);
+                WeaponRow(i < weapons.Count ? weapons[i] : null, -118f - i * 84f, maxDmg);
+            Section("기술 수련", SkillCol, -462f);
+            for (int i = 0; i < SvItems.SharedSlots; i++)
+                SkillTile(i < skills.Count ? skills[i] : null, new Vector2(44f + i * 136f, -496f));
+            Section("비급", PassiveCol, -598f);
             for (int i = 0; i < SvItems.PassiveSlots; i++)
-                PassiveTile(i < passives.Count ? passives[i] : null, new Vector2(44f + i * 206f, -578f));
+                PassiveTile(i < passives.Count ? passives[i] : null, new Vector2(44f + i * 206f, -632f));
             SvFonts.Apply(_buildRoot);
         }
 
@@ -284,17 +292,17 @@ namespace ParryRL.Survivor
         {
             var g = Game;
             var row = UiKit.Image("Weapon", _buildRoot, new Color(0f, 0f, 0f, item != null ? 0.42f : 0.18f));
-            UiKit.Place(row.rectTransform, new Vector2(0f, 1f), new Vector2(44f, y), new Vector2(812f, 90f));
+            UiKit.Place(row.rectTransform, new Vector2(0f, 1f), new Vector2(44f, y), new Vector2(812f, 78f));
             if (item == null)
             {
                 Label(row.rectTransform, "빈 칸", 22, new Vector2(0f, 0.5f), new Vector2(110f, 0f), new Vector2(300f, 40f), TextAnchor.MiddleLeft, new Color(1f, 1f, 1f, 0.3f));
                 return;
             }
             int lv = g.Progress.LevelOf(item.Id);
-            Icon(row.rectTransform, item, new Vector2(10f, 0f), 76f, WeaponCol);
-            Label(row.rectTransform, item.Name, 28, new Vector2(0f, 1f), new Vector2(100f, -8f), new Vector2(300f, 36f), TextAnchor.UpperLeft, Color.white);
-            Pips(row.rectTransform, lv, item.MaxLevel, new Vector2(102f, -50f), 14f, WeaponCol);
-            Label(row.rectTransform, StatLine(item.Id), 19, new Vector2(0f, 0f), new Vector2(100f, 6f), new Vector2(460f, 26f), TextAnchor.LowerLeft, new Color(0.8f, 0.78f, 0.72f));
+            Icon(row.rectTransform, item, new Vector2(10f, 0f), 64f, WeaponCol);
+            Label(row.rectTransform, item.Name, 26, new Vector2(0f, 1f), new Vector2(90f, -6f), new Vector2(300f, 34f), TextAnchor.UpperLeft, Color.white);
+            Pips(row.rectTransform, lv, item.MaxLevel, new Vector2(92f, -42f), 14f, WeaponCol);
+            Label(row.rectTransform, StatLine(item.Id), 18, new Vector2(0f, 0f), new Vector2(90f, 4f), new Vector2(470f, 24f), TextAnchor.LowerLeft, new Color(0.8f, 0.78f, 0.72f));
             // 오른쪽: 준 피해 막대 (가장 많이 준 무기 기준)
             int dmg = SvWeapons.DamageBy.TryGetValue(item.Id, out int d) ? d : 0;
             var back = UiKit.Image("DmgBack", row.rectTransform, new Color(1f, 1f, 1f, 0.08f));
@@ -313,18 +321,37 @@ namespace ParryRL.Survivor
         {
             var g = Game;
             var tile = UiKit.Image("Passive", _buildRoot, new Color(0f, 0f, 0f, item != null ? 0.42f : 0.18f));
-            UiKit.Place(tile.rectTransform, new Vector2(0f, 1f), pos, new Vector2(194f, 130f));
+            UiKit.Place(tile.rectTransform, new Vector2(0f, 1f), pos, new Vector2(194f, 86f));
             if (item == null)
             {
                 Label(tile.rectTransform, "빈 칸", 22, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(180f, 40f), TextAnchor.MiddleCenter, new Color(1f, 1f, 1f, 0.3f));
                 return;
             }
             int lv = g.Progress.LevelOf(item.Id);
-            Icon(tile.rectTransform, item, new Vector2(12f, 14f), 56f, PassiveCol, top: true);
-            Label(tile.rectTransform, item.Name, 22, new Vector2(0f, 1f), new Vector2(76f, -14f), new Vector2(116f, 56f), TextAnchor.UpperLeft, Color.white)
+            Icon(tile.rectTransform, item, new Vector2(10f, 10f), 46f, PassiveCol, top: true);
+            Label(tile.rectTransform, item.Name, 20, new Vector2(0f, 1f), new Vector2(64f, -10f), new Vector2(126f, 44f), TextAnchor.UpperLeft, Color.white)
                 .horizontalOverflow = HorizontalWrapMode.Wrap;
-            Pips(tile.rectTransform, lv, item.MaxLevel, new Vector2(14f, -84f), 12f, PassiveCol);
+            Pips(tile.rectTransform, lv, item.MaxLevel, new Vector2(12f, -66f), 12f, PassiveCol);
             Label(tile.rectTransform, lv >= item.MaxLevel ? "최대" : $"Lv {lv}", 18, new Vector2(1f, 0f), new Vector2(-10f, 8f), new Vector2(100f, 24f), TextAnchor.LowerRight, PassiveCol);
+            SvHover.Attach(tile, () => Describe(item.Id));
+        }
+
+        /// <summary>기술 수련 한 칸: 아이콘 · 이름 · 8단계 구슬 (일시 정지 화면).</summary>
+        private void SkillTile(SvItem item, Vector2 pos)
+        {
+            var g = Game;
+            var tile = UiKit.Image("Skill", _buildRoot, new Color(0.02f, 0.03f, 0.08f, item != null ? 0.5f : 0.18f));
+            UiKit.Place(tile.rectTransform, new Vector2(0f, 1f), pos, new Vector2(128f, 92f));
+            if (item == null)
+            {
+                Label(tile.rectTransform, "빈 칸", 18, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(120f, 30f), TextAnchor.MiddleCenter, new Color(1f, 1f, 1f, 0.3f));
+                return;
+            }
+            int lv = g.Progress.LevelOf(item.Id);
+            Icon(tile.rectTransform, item, new Vector2(8f, 8f), 40f, SkillCol, top: true);
+            Label(tile.rectTransform, item.Name.Replace(" 수련", ""), 17, new Vector2(0f, 1f), new Vector2(54f, -8f), new Vector2(72f, 40f), TextAnchor.UpperLeft, Color.white)
+                .horizontalOverflow = HorizontalWrapMode.Wrap;
+            Pips(tile.rectTransform, lv, item.MaxLevel, new Vector2(8f, -68f), 10f, SkillCol); // 단계는 구슬로 (8개)
             SvHover.Attach(tile, () => Describe(item.Id));
         }
 

@@ -15,8 +15,8 @@ namespace ParryRL.Survivor
     {
         [Header("산군 (W)")]
         // 기술 수련 1단계 세기 — 처음엔 약하게 (2026-11-25, 전에는 쿨 16 · 피해 45)
-        [SerializeField] private float tigerCooldown = 20f;
-        [SerializeField] private int tigerDamage = 30;
+        [SerializeField] private float tigerCooldown = 30f; // 기술 수련 1단계 — 강화 안 하면 약하게 (2026-11-25, 전 20 · 30)
+        [SerializeField] private int tigerDamage = 12;
         [SerializeField] private float tigerLength = 10f;
         [SerializeField] private float tigerWidth = 1.8f;
         [SerializeField] private float tigerTime = 0.45f;
@@ -24,11 +24,11 @@ namespace ParryRL.Survivor
 
         [Header("무녀 (E)")]
         // 기술 수련 1단계 세기 (2026-11-25, 전에는 쿨 24 · 4초 · 회복 5)
-        [SerializeField] private float shamanCooldown = 28f;
-        [SerializeField] private float shamanTime = 3f;
-        [SerializeField] private float wardRadius = 3.2f;
+        [SerializeField] private float shamanCooldown = 40f; // 기술 수련 1단계 (2026-11-25, 전 28 · 3초 · 3.2 · 회복 3)
+        [SerializeField] private float shamanTime = 2f;
+        [SerializeField] private float wardRadius = 2.6f;
         [Tooltip("결계 안의 퇴마사가 1초에 회복하는 체력")]
-        [SerializeField] private float healPerSecond = 3f;
+        [SerializeField] private float healPerSecond = 1.2f;
         [SerializeField] private float slowMul = 0.5f;
         [SerializeField] private int wardDamage = 6;
 
@@ -41,6 +41,8 @@ namespace ParryRL.Survivor
         public float TigerLeft => Mathf.Max(0f, _tigerReadyAt - Time.time);
         public float ShamanLeft => Mathf.Max(0f, _shamanReadyAt - Time.time);
         public bool TigerRunning => _tigerT >= 0f;
+        /// <summary>범의 무리: 둘째 산군 그림이 떠 있는가 (테스트용).</summary>
+        public bool TigerPackShown => _tiger2 != null && _tiger2.transform.parent.gameObject.activeSelf;
         public bool ShamanActive => Time.time < _shamanUntil;
         public int TigerCount { get; private set; }
         public int ShamanCount { get; private set; }
@@ -55,7 +57,10 @@ namespace ParryRL.Survivor
         private bool _tigerBack;
         private Vector2 _tigerFrom, _tigerDir;
         private readonly HashSet<SvEnemy> _tigerHit = new();
-        private SvBillboard _tiger;
+        private SvBillboard _tiger, _tiger2; // _tiger2 = 범의 무리(핵심 비급)의 둘째 산군
+        /// <summary>범의 무리: 두 산군이 가운데 줄에서 양옆으로 벌어진 거리.</summary>
+        private const float PackOffset = 1.2f;
+        private Vector2 TigerSide => new Vector2(_tigerDir.y, -_tigerDir.x);
         // 무녀
         private float _shamanUntil, _wardTickAt, _healAcc;
         private Vector2 _wardAt;
@@ -99,6 +104,13 @@ namespace ParryRL.Survivor
                 if (_tiger == null) _tiger = MakeActor("Tiger", art.tigerRun[0], 1.35f); // 그림 캔버스 높이 (몸길이는 퇴마사 키쯤)
                 _tiger.transform.parent.gameObject.SetActive(true);
                 _tiger.FacingLeft = _tigerDir.x < 0f;
+                bool pack = HasCore(SvItems.CoreTiger);
+                if (pack && _tiger2 == null) _tiger2 = MakeActor("Tiger2", art.tigerRun[0], 1.35f);
+                if (_tiger2 != null)
+                {
+                    _tiger2.transform.parent.gameObject.SetActive(pack);
+                    _tiger2.FacingLeft = _tigerDir.x < 0f;
+                }
             }
             SvSkillVfx.TigerStart(_tigerFrom, _tigerDir, TigerLength + 2f, tigerWidth);
             Sfx.Play(SfxId.BossDash, 0.6f);
@@ -118,13 +130,21 @@ namespace ParryRL.Survivor
             SvSkillVfx.TigerRun(pos, _tigerDir, Time.deltaTime);
             if (_tiger != null && _tiger.transform.parent.gameObject.activeSelf)
             {
-                _tiger.transform.parent.position = pos;
+                bool pack = _tiger2 != null && _tiger2.transform.parent.gameObject.activeSelf;
+                _tiger.transform.parent.position = pack ? pos + TigerSide * PackOffset : pos;
                 // 처음과 끝은 덮치는 자세, 가운데는 달리기
                 bool pounce = SurvivorArt.Ok(art?.tigerPounce) && (_tigerT < 0.2f || _tigerT > 0.75f);
                 var frames = pounce ? art.tigerPounce : art.tigerRun;
                 int f = pounce ? Mathf.Clamp((int)(_tigerT < 0.2f ? _tigerT / 0.2f * 2f : 2f + (_tigerT - 0.75f) / 0.25f * (frames.Length - 2)), 0, frames.Length - 1)
                     : (int)(Time.time * 16f) % frames.Length;
                 _tiger.Renderer.sprite = frames[f];
+                if (pack)
+                {
+                    // 둘째는 반대편 줄에서 한 박자 어긋나게 달린다
+                    _tiger2.transform.parent.position = pos - TigerSide * PackOffset;
+                    _tiger2.Renderer.sprite = pounce ? frames[f] : frames[(f + frames.Length / 2) % frames.Length];
+                    _tiger2.FacingLeft = _tiger.FacingLeft;
+                }
             }
             else if (art != null && Time.time >= _tigerTrailAt)
             {
@@ -164,12 +184,14 @@ namespace ParryRL.Survivor
                 _tigerT = 0f;
                 _tigerHit.Clear();
                 if (_tiger != null) _tiger.FacingLeft = _tigerDir.x < 0f;
+                if (_tiger2 != null) _tiger2.FacingLeft = _tigerDir.x < 0f;
                 return;
             }
             if (_tigerT >= 1f)
             {
                 _tigerT = -1f;
                 if (_tiger != null) _tiger.transform.parent.gameObject.SetActive(false);
+                if (_tiger2 != null) _tiger2.transform.parent.gameObject.SetActive(false);
                 SvSkillVfx.Roar(pos);
                 Summon(pos, art);
             }

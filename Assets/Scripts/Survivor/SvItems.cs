@@ -112,19 +112,20 @@ namespace ParryRL.Survivor
             new() { Id = Bell, Name = "방울 울림", Kind = SvItemKind.Weapon, MaxLevel = 8, Icon = 7, Levels = new[]
                 { "3초마다 방울을 울려 둘레의 적을 밀쳐 낸다", "피해 +30%", "범위 +15%", "간격 -15%", "피해 크게 (×1.9)", "범위 +15%", "간격 -15%", "두 번 울린다, 피해 ×3" } },
 
-            // 기술 수련 (1단계 = 칸에 안 넣어도 쓰는 기본 세기, 4 · 8단계는 동작이 바뀐다)
-            new() { Id = SvSkills.Slam, Name = "내려찍기 수련", Kind = SvItemKind.Skill, MaxLevel = 8, Icon = 1, Levels = new[]
-                { "내려찍기(A)를 칸에 넣는다", "피해 +25%", "범위 +20%", "충격파가 두 겹으로 퍼진다", "쿨타임 -20%", "피해 +35%", "범위 +20%", "0.4초 뒤 여진이 한 번 더" } },
-            new() { Id = SvSkills.Giant, Name = "긴 봉 수련", Kind = SvItemKind.Skill, MaxLevel = 8, Icon = 19, Levels = new[]
-                { "긴 봉 내리찍기(S)를 칸에 넣는다", "피해 +25%", "길이 +25%", "폭 ×1.5, 맞은 적을 크게 밀어낸다", "쿨타임 -20%", "피해 +35%", "길이 +25%", "내리찍은 줄에 2초 동안 균열 (지속 피해)" } },
-            new() { Id = SvSkills.Ult, Name = "귀문봉인 수련", Kind = SvItemKind.Skill, MaxLevel = 8, Glyph = "封", Levels = new[]
-                { "궁극기(D)를 칸에 넣는다", "도력 얻는 양 ×1.5", "피해 +30%", "봉인 뒤 3초 동안 적이 느려진다", "도력 얻는 양 ×2", "피해 +40%", "도력 얻는 양 ×2.5", "도력 얻는 양 ×3, 정예 · 보스 피해 +50%" } },
-            new() { Id = SvSkills.Tiger, Name = "산군 수련", Kind = SvItemKind.Skill, MaxLevel = 8, Icon = 36, Glyph = "虎", Levels = new[]
-                { "산군(W)을 칸에 넣는다", "피해 +30%", "쿨타임 -15%", "끝까지 달린 뒤 되돌아오며 한 번 더", "피해 +30%", "길이 +30%", "쿨타임 -20%", "맞은 적 1초 기절 (보스 제외)" } },
-            new() { Id = SvSkills.Shaman, Name = "무녀 수련", Kind = SvItemKind.Skill, MaxLevel = 8, Icon = 37, Glyph = "巫", Levels = new[]
-                { "무녀(E)를 칸에 넣는다", "결계 +1초", "회복 +50%", "결계 반경 +30%", "쿨타임 -15%", "회복 +50%", "결계 +1초", "결계 안의 적이 받는 피해 ×1.5" } },
-            new() { Id = SvSkills.Leap, Name = "경공 수련", Kind = SvItemKind.Skill, MaxLevel = 8, Icon = 35, Glyph = "躍", Levels = new[]
-                { "경공(Space)을 칸에 넣는다", "쿨타임 -10%", "2단 높이 +20%", "두 번 연달아 쓸 수 있다 (충전 2회)", "쿨타임 -15%", "허공답보 +1회", "쿨타임 -20%", "떠 있어도 봉 휘두르기 · 호신부가 땅에 닿는다" } },
+            // 기술 수련: 기술은 처음부터 쓸 수 있고(1단계), 카드 한 장마다 한 단계씩 강화 — 첫 카드가 곧 2단계 (2026-11-25 사용자 피드백
+            // "이미 쓰는 기술인데 첫 카드가 얻는 내용으로 나온다"). 7장이면 8단계. 4 · 8단계는 동작이 바뀐다. Levels[i] = (i + 2)단계 내용
+            new() { Id = SvSkills.Slam, Name = "내려찍기 수련", Kind = SvItemKind.Skill, MaxLevel = 7, Icon = 1, Levels = new[]
+                { "피해 +80%", "범위 +30%", "충격파가 두 겹으로 퍼진다", "쿨타임 -52%", "피해 ×2.35", "범위 +40%", "0.4초 뒤 여진이 한 번 더" } },
+            new() { Id = SvSkills.Giant, Name = "긴 봉 수련", Kind = SvItemKind.Skill, MaxLevel = 7, Icon = 19, Levels = new[]
+                { "피해 +80%", "길이 +50%", "폭 ×1.5, 맞은 적을 크게 밀어낸다", "쿨타임 -50%", "피해 ×2.35", "길이 +55%", "내리찍은 줄에 2초 동안 균열 (지속 피해)" } },
+            new() { Id = SvSkills.Ult, Name = "귀문봉인 수련", Kind = SvItemKind.Skill, MaxLevel = 7, Glyph = "封", Levels = new[]
+                { "도력 얻는 양 ×1.5", "피해 +80%", "봉인 뒤 3초 동안 적이 느려진다", "도력 얻는 양 ×2", "피해 ×2.5", "도력 얻는 양 ×2.5", "도력 얻는 양 ×3, 정예 · 보스 피해 +50%" } },
+            new() { Id = SvSkills.Tiger, Name = "산군 수련", Kind = SvItemKind.Skill, MaxLevel = 7, Icon = 36, Glyph = "虎", Levels = new[]
+                { "피해 +80%", "쿨타임 -25%", "끝까지 달린 뒤 되돌아오며 한 번 더", "피해 ×2.35", "길이 +30%", "쿨타임 -40%", "맞은 적 1초 기절 (보스 제외)" } },
+            new() { Id = SvSkills.Shaman, Name = "무녀 수련", Kind = SvItemKind.Skill, MaxLevel = 7, Icon = 37, Glyph = "巫", Levels = new[]
+                { "결계 +1.5초", "회복 ×2.4", "결계 반경 +60%", "쿨타임 -40%", "회복 ×2.35", "결계 +1.5초", "결계 안의 적이 받는 피해 ×1.5" } },
+            new() { Id = SvSkills.Leap, Name = "경공 수련", Kind = SvItemKind.Skill, MaxLevel = 7, Icon = 35, Glyph = "躍", Levels = new[]
+                { "쿨타임 -10%", "2단 높이 +20%", "두 번 연달아 쓸 수 있다 (충전 2회)", "쿨타임 -15%", "허공답보 +1회", "쿨타임 -20%", "떠 있어도 봉 휘두르기 · 호신부가 땅에 닿는다" } },
 
             new() { Id = Move, Name = "축지법", Kind = SvItemKind.Passive, Icon = 8, Levels = new[] { "이동 속도 +8%" } },
             new() { Id = Vital, Name = "질긴 몸", Kind = SvItemKind.Passive, Icon = 9, Levels = new[] { "최대 체력 +20, 체력 20 회복" } },
@@ -151,7 +152,14 @@ namespace ParryRL.Survivor
         {
             if (prog.Count(SvItemKind.Core) >= MaxCores) return new List<SvItem>();
             // 가진 대상(봉 + 공용 칸)이 2단계 이상이고, 그 대상이 아직 핵심을 받지 않았을 때 두 갈래 모두
-            return Cores.FindAll(c => prog.LevelOf(c.For) >= CoreFrom && CoreTaken(prog, c.For) == null);
+            return Cores.FindAll(c => prog.LevelOf(c.For) > 0 && StageOf(prog, c.For) >= CoreFrom && CoreTaken(prog, c.For) == null);
+        }
+
+        /// <summary>단계: 무기 · 비급은 받은 단계, 기술 수련은 기본 1단계 + 받은 장수 (첫 카드 = 2단계).</summary>
+        public static int StageOf(SvProgress prog, string id)
+        {
+            var it = Get(id);
+            return it != null && it.Kind == SvItemKind.Skill ? SvSkills.Stage(prog.LevelOf(id)) : prog.LevelOf(id);
         }
 
         /// <summary>핵심 비급 창: 서로 다른 대상에서 고르게 섞어 최대 n장 (같은 대상의 두 갈래가 함께 나올 수 있다).</summary>
@@ -165,7 +173,12 @@ namespace ParryRL.Survivor
                 pick.Add(pool[i]);
                 pool.RemoveAt(i);
             }
-            return pick;
+            // 같은 대상의 두 갈래는 나란히 (사이에 갈림길 장식이 뜬다)
+            var grouped = new List<SvItem>();
+            foreach (var c in pick)
+                if (!grouped.Contains(c))
+                    foreach (var d in pick) if (d.For == c.For && !grouped.Contains(d)) grouped.Add(d);
+            return grouped;
         }
 
         /// <summary>올릴 수 있는 가진 것 + (빈칸이 있으면) 새것 중 서로 다른 n장. 모자라면 주먹밥으로 채운다.</summary>

@@ -400,7 +400,8 @@ namespace ParryRL.Survivor
                 slot.Id = id;
                 PaintIcon(slot.Icon, slot.Glyph, item);
                 int lv = prog.LevelOf(id);
-                slot.Lv.text = lv >= item.MaxLevel ? "<color=#ffd36a>최대</color>" : lv.ToString();
+                // 기술 수련은 단계(기본 1 + 받은 장수)로 보여 준다
+                slot.Lv.text = lv >= item.MaxLevel ? "<color=#ffd36a>최대</color>" : SvItems.StageOf(prog, id).ToString();
                 // 칸 틀: 봉(고정) · 기술 · 무기 (S14 그림, 없으면 기술 칸은 남빛 바탕으로 구분)
                 bool skillSlot = item.Kind == SvItemKind.Skill;
                 slot.Bg.color = skillSlot && (_art == null || _art.slotSkill == null) ? new Color(0.08f, 0.1f, 0.2f, 0.92f) : new Color(0.1f, 0.09f, 0.08f, 0.9f);
@@ -608,6 +609,12 @@ namespace ParryRL.Survivor
             _coreBanner.raycastTarget = false;
             UiKit.Place(_coreBanner.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0f, 350f), new Vector2(1100f, 190f));
             _coreBanner.gameObject.SetActive(false);
+            // 같은 대상의 두 갈래가 나란히 뜨면 둘 사이 위에 "갈림길" 장식 (S14 core_window 둘째 조각)
+            _coreFork = UiKit.Image("CoreFork", _cardRoot, Color.white);
+            _coreFork.sprite = _art != null ? _art.coreFork : null;
+            _coreFork.preserveAspect = true;
+            _coreFork.raycastTarget = false;
+            _coreFork.gameObject.SetActive(false);
             var title = UiKit.Text("Title", _cardRoot, 52, TextAnchor.MiddleCenter);
             UiKit.Place(title.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0f, 350f), new Vector2(900f, 70f));
             title.text = "레벨 업! 하나를 고르세요";
@@ -735,7 +742,7 @@ namespace ParryRL.Survivor
         }
 
         private Text _cardTitle;
-        private Image _coreBanner;
+        private Image _coreBanner, _coreFork;
 
         /// <summary>레벨업 카드를 띄운다. coreWindow = 핵심 비급 전용 창 (레벨 4 · 8 · 12 · 16).</summary>
         public void ShowCards(List<SvItem> offer, SvProgress prog, bool coreWindow = false)
@@ -747,6 +754,30 @@ namespace ParryRL.Survivor
                 _cardTitle.color = coreWindow ? (_art != null && _art.coreBanner != null ? new Color(1f, 0.9f, 0.6f) : CoreCol) : Teal;
             }
             if (_coreBanner != null) _coreBanner.gameObject.SetActive(coreWindow && _coreBanner.sprite != null);
+            // 카드가 3장보다 적으면 가운데로 모은다 (핵심 비급 창은 후보가 1~2장일 때가 있다)
+            int count = Mathf.Min(offer.Count, _cards.Count);
+            for (int i = 0; i < count; i++)
+            {
+                float x = (i - (count - 1) * 0.5f) * 400f;
+                ((RectTransform)_cards[i].Bg.transform).anchoredPosition = new Vector2(x, -10f);
+                _cards[i].Halo.rectTransform.anchoredPosition = new Vector2(x, -10f);
+            }
+            if (_coreFork != null)
+            {
+                int pair = -1;
+                if (coreWindow && _coreFork.sprite != null)
+                    for (int i = 0; i + 1 < count; i++)
+                        if (offer[i].For != null && offer[i].For == offer[i + 1].For) { pair = i; break; }
+                _coreFork.gameObject.SetActive(pair >= 0);
+                if (pair >= 0)
+                {
+                    float mid = (pair + 0.5f - (count - 1) * 0.5f) * 400f;
+                    // 두 구슬이 두 카드 위에 오게 (카드 사이 400 → 장식 폭 470, 그림 비율 704:269)
+                    UiKit.Place(_coreFork.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(mid, -10f + CardH * 0.5f + 30f), new Vector2(470f, 180f));
+                    // 띠 바로 위 · 제목 글자와 카드 아래에 그린다 (글자를 가리지 않게)
+                    _coreFork.transform.SetSiblingIndex(_coreBanner.transform.GetSiblingIndex() + 1);
+                }
+            }
             _cardsShownAt = Time.unscaledTime;
             for (int i = 0; i < _cards.Count; i++)
             {

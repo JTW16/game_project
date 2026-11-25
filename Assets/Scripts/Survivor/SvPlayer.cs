@@ -28,7 +28,7 @@ namespace ParryRL.Survivor
         [SerializeField] private float fallGravity = 1.25f;
         [SerializeField] private int maxJumps = 2;
         [Tooltip("경공 쿨타임 (초) — 땅에서 뛸 때부터 센다. 한 번 뛰면 2단까지 이어 쓴다 (2026-11-25 사용자 결정 — 쿨 없이 계속 뛰면 잡귀에게 거의 안 맞아서, 가안)")]
-        [SerializeField] private float leapCooldown = 12f;
+        [SerializeField] private float leapCooldown = 15f; // 2026-11-25 사용자 결정 — 전 12초
         [Tooltip("2단 점프 때 가던 쪽으로 더해지는 속도")]
         [SerializeField] private float leapPush = 3f;
         [Tooltip("이보다 높으면 땅의 잡귀에게 닿지 않는다")]
@@ -48,7 +48,7 @@ namespace ParryRL.Survivor
         [SerializeField] private float dashCarry = 0.9f;
 
         [Header("내려찍기 (A)")]
-        [SerializeField] private float slamCooldown = 3f; // 기술 수련 1단계 (2026-11-25, 전에는 2.5)
+        [SerializeField] private float slamCooldown = 5f; // 기술 수련 1단계 — 강화 안 하면 드물게 (2026-11-25, 전 3)
         [SerializeField] private float slamFallSpeed = 28f;
         [SerializeField] private float slamHop = 7f;
 
