@@ -774,6 +774,8 @@ Any character or yokai that appears must match its attached reference sprite exa
 | `ui/skill_icon_leap.png` | — | 768x768 | ONE square skill icon, exactly the same ink frame and style as `ui/skill_icons.png`: the exorcist (sage-green robe, black gat) leaping high in a mid-air somersault with jade wind lines below — the "light-body leap" skill (Space) | #FF00FF | `ui/skill_icons.png`, `hero/base.png` |
 | `items/riceball.png` | `[PROP]` | 1024x768 | `{prop}` = a Korean rice ball (jumeokbap) on a green bamboo leaf, a little steam rising and a faint warm cream glow drawn as flat shapes — a healing item lying on the ground; same size and ink style as the items in `items/elite_drops.png`, readable at 40px | #FF00FF | `items/elite_drops.png` (그림체 · 크기) |
 
+> **2026-11-25: 6S14-1 · 6S14-2는 끝났다. 아래 6S14-3은 프레임 그림으로 만들지 않는다** (사용자 결정) — 재료 그림 3장(`fx14/marks.png` · `crack.png` · `leaves.png`)과 입자 코드로 대신했다. 아래 표는 모양 설명으로만 남긴다.
+
 ### 6S14-3. 핵심 비급 이펙트 · `ArtSource/v2/fx14/` (11장, 새 폴더 · `[FX_VIVID]`, 배경 #000000)
 
 이펙트에 글자·사람·바닥을 넣지 않는다. "위" = `seen from directly above, lying flat on the ground`, "옆" = `seen from the side, standing upright`.

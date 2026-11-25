@@ -232,6 +232,13 @@ PIECES = [
     # S10: 맵의 귀문(잠든 문 · 열린 문) · 정예 아이템(흡혼 호리병 · 벽력부 — 이펙트 폴더, 가운데 피벗)
     ('gate', 'props/ghost_gate.png', 2, 'Props', 1024),
     ('drop', 'items/elite_drops.png', 2, 'Fx', 384),
+    # S14: 기술 수련 족자 · 칸 틀(기술 · 빈 공용 · 시작 봉) · 핵심 비급 창(제목 띠 · 갈림길) · 새 핵심 아이콘 15 · 경공 아이콘 · 주먹밥
+    ('cards', 'ui/card_skill.png', 1, 'Ui', 768),
+    ('slotframeb', 'ui/slot_frames2.png', 3, 'Ui', 256),
+    ('corewin', 'ui/core_window.png', 2, 'Ui', 1024, 'autogreen'),
+    ('coreicon', 'ui/core_icons.png', 15, 'Ui', 256),
+    ('iconleap', 'ui/skill_icon_leap.png', 1, 'Ui', 256),
+    ('riceball', 'items/riceball.png', 1, 'Fx', 384),
 ]
 
 FLOORS = [('ground/floor_a.png', 'Ground/floor_a.png', 1024)]

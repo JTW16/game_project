@@ -84,6 +84,11 @@ if __name__ == '__main__':
     Image.fromarray(np.dstack([z] * 3 + [np.full(z.shape, 255, np.uint8)])).save(f'{DST}/vfx_warn_seal.png')
     mask((40, 725, 750, 1005), (704, 280), 'vfx_warn_arrow')
     mask((790, 705, 1495, 1015), (704, 310), 'vfx_claws')
+    # 새 핵심 비급 재료 (fx14): 문양 여덟 칸 · 둥글게 갈라진 금 · 잎과 꽃잎
+    F14 = 'ArtSource/v2/fx14'
+    sheet(light(f'{F14}/marks.png'), 4, 2, (256, 256), 'vfx_marks', 'center_light')
+    sheet(light(f'{F14}/crack.png'), 1, 1, (512, 512), 'vfx_crack', 'center_light')
+    sheet(solid(f'{F14}/leaves.png'), 4, 2, (128, 128), 'vfx_leaf', 'center')
     g = np.array(Image.open(f'{SRC}/clouds.png').convert('L')).astype(np.float32) / 255
     al = np.clip((g - 0.05) / 0.3, 0, 1)
     z = (np.clip(g * 1.05, 0, 1) * 255).astype(np.uint8)

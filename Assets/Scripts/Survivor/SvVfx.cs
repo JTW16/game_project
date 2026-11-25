@@ -5,7 +5,7 @@ using Random = UnityEngine.Random;
 
 namespace ParryRL.Survivor
 {
-    public enum SvP { Spark, Ember, Wisp, Star, Brush, Fork, Ink, Smoke, Stone, Paper, Dust, Mist }
+    public enum SvP { Spark, Ember, Wisp, Star, Brush, Fork, Ink, Smoke, Stone, Paper, Dust, Mist, Leaf }
 
     /// <summary>
     /// 스킬 이펙트의 바탕 (2026-11-25 교수 피드백 ② "통짜가 아니라 파티클로"):
@@ -39,7 +39,7 @@ namespace ParryRL.Survivor
         private readonly List<Task> _tasks = new();
         private Material _stroke, _light, _shade;
         private Mesh _quad, _quadUp, _ring;
-        private Texture2D _lightSheet, _eruptSheet, _windSheet, _claws;
+        private Texture2D _lightSheet, _eruptSheet, _windSheet, _claws, _marks, _crack;
         private bool _ok;
         private float _clock;
 
@@ -63,6 +63,9 @@ namespace ParryRL.Survivor
             _eruptSheet = Resources.Load<Texture2D>("Vfx/vfx_erupt");
             _claws = Resources.Load<Texture2D>("Vfx/vfx_claws");
             _windSheet = Resources.Load<Texture2D>("Vfx/vfx_wind");
+            _marks = Resources.Load<Texture2D>("Vfx/vfx_marks");
+            _crack = Resources.Load<Texture2D>("Vfx/vfx_crack");
+            var leaf = Resources.Load<Texture2D>("Vfx/vfx_leaf");
             var cloud = Resources.Load<Texture2D>("Vfx/vfx_cloud");
             _ok = _windSheet != null && cloud != null && pSh != null && sSh != null && lSh != null && _lightSheet != null && ink != null && solid != null && _eruptSheet != null;
             if (!_ok) return;
@@ -96,6 +99,8 @@ namespace ParryRL.Survivor
             Make(SvP.Paper, solidM, 4, 3, SvOrder.Overhead + 2, 160, gravity: 1.6f, drag: 1.8f, noise: 1.6f, spin: 200f, fadeLate: true);
             Make(SvP.Dust, solidM, 7, 1, SvOrder.Overhead - 5, 220, gravity: -0.15f, drag: 3.2f, grow: true);
             Make(SvP.Mist, M(cloud, 0f, 1f), 0, 6, SvOrder.Overhead + 2, 40, gravity: 0f, drag: 0f, grow: true, tiles: new Vector2Int(3, 2));
+            // 잎 네 가지 (fx14, 뒤 네 칸은 꽃잎) — 그림이 없으면 부적 종이 시트를 빌린다
+            Make(SvP.Leaf, leaf != null ? M(leaf, 0f, 1f) : solidM, leaf != null ? 0 : 4, leaf != null ? 4 : 3, SvOrder.Overhead + 2, 160, gravity: 1.4f, drag: 2.2f, noise: 1.4f, spin: 260f, fadeLate: true);
         }
 
         private void Make(SvP kind, Material mat, int first, int count, int order, int max, float gravity, float drag, float stretch = 0f, float noise = 0f, float spin = 0f,
@@ -316,6 +321,11 @@ namespace ParryRL.Survivor
             public Texture Tex;
             public Transform Follow;
             public bool Flat;
+            /// <summary>매 프레임 (지난 초) — 흔들림·돌기. Dead를 켜면 바로 사라진다.</summary>
+            public Action<Piece, float> Tick;
+            public bool Dead;
+            public float Lift, Spin, CutAdd;
+            public Vector3 Shift;
             internal int Kind; // 0 붓 · 1 빛 · 2 그늘
             private float _age;
             private Vector3 _followOff;
@@ -333,22 +343,25 @@ namespace ParryRL.Survivor
                 _age += dt;
                 float a = _age - Delay;
                 if (a < 0f) { Mr.enabled = false; return true; }
+                Tick?.Invoke(this, a);
+                if (Dead) return false;
                 float t = a / Life;
                 if (t >= 1f) return false;
                 Mr.enabled = true;
                 Pos += Vel * dt;
-                Vector3 p = Follow != null ? Follow.position + _followOff : Pos;
+                Vector3 p = (Follow != null ? Follow.position + _followOff : Pos) + Shift;
+                if (Lift != 0f) p += SvView.Up * Lift;
                 // Pop: 처음에 확 커지고 천천히 멈춘다
                 float g = 1f - Mathf.Pow(1f - t, 1f + 2.4f * Pop);
                 Vector2 s = Vector2.LerpUnclamped(Size0, Size1, g);
-                Go.transform.SetPositionAndRotation(p, Rot);
+                Go.transform.SetPositionAndRotation(p, Spin != 0f ? Rot * Quaternion.Euler(0f, 0f, Spin) : Rot);
                 Go.transform.localScale = new Vector3(s.x, s.y, 1f);
                 float fade = t < FadeFrom ? 1f : 1f - (t - FadeFrom) / (1f - FadeFrom);
                 if (Kind == 0)
                 {
                     var e = Edge; e.a *= fade;
                     _b.SetColor("_Core", Core); _b.SetColor("_Edge", e);
-                    _b.SetFloat("_Cut", Mathf.Lerp(Cut0, Cut1, t * t));
+                    _b.SetFloat("_Cut", Mathf.Lerp(Cut0, Cut1, t * t) + CutAdd);
                     _b.SetFloat("_Reveal", Mathf.Lerp(Reveal0, Reveal1, Mathf.Clamp01(t * 2.2f)));
                     _b.SetFloat("_Tail", Mathf.Lerp(Tail0, Tail1, t));
                     _b.SetFloat("_Ink", Ink); _b.SetFloat("_Profile", Profile); _b.SetFloat("_Jag", Jag);
@@ -461,6 +474,30 @@ namespace ParryRL.Survivor
             {
                 p.Pos = pos; p.Rot = SvView.Rotation * Quaternion.Euler(0f, 0f, angle); p.Size0 = size * 0.82f; p.Size1 = size * 1.08f; p.Life = life; p.Core = core; p.Edge = edge;
                 p.Profile = 0f; p.Tex = I._claws; p.Cell = new Vector4(0f, 0f, 1f, 1f); p.Grain = new Vector2(9f, 4f);
+                more?.Invoke(p);
+            });
+        }
+
+        /// <summary>새 핵심 비급 재료(fx14) 한 칸: 0 부적 방패 · 1 금 간 혼 · 2 작두날 · 3 귀문 기둥 · 4 소용돌이 · 5 부적 별 · 6 빛 깃털 · 7 제비.</summary>
+        public static void Mark(int cell, Vector3 pos, Quaternion rot, Vector2 from, Vector2 to, float life, Color core, Color edge, int order, Action<Piece> more = null)
+        {
+            if (!Ready || I._marks == null) return;
+            Go(I.Take(I._quad, I._stroke, order, 0), p =>
+            {
+                p.Pos = pos; p.Rot = rot; p.Size0 = from; p.Size1 = to; p.Life = life; p.Core = core; p.Edge = edge;
+                p.Profile = 0f; p.Tex = I._marks; p.Cell = new Vector4(cell % 4 * 0.25f, cell < 4 ? 0.5f : 0f, 0.25f, 0.5f); p.Grain = new Vector2(5f, 5f);
+                more?.Invoke(p);
+            });
+        }
+
+        /// <summary>바닥에 둥글게 갈라진 금 (위에서 본 그림).</summary>
+        public static void Crack(Vector2 at, float angle, float size, float life, Color core, Color edge, Action<Piece> more = null, int order = SvOrder.FlatFx + 5)
+        {
+            if (!Ready || I._crack == null) return;
+            Go(I.Take(I._quad, I._stroke, order, 0), p =>
+            {
+                p.Pos = new Vector3(at.x, at.y, -0.04f); p.Rot = Quaternion.Euler(0f, 0f, angle); p.Size0 = Vector2.one * size * 0.5f; p.Size1 = Vector2.one * size; p.Life = life; p.Core = core; p.Edge = edge;
+                p.Profile = 0f; p.Tex = I._crack; p.Grain = new Vector2(7f, 7f);
                 more?.Invoke(p);
             });
         }
