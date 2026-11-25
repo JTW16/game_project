@@ -1798,6 +1798,66 @@ namespace ParryRL.Tests
         }
 
         [UnityTest]
+        public IEnumerator Fall_Combo_Reslams_Only_Once()
+        {
+            Game.Weapons.enabled = false;
+            Raise(SvSkills.Slam, 2);
+            Game.Progress.Take(SvItems.Get(SvItems.CoreSlam2), Player, Game.Weapons);
+            Assert.IsTrue(Player.TrySlam());
+            float end = Time.time + 2f;
+            while (Game.Weapons.SlamCount < 1 && Time.time < end) yield return null;
+            yield return null;
+            Assert.IsTrue(Player.TryJump(), "착지 1초 안 Space → 한 번 더 내려찍기");
+            Assert.IsTrue(Player.Slamming);
+            end = Time.time + 2f;
+            while (Game.Weapons.SlamCount < 2 && Time.time < end) yield return null;
+            Assert.AreEqual(2, Game.Weapons.SlamCount);
+            yield return null;
+            Player.TryJump();
+            Assert.IsFalse(Player.Slamming, "연격으로 내려찍은 뒤의 Space는 그냥 경공");
+            yield return Wait(1.2f);
+            Assert.AreEqual(2, Game.Weapons.SlamCount, "연격은 한 번만");
+        }
+
+        [UnityTest]
+        public IEnumerator Slam_Radius_Upgrade_Applies_On_Ground()
+        {
+            Game.Weapons.enabled = false;
+            float r1 = Game.Weapons.SlamRadius;
+            SvSkills.LevelOverride = 3;
+            float r3 = Game.Weapons.SlamRadius;
+            Assert.Greater(r3, r1 * 1.2f);
+            var e = SpawnAt(SvEnemyKind.Changgwi, new Vector2((r1 + r3) * 0.5f + 0.4f, 0f));
+            e.SetHealth(9999); e.Speed = 0f;
+            yield return new WaitForFixedUpdate();
+            var near = (e.Position - Player.Position).magnitude - e.Radius;
+            Assert.Greater(near, r1, "1단계 범위 밖에 둔다");
+            int hp = e.Hp;
+            Assert.IsTrue(Player.TrySlam());
+            float end = Time.time + 2f;
+            while (Game.Weapons.SlamCount < 1 && Time.time < end) yield return null;
+            Assert.AreEqual(0f, Player.DivePower, "땅에서 쓴 내려찍기");
+            Assert.Less(e.Hp, hp, "3단계 범위면 땅에서도 맞는다");
+        }
+
+        [UnityTest]
+        public IEnumerator Capture_Ground_Slam_Grows_With_Radius()
+        {
+            Game.Weapons.enabled = false;
+            foreach (int lv in new[] { 1, 3 })
+            {
+                SvSkills.LevelOverride = lv;
+                Player.TrySlam();
+                float end = Time.time + 2f;
+                int before = Game.Weapons.SlamCount;
+                while (Game.Weapons.SlamCount == before && Time.time < end) yield return null;
+                yield return WaitReal(0.12f);
+                yield return Capture($"survivor_slam_ground_lv{lv}");
+                yield return WaitReal(6f); // 쿨타임 5초
+            }
+        }
+
+        [UnityTest]
         public IEnumerator Capture_Core_Effects_Wired()
         {
             Game.Weapons.enabled = false;
@@ -1845,6 +1905,26 @@ namespace ParryRL.Tests
             yield return WaitReal(0.12f);
             if (Game.Art != null && SurvivorArt.Ok(Game.Art.tigerRun)) Assert.IsTrue(Game.Helpers.TigerPackShown, "범의 무리: 산군 둘");
             yield return Capture("survivor_tiger_pack");
+        }
+
+        [UnityTest]
+        public IEnumerator Codex_Shows_All_Upgrades()
+        {
+            var menus = Game.Hud.Menus;
+            menus.OpenCodex(null);
+            Assert.IsTrue(menus.CodexShown);
+            Assert.IsTrue(menus.AnyShown, "메뉴로 친다 (게임 입력은 막힌다)");
+            for (int tab = 0; tab < SvMenus.CodexTabs.Length; tab++)
+            {
+                menus.ShowCodexTab(tab);
+                yield return WaitReal(0.2f);
+                Assert.AreEqual(tab, menus.CodexTab);
+                yield return Capture($"survivor_codex_{tab}");
+            }
+            menus.ShowCodexTab(4);
+            Assert.AreEqual(0, menus.CodexTab, "끝에서 넘기면 처음으로");
+            menus.CloseCodex();
+            Assert.IsFalse(menus.CodexShown);
         }
 
         [UnityTest]

@@ -174,11 +174,11 @@ namespace ParryRL.Survivor
             });
         }
 
-        /// <summary>땅이 갈라지며 금빛 기둥이 둥글게 솟고, 돌과 흙이 튄다.</summary>
-        public static void SlamLand(Vector2 at, float r, float power)
+        /// <summary>땅이 갈라지며 금빛 기둥이 둥글게 솟고, 돌과 흙이 튄다. grow = 범위 강화 배율 (땅에서 써도 가운데 기둥이 같이 커지게).</summary>
+        public static void SlamLand(Vector2 at, float r, float power, float grow = 1f)
         {
             if (!SvVfx.Ready) return;
-            float k = 1f + 0.5f * power;
+            float k = (1f + 0.5f * power) * grow;
             // 섬광 + 한가운데 큰 기둥
             SvVfx.Shape(3, SvVfx.P(at, 0.7f), SvView.Rotation, Vector2.one * 1.1f * k, Vector2.one * 4.2f * k, 0.14f, Hdr(1f, 1f, 1f, 2f, 0f), Hdr(1f, 0.9f, 0.6f, 1.2f), SvOrder.Overhead + 8, p => { p.Cut1 = 0.7f; p.Ink = 0f; });
             SvVfx.Erupt(at, new Vector2(1.3f, 1.4f) * k, new Vector2(3f, 5f) * k, 0.5f, PGold.Core, PGold.Edge, p => { p.Cut1 = 1.02f; p.Pop = 1.7f; p.Cell = new Vector4(0.25f, 0f, 0.25f, 1f); });

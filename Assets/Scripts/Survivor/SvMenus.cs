@@ -9,13 +9,13 @@ namespace ParryRL.Survivor
     /// 메뉴 화면 (게임 UI 위 캔버스): 메인 · 일시 정지(지금 빌드 보기) · 설정 · 결과(무기별 피해).
     /// 조작은 <see cref="SvMenuList"/> — 키보드와 마우스 둘 다.
     /// </summary>
-    public class SvMenus : MonoBehaviour
+    public partial class SvMenus : MonoBehaviour
     {
         public bool MainShown => _main.gameObject.activeSelf;
         public bool PauseShown => _pause.gameObject.activeSelf;
         public bool SettingsShown => _settings.gameObject.activeSelf;
         public bool ResultShown => _result.gameObject.activeSelf;
-        public bool AnyShown => MainShown || PauseShown || SettingsShown || ResultShown;
+        public bool AnyShown => MainShown || PauseShown || SettingsShown || ResultShown || CodexShown;
         public string ResultTitle => _resultTitle != null ? _resultTitle.text : "";
         public SvMenuList MainList => _mainList;
         public SvMenuList PauseList => _pauseList;
@@ -49,6 +49,7 @@ namespace ParryRL.Survivor
             m.BuildPause();
             m.BuildSettings();
             m.BuildResult();
+            m.BuildCodex();
             return m;
         }
 
@@ -123,6 +124,7 @@ namespace ParryRL.Survivor
             Label(_main, "(가제)  ·  시험판", 30, new Vector2(0.5f, 0.5f), menuAt + new Vector2(0f, 165f) + drop, new Vector2(900f, 44f), TextAnchor.MiddleCenter, new Color(1f, 1f, 1f, 0.6f));
             _mainList = new SvMenuList(_main, new Vector2(0.5f, 0.5f), menuAt + new Vector2(0f, 80f) + drop, 440f);
             _mainList.AddButton("시작", () => Game?.StartRun());
+            _mainList.AddButton("강화 목록", () => OpenCodex(() => ShowMain(true)));
             _mainList.AddButton("설정", () => OpenSettings(() => ShowMain(true)));
             _mainList.AddButton("끝내기", () => SvGame.Quit());
             Label(_main, "방향키 이동 · Space 경공(2단) · Shift 보법 · A 내려찍기(공중 = 급강하) · S 긴 봉 · D 궁극기 · Q 패링 (정예·보스의 <color=#ff6a50>빨간 예고</color>만) · W·E 조력자\n봉·부적은 저절로 나간다 — 밤을 버티며 강해지고, 9분에 깨어나는 불가살이를 쓰러뜨려라",
@@ -507,6 +509,7 @@ namespace ParryRL.Survivor
         /// <summary>열린 메뉴의 키 입력. Esc는 설정이면 돌아가기.</summary>
         public void HandleKeys()
         {
+            if (CodexShown) { HandleCodexKeys(); return; }
             if (SettingsShown)
             {
                 if (Input.GetKeyDown(KeyCode.Escape)) { Sfx.Play(SfxId.UiMove); CloseSettings(); return; }

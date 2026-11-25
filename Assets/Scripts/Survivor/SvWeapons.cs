@@ -145,6 +145,8 @@ namespace ParryRL.Survivor
 
         public int SlamDamage => Mathf.RoundToInt(slamDamage * SvSkills.SlamDamageMul * DamageMul);
         public float SlamRadius => slamRadius * SvSkills.SlamRadiusMul * AreaMul;
+        /// <summary>범위 강화(수련 · 넓은 기운)로 커진 배율 — 이펙트도 같이 키운다.</summary>
+        private float SlamGrow => slamRadius > 0f ? SlamRadius / slamRadius : 1f;
 
         private void Update()
         {
@@ -590,7 +592,7 @@ namespace ParryRL.Survivor
             // 높은 데서 급강하할수록 크고 세다
             float power = _player.DivePower;
             float r = SlamRadius * (1f + diveRadiusBonus * power);
-            SvSkillVfx.SlamLand(at, r, power);
+            SvSkillVfx.SlamLand(at, r, power, SlamGrow);
             if (power > 0.3f) SvGame.Instance?.MicroStop(0.04f + 0.05f * power);
             _player.Momentum?.OnDive(power);
             // 위에서 세로로 내리꽂는 빛기둥 + 갈라지는 땅 + 튀는 파편 (S4 그림이 오면 그 그림으로)
@@ -662,7 +664,7 @@ namespace ParryRL.Survivor
         private System.Collections.IEnumerator SlamLater(Vector2 at, float delay, float inner, float r, int dmg)
         {
             yield return new WaitForSeconds(delay);
-            SvSkillVfx.SlamLand(at, r, inner > 0f ? 0.3f : 0.6f);
+            SvSkillVfx.SlamLand(at, r, inner > 0f ? 0.3f : 0.6f, SlamGrow);
             SvGame.Instance?.Shake(0.18f, 0.18f);
             Sfx.Play(SfxId.SkillSlam, 0.6f);
             SlamHit(at, inner, r, dmg);

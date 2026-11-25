@@ -109,6 +109,7 @@ namespace ParryRL.Survivor
         public float SpeedNow => moveSpeed * (Momentum != null ? Momentum.SpeedMul : 1f) * (Time.time < _swiftUntil ? 1.3f : 1f);
         // 제비 걸음(경공 핵심): 착지 뒤 2초 이동 +30% · 낙화연격(내려찍기 핵심): 착지 뒤 1초 안에 Space면 한 번 더 내려찍기
         private float _swiftUntil, _slamComboUntil;
+        private bool _comboSlam;
         private static bool HasCore(string id) => SvGame.Instance != null && SvGame.Instance.Progress != null && SvGame.Instance.Progress.HasCore(id);
         /// <summary>경공으로 뛰었다 땅에 닿았다 (비천 · 제비 걸음).</summary>
         public event System.Action<Vector2> LeapLanded;
@@ -229,7 +230,9 @@ namespace ParryRL.Survivor
             {
                 _slamComboUntil = 0f;
                 _slamReadyAt = 0f;
-                return TrySlam();
+                if (!TrySlam()) return false;
+                _comboSlam = true; // 연격으로 낸 내려찍기는 착지해도 연격 창을 다시 열지 않는다 (한 번만)
+                return true;
             }
             if (Dead || Slamming || _jumpsUsed >= maxJumps) return false;
             if (_jumpsUsed == 0)
@@ -496,7 +499,8 @@ namespace ParryRL.Survivor
                 }
                 return;
             }
-            if (HasCore(SvItems.CoreSlam2)) _slamComboUntil = Time.time + 1f;
+            if (HasCore(SvItems.CoreSlam2) && !_comboSlam) _slamComboUntil = Time.time + 1f;
+            _comboSlam = false;
             _fallPeak = 0f;
             Slamming = false;
             Diving = false;
