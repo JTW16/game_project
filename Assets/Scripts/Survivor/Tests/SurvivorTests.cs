@@ -229,7 +229,23 @@ namespace ParryRL.Tests
             for (int k = 0; k < 30; k++)
                 foreach (var it in SvItems.Roll(prog, 3))
                     if (SvItems.UsesShared(it)) Assert.Greater(prog.LevelOf(it.Id), 0, $"6칸이 차면 가진 것만 나온다 ({it.Name})");
-            Assert.IsTrue(SvItems.All.Exists(u => u.Kind == SvItemKind.Skill && u.MaxLevel == 8), "기술 수련은 1~8단계");
+            Assert.IsTrue(SvItems.All.Exists(u => u.Kind == SvItemKind.Skill && u.MaxLevel == 7), "기술 수련은 기본 1단계 + 카드 7장 = 8단계");
+        }
+
+        [Test]
+        public void First_Skill_Card_Is_Already_An_Upgrade()
+        {
+            // 기술은 처음부터 1단계로 쓸 수 있고, 첫 수련 카드가 곧 2단계 강화다 (얻는 카드가 아니다)
+            int before = Game.Weapons.SlamDamage;
+            Assert.AreEqual(1, SvSkills.Lv(SvSkills.Slam));
+            Game.Progress.Take(SvItems.Get(SvSkills.Slam), Player, Game.Weapons);
+            Assert.AreEqual(2, SvSkills.Lv(SvSkills.Slam), "첫 카드 = 2단계");
+            Assert.Greater(Game.Weapons.SlamDamage, before, "첫 카드부터 실제로 세진다 (피해 +25%)");
+            StringAssert.DoesNotContain("칸에 넣는다", SvItems.Get(SvSkills.Slam).DescFor(1));
+            while (Game.Progress.LevelOf(SvSkills.Slam) < SvItems.Get(SvSkills.Slam).MaxLevel)
+                Game.Progress.Take(SvItems.Get(SvSkills.Slam), Player, Game.Weapons);
+            Assert.AreEqual(8, SvSkills.Lv(SvSkills.Slam), "7장이면 8단계");
+            Assert.IsTrue(SvSkills.SlamAftershock);
         }
 
         [Test]
@@ -1553,7 +1569,9 @@ namespace ParryRL.Tests
         public IEnumerator Giant_Staff_Slams_A_Straight_Line()
         {
             Game.Weapons.enabled = false;
-            var line = new[] { SpawnAt(SvEnemyKind.Changgwi, new Vector2(2f, 0f)), SpawnAt(SvEnemyKind.Changgwi, new Vector2(4f, 0.3f)), SpawnAt(SvEnemyKind.Changgwi, new Vector2(6f, -0.3f)) };
+            // 긴 봉 길이 안쪽에 셋 (1단계 길이는 2026-11-25부터 5 — 수련으로 늘어난다)
+            float len = Game.Weapons.GiantLength;
+            var line = new[] { SpawnAt(SvEnemyKind.Changgwi, new Vector2(len * 0.3f, 0f)), SpawnAt(SvEnemyKind.Changgwi, new Vector2(len * 0.55f, 0.3f)), SpawnAt(SvEnemyKind.Changgwi, new Vector2(len * 0.85f, -0.3f)) };
             var off = SpawnAt(SvEnemyKind.Changgwi, new Vector2(0f, 3.5f));
             yield return new WaitForFixedUpdate();
             int[] before = System.Array.ConvertAll(line, e => e.Hp);
@@ -1797,6 +1815,36 @@ namespace ParryRL.Tests
             Assert.IsTrue(Game.Helpers.TryShaman());
             yield return WaitReal(0.8f);
             yield return Capture("survivor_core_blades");
+        }
+
+        [UnityTest]
+        public IEnumerator Capture_Pause_Skills_Core_Fork_And_Tiger_Pack()
+        {
+            Game.Weapons.enabled = false;
+            foreach (var id in new[] { SvItems.Talisman, SvSkills.Slam, SvSkills.Tiger, SvSkills.Leap, SvItems.Move, SvItems.Ink })
+                Game.Progress.Take(SvItems.Get(id), Player, Game.Weapons);
+            Raise(SvSkills.Tiger, 3);
+            Raise(SvItems.Staff, 2);
+            // 일시 정지 화면: 무기 · 기술 수련 · 비급
+            Game.SetPaused(true);
+            yield return WaitReal(0.3f);
+            yield return Capture("survivor_pause_skills");
+            Game.SetPaused(false);
+            yield return WaitReal(0.2f);
+            // 핵심 비급 창: 같은 대상(봉)의 두 갈래 2장 → 가운데로 모이고 사이에 갈림길 장식
+            var offer = SvItems.CoresOf(SvItems.Staff);
+            Assert.AreEqual(2, offer.Count);
+            Game.Hud.ShowCards(offer, Game.Progress, coreWindow: true);
+            yield return WaitReal(0.5f);
+            yield return Capture("survivor_core_fork");
+            Game.Hud.HideCards();
+            // 범의 무리: 산군 둘이 양옆 줄로
+            Game.Progress.Take(SvItems.Get(SvItems.CoreTiger), Player, Game.Weapons);
+            for (int i = 0; i < 6; i++) { var e = SpawnAt(SvEnemyKind.Changgwi, new Vector2(3f + i * 1.2f, (i % 2 == 0 ? 1.2f : -1.2f))); e.SetHealth(9999); e.Speed = 0f; }
+            Assert.IsTrue(Game.Helpers.TryTiger());
+            yield return WaitReal(0.12f);
+            if (Game.Art != null && SurvivorArt.Ok(Game.Art.tigerRun)) Assert.IsTrue(Game.Helpers.TigerPackShown, "범의 무리: 산군 둘");
+            yield return Capture("survivor_tiger_pack");
         }
 
         [UnityTest]

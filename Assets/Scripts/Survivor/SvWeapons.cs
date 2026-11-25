@@ -38,21 +38,21 @@ namespace ParryRL.Survivor
         public float bellKnock = 9f;
 
         [Header("긴 봉 내리찍기 (S, 직접 쓰는 기본 기술 — 가안)")]
-        public int giantDamage = 30;
-        public float giantLength = 7.5f;
+        public int giantDamage = 12; // 기술 수련 1단계 — 강화 안 하면 약하게 (2026-11-25, 전 30)
+        public float giantLength = 5f;
         public float giantWidth = 1.2f;
         [Tooltip("선풍격: 양옆 줄이 벌어지는 각 (도) · 길이 배율 (가안)")]
         public float giantFanAngle = 30f;
         public float giantFanLength = 0.85f;
-        public float giantCooldown = 5f;
+        public float giantCooldown = 8f;
         [Tooltip("봉을 세워 길게 늘이는 준비 시간 (초)")]
         public float giantWindup = 0.24f;
         [Tooltip("선 봉이 앞으로 쓰러져 땅에 닿기까지 (초)")]
         public float giantSwing = 0.12f;
 
         [Header("내려찍기 (A)")]
-        public int slamDamage = 20;
-        public float slamRadius = 2.6f;
+        public int slamDamage = 8; // 기술 수련 1단계 (2026-11-25, 전 20)
+        public float slamRadius = 2f;
         public float slamKnock = 10f;
         [Tooltip("급강하: 가장 높은 데서 내리꽂을 때 더해지는 범위·피해 배율 (가안)")]
         public float diveRadiusBonus = 0.6f;
