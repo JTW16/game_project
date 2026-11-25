@@ -583,3 +583,19 @@ No ground cast shadows, no mist, no atmospheric gradient, no horizon, no additio
 
 **최종 합계: 시각 기준 성공 10 · 실패 0 · 미생성 0 (총 10장 저장), 요청 크기 불일치 10장.**
 
+
+## S14 생성 (Claude가 Codex CLI를 불러 한 장씩, 2026-11-25)
+
+이펙트 11장은 프레임 시트 대신 재료 그림 3장으로 바꿨다 (사용자 결정). 캔버스는 도구가 낼 수 있는 크기(1024x1536 · 1536x1024 · 정사각)로 뽑았다.
+
+| 파일 경로 | 성공/실패 | 다시 만든 횟수 | 문제점 한 줄 |
+|---|---|---:|---|
+| ArtSource/v2/ui/card_skill.png | 성공 | 0 | 남색 비단 · 은 구름무늬 · 은방울, 빨강 없음 |
+| ArtSource/v2/ui/slot_frames2.png | 성공 | 0 | 빈 칸 점선이 어두운 화면에 안 보여 밝게 하고 옅은 선으로 이음 (후처리) |
+| ArtSource/v2/ui/core_window.png | 성공 | 0 | 초록 배경, 제목 띠 + 갈림길 장식 2조각 |
+| ArtSource/v2/ui/core_icons.png | 성공 | 0 | 5x3 = 15칸 정확. 발톱 자국이 초록으로 나와 산군 색(금빛 주황)으로 바꿈 (후처리) |
+| ArtSource/v2/ui/skill_icon_leap.png | 성공 | 1 | 첫 그림은 거꾸로 매달린 것처럼 보여 다시, 다른 아이콘과 밝기를 맞춤 (후처리) |
+| ArtSource/v2/items/riceball.png | 성공 | 1 | 첫 그림은 돌처럼 보여 다시 |
+| ArtSource/v2/fx14/marks.png | 성공 | 0 | 문양 8칸 (부적 방패 · 금 간 혼 · 작두날 · 귀문 기둥 · 소용돌이 · 부적 별 · 깃털 · 제비), 검정 위 흰색 |
+| ArtSource/v2/fx14/crack.png | 성공 | 0 | 위에서 본 둥근 금, 검정 위 흰색 |
+| ArtSource/v2/fx14/leaves.png | 성공 | 0 | 잎 4 · 꽃잎 4, 투명 (꽃잎은 낙화연격용 예비) |
