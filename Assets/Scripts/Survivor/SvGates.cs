@@ -5,8 +5,9 @@ namespace ParryRL.Survivor
 {
     /// <summary>
     /// 맵 곳곳의 귀문 (설계서 4장 4차 결정): 고정 자리 · 몹은 퇴마사 가까운 귀문(화면 밖·가장자리)에서 나온다.
-    /// 그중 <see cref="SealCount"/>곳은 **큰 귀문** (2026-11-26 사용자 결정 "귀문 부수기"): 무기로 때려 부술 수 있고,
-    /// 부술수록 남은 귀문에서 더 센 몹이 나오며, 다 부수면 보스가 끌려 나온다 (빨리 부술수록 약하게). 큰 귀문의 몸은 <see cref="SvEnemyKind.Gate"/>.
+    /// **큰 귀문** (2026-11-26 사용자 결정 "귀문 부수기" 개편): 정해진 시각마다 하나씩, 모두 <see cref="SealCount"/>개가
+    /// 퇴마사 근처 화면 밖의 귀문 하나에서 솟아 깨어난다. 무기로 때려 부수면 귀문지기(중간 보스)가 나오고, 그것을 잡으면 핵심 비급 창.
+    /// 못 부순 큰 귀문은 부술 때까지 남는다. 큰 귀문의 몸은 <see cref="SvEnemyKind.Gate"/>.
     /// 자리는 들판을 격자로 나눠 조금씩 흩뜨린 것 (한 판 내내 같음). 그림은 <see cref="SvScenery"/>가 칸을 만들 때 세운다.
     /// </summary>
     public static class SvGates
@@ -15,16 +16,16 @@ namespace ParryRL.Survivor
         public const float Spacing = 24f, Jitter = 4f, ClearStart = 10f, Height = 3.6f;
         /// <summary>귀문 둘레 이 거리 안에는 소품 무리를 두지 않는다.</summary>
         public const float KeepClear = 9f;
-        /// <summary>큰 귀문 수 · 가운데에서 떨어진 거리(목표) · 그림 배율 — 가안.</summary>
-        public const int SealCount = 6;
-        public const float SealDistance = 62f, SealScale = 1.5f;
+        /// <summary>큰 귀문 수 · 그림 배율 — 가안.</summary>
+        public const int SealCount = 4;
+        public const float SealScale = 1.5f;
 
         private static int[] _seals;
         private static bool[] _broken;
         private static int[] _sealHp, _sealMax;
-        private static float[] _sealHitAt;
+        private static float[] _sealHitAt, _sealOpenAt;
 
-        /// <summary>큰 귀문들의 귀문 번호 (방향마다 하나, 한 판 내내 같음).</summary>
+        /// <summary>큰 귀문들의 귀문 번호 (몇 번째로 열렸나 순서, 아직 안 열렸으면 -1).</summary>
         public static IReadOnlyList<int> Seals
         {
             get
@@ -34,16 +35,27 @@ namespace ParryRL.Survivor
             }
         }
 
-        /// <summary>큰 귀문이면 몇 번째(0~5), 아니면 -1.</summary>
+        /// <summary>큰 귀문이면 몇 번째(0~3), 아니면 -1.</summary>
         public static int SealSlot(int gate)
         {
             if (_all == null) Build();
-            return System.Array.IndexOf(_seals, gate);
+            return gate < 0 ? -1 : System.Array.IndexOf(_seals, gate);
         }
 
         public static bool IsSeal(int gate) => SealSlot(gate) >= 0;
         public static bool IsBroken(int gate) { int s = SealSlot(gate); return s >= 0 && _broken[s]; }
         public static bool SlotBroken(int slot) => _broken != null && _broken[slot];
+        public static bool SlotOpen(int slot) { if (_all == null) Build(); return _seals[slot] >= 0; }
+        public static int OpenCount
+        {
+            get
+            {
+                if (_all == null) Build();
+                int n = 0;
+                foreach (int g in _seals) if (g >= 0) n++;
+                return n;
+            }
+        }
         public static int BrokenCount
         {
             get
@@ -56,13 +68,13 @@ namespace ParryRL.Survivor
         }
         public static bool AllBroken => BrokenCount >= SealCount;
 
-        /// <summary>큰 귀문의 남은 체력 (처음 깨어날 때 정해지고, 멀어져 잠들어도 그대로). 아직 안 정했으면 -1.</summary>
+        /// <summary>큰 귀문의 남은 체력 (열릴 때 정해지고, 멀어져 잠들어도 그대로). 아직 안 정했으면 -1.</summary>
         public static int SealHp(int slot) => _sealHp[slot];
         public static int SealMaxHp(int slot) => _sealMax[slot];
         public static void SetSealHp(int slot, int hp, int max) { _sealHp[slot] = hp; _sealMax[slot] = max; }
         public static float SealHpRatio(int gate) { int s = SealSlot(gate); return s < 0 || _sealMax[s] <= 0 ? 1f : Mathf.Clamp01(_sealHp[s] / (float)_sealMax[s]); }
 
-        /// <summary>큰 귀문이 맞았다 (문이 번쩍이고, 그 문에서 몹이 쏟아진다).</summary>
+        /// <summary>큰 귀문이 맞았다 (문이 번쩍인다).</summary>
         public static void MarkHit(int gate, int hpLeft)
         {
             int s = SealSlot(gate);
@@ -73,6 +85,37 @@ namespace ParryRL.Survivor
 
         public static float SinceHit(int gate) { int s = SealSlot(gate); return s < 0 ? 99f : Time.time - _sealHitAt[s]; }
         public static float SlotSinceHit(int slot) => Time.time - _sealHitAt[slot];
+        /// <summary>큰 귀문이 깨어나 솟은 뒤 지난 시간 (큰 귀문이 아니면 99).</summary>
+        public static float SinceOpen(int gate) { int s = SealSlot(gate); return s < 0 ? 99f : Time.time - _sealOpenAt[s]; }
+
+        /// <summary>slot번째 큰 귀문을 그 귀문 자리에서 깨운다 (체력은 열린 시각으로 정한다).</summary>
+        public static void Open(int slot, int gate, int hp)
+        {
+            if (_all == null) Build();
+            _seals[slot] = gate;
+            _sealHp[slot] = _sealMax[slot] = hp;
+            _sealOpenAt[slot] = Time.time;
+        }
+
+        /// <summary>
+        /// 큰 귀문이 솟을 자리: 퇴마사에게서 dist쯤 떨어진(화면 밖) 귀문 중 가장 가까운 것.
+        /// 이미 큰 귀문이거나 막 몹이 나온 귀문은 피한다. 없으면 -1.
+        /// </summary>
+        public static int PickSealSpot(Vector2 center, float dist)
+        {
+            var all = All;
+            int best = -1;
+            float bestD = float.MaxValue;
+            for (int i = 0; i < all.Count; i++)
+            {
+                if (IsSeal(i)) continue;
+                float d = (all[i] - center).magnitude;
+                if (d < dist * 0.75f) continue; // 화면 안에서 갑자기 솟지 않게
+                float off = Mathf.Abs(d - dist);
+                if (off < bestD) { bestD = off; best = i; }
+            }
+            return best;
+        }
 
         public static void Break(int gate)
         {
@@ -112,25 +155,12 @@ namespace ParryRL.Survivor
             }
             _lastSpawn = new float[_all.Count];
             for (int i = 0; i < _lastSpawn.Length; i++) _lastSpawn[i] = -99f;
-            // 큰 귀문: 들판을 여섯 방향으로 나눠 방향마다 가운데에서 SealDistance쯤 떨어진 귀문 하나
             _seals = new int[SealCount];
-            for (int s = 0; s < SealCount; s++)
-            {
-                int best = -1;
-                float bestD = float.MaxValue;
-                for (int i = 0; i < _all.Count; i++)
-                {
-                    float ang = Mathf.Repeat(SvGeom.AngleOf(_all[i]) + 90f, 360f);
-                    if ((int)(ang / (360f / SealCount)) != s) continue;
-                    float d = Mathf.Abs(_all[i].magnitude - SealDistance);
-                    if (d < bestD) { bestD = d; best = i; }
-                }
-                _seals[s] = best;
-            }
             _broken = new bool[SealCount];
             _sealHp = new int[SealCount];
             _sealMax = new int[SealCount];
             _sealHitAt = new float[SealCount];
+            _sealOpenAt = new float[SealCount];
             ResetSeals();
         }
 
@@ -138,9 +168,10 @@ namespace ParryRL.Survivor
         {
             for (int s = 0; s < SealCount; s++)
             {
+                _seals[s] = -1;
                 _broken[s] = false;
                 _sealHp[s] = _sealMax[s] = -1;
-                _sealHitAt[s] = -99f;
+                _sealHitAt[s] = _sealOpenAt[s] = -99f;
             }
         }
 
@@ -217,6 +248,7 @@ namespace ParryRL.Survivor
         private Sprite _dormant, _active;
         private Color _glowBase, _artBase;
         private float _fxAt = -9f;
+        private SvBillboard _bb;
         private bool _seal;
 
         public int Index => _index;
@@ -231,11 +263,14 @@ namespace ParryRL.Survivor
             _active = active;
             _glowBase = glow.color;
             _artBase = art.color;
-            _seal = SvGates.IsSeal(index);
+            _bb = art.GetComponentInParent<SvBillboard>();
         }
 
         private void Update()
         {
+            // 큰 귀문은 정해진 시각에 깨어나며 0.8초 동안 1.5배로 솟는다
+            _seal = SvGates.IsSeal(_index);
+            if (_bb != null) _bb.Scale = _seal ? Mathf.Lerp(1f, SvGates.SealScale, Mathf.SmoothStep(0f, 1f, SvGates.SinceOpen(_index) / 0.8f)) : 1f;
             if (_seal && SvGates.IsBroken(_index))
             {
                 Open = false;

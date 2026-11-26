@@ -148,7 +148,7 @@ namespace ParryRL.Survivor
             foreach (var c in SvItems.Cores) if (!targets.Contains(c.For)) targets.Add(c.For);
             int rows = Mathf.CeilToInt(targets.Count / 2f);
             float w = 1760f / 2f - 16f, h = (780f - 40f) / rows - 10f;
-            Label(_codexBody, $"레벨 {string.Join(" · ", SvItems.CoreWindowLevels)}에 전용 창 · 한 판 {SvItems.MaxCores}개까지 · 그 무기 · 기술이 {SvItems.CoreFrom}단계 이상일 때 · 대상마다 두 갈래 중 하나",
+            Label(_codexBody, $"{string.Join(" · ", SvSpawner.GateTimeLabels)}에 큰 귀문이 열린다 · 부수면 귀문지기 — 잡으면 핵심 비급 창 · 한 판 {SvItems.MaxCores}개까지 · 가진 무기 · 기술마다 두 갈래 중 하나",
                 20, new Vector2(0.5f, 1f), new Vector2(0f, -6f), new Vector2(1700f, 30f), TextAnchor.UpperCenter, CodexCore);
             for (int t = 0; t < targets.Count; t++)
             {

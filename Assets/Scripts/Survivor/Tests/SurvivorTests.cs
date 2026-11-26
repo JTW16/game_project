@@ -1681,55 +1681,87 @@ namespace ParryRL.Tests
         // ---------- 귀문 부수기 (2026-11-26) ----------
 
         [UnityTest]
-        public IEnumerator Gates_Break_Strengthen_Others_And_Summon_A_Weaker_Boss()
+        public IEnumerator Gates_Open_On_Time_Break_Into_A_Keeper_That_Gives_A_Core()
         {
             Game.Weapons.enabled = false;
-            var seals = SvGates.Seals;
-            Assert.AreEqual(SvGates.SealCount, seals.Count);
-            var seen = new System.Collections.Generic.HashSet<int>();
-            foreach (int g in seals) Assert.IsTrue(g >= 0 && seen.Add(g), "방향마다 서로 다른 큰 귀문");
-            float mul0 = Game.Spawner.BrokenHpMul;
+            Game.Progress.HoldLevelUps = true; // 무너질 때 떨군 보석으로 레벨업 창이 먼저 뜨지 않게
+            CollectionAssert.AreEqual(new[] { 60f, 180f, 300f, 420f }, Game.Spawner.GateTimes, "1 · 3 · 5 · 7분");
+            Assert.AreEqual(4, SvGates.SealCount);
+            Assert.AreEqual(0, SvGates.OpenCount, "처음엔 큰 귀문이 없다");
+            Assert.AreEqual(60f, Game.Spawner.NextGateAt);
+            Assert.IsTrue(Game.Spawner.OpenNextGate(Player.Position));
+            int gate = SvGates.Seals[0];
+            Assert.GreaterOrEqual(gate, 0);
+            Vector2 at = SvGates.All[gate];
+            Assert.Greater((at - Player.Position).magnitude, SvView.Instance.OffscreenRadius * 0.75f, "퇴마사 근처 화면 밖에서 솟는다");
+            Assert.AreEqual(180f, Game.Spawner.NextGateAt);
             try
             {
                 SvWeapons.CritOverride = 0f;
-                for (int s = 0; s < seals.Count; s++)
-                {
-                    Vector2 at = SvGates.All[seals[s]];
-                    Teleport(at + new Vector2(0f, -4f));
-                    Game.Spawner.UpdateGates(Player.Position);
-                    var body = Game.Spawner.GateBody(s);
-                    Assert.IsNotNull(body, "가까이 가면 큰 귀문이 깨어난다");
-                    Assert.IsTrue(body.IsGate);
-                    Assert.AreEqual(0, body.ContactDamage, "닿아도 피해 없음");
-                    if (s == 0)
-                    {
-                        int max = body.Hp;
-                        SvWeapons.Hit(body, 100, Vector2.zero, 0f, SvItems.Staff);
-                        Assert.AreEqual(max - 100, body.Hp, "무기에 깎인다");
-                        Teleport(Vector2.zero);
-                        Game.Spawner.UpdateGates(Player.Position);
-                        Assert.IsNull(Game.Spawner.GateBody(s), "멀어지면 잠든다");
-                        Teleport(at + new Vector2(0f, -4f));
-                        Game.Spawner.UpdateGates(Player.Position);
-                        body = Game.Spawner.GateBody(s);
-                        Assert.AreEqual(max - 100, body.Hp, "다시 깨어나도 깎인 체력 그대로");
-                    }
-                    SvWeapons.Hit(body, body.Hp + 10, Vector2.zero, 0f, SvItems.Staff);
-                    Assert.IsTrue(SvGates.SlotBroken(s), "체력이 다하면 무너진다");
-                    if (s == 0)
-                    {
-                        Assert.Greater(Game.Spawner.BrokenHpMul, mul0, "남은 귀문이 사나워진다");
-                        Assert.AreEqual(0, Game.Kills, "귀문은 처치 수에 안 든다");
-                        for (int i = 0; i < 100; i++) Assert.IsFalse(SvGates.IsBroken(SvGates.Pick(at, 16f)), "무너진 귀문에서는 몹이 안 나온다");
-                        Assert.IsFalse(Game.Spawner.BossSpawned);
-                    }
-                    yield return null;
-                }
+                Teleport(at + new Vector2(0f, -4f));
+                Game.Spawner.UpdateGates(Player.Position);
+                var body = Game.Spawner.GateBody(0);
+                Assert.IsNotNull(body, "가까이 가면 몸이 생겨 맞는다");
+                Assert.AreEqual(0, body.ContactDamage, "닿아도 피해 없음");
+                int max = body.Hp;
+                SvWeapons.Hit(body, 100, Vector2.zero, 0f, SvItems.Staff);
+                Assert.AreEqual(max - 100, body.Hp, "무기에 깎인다");
+                Teleport(at - at.normalized * 50f);
+                Game.Spawner.UpdateGates(Player.Position);
+                Assert.IsNull(Game.Spawner.GateBody(0), "멀어지면 잠든다");
+                Teleport(at + new Vector2(0f, -4f));
+                Game.Spawner.UpdateGates(Player.Position);
+                body = Game.Spawner.GateBody(0);
+                Assert.AreEqual(max - 100, body.Hp, "다시 깨어나도 깎인 체력 그대로");
+                int before = SvEnemy.Active.Count;
+                SvWeapons.Hit(body, body.Hp + 10, Vector2.zero, 0f, SvItems.Staff);
+                Assert.IsTrue(SvGates.SlotBroken(0), "체력이 다하면 무너진다");
+                Assert.AreEqual(0, Game.Kills, "귀문은 처치 수에 안 든다");
+                for (int i = 0; i < 100; i++) Assert.IsFalse(SvGates.IsBroken(SvGates.Pick(at, 16f)), "무너진 귀문에서는 몹이 안 나온다");
+                var keeper = SvEnemy.Active.Find(e => e.IsGateKeeper);
+                Assert.IsNotNull(keeper, "무너진 자리에서 귀문지기가 나온다");
+                Assert.IsTrue(keeper.IsElite, "팀원이 중간 보스를 넣기 전엔 강한 정예");
+                Assert.Greater(keeper.MaxHp, 380 * 2, "보통 정예보다 단단하다");
+                Assert.IsFalse(Game.Spawner.BossSpawned, "귀문을 부숴도 보스는 9분");
+                yield return WaitReal(1.8f); // 무너지는 연출이 가라앉은 뒤
+                yield return Capture("survivor_gate_keeper");
+                SvWeapons.Hit(keeper, keeper.Hp + 10, Vector2.zero, 0f, SvItems.Staff);
+                Assert.AreEqual(1, Game.Progress.CoreRewardsPending, "귀문지기를 잡으면 핵심 비급 창 하나");
             }
             finally { SvWeapons.CritOverride = null; }
-            Assert.IsTrue(Game.Spawner.BossSpawned, "다 부수면 보스");
-            Assert.IsTrue(Game.Spawner.BossByGates);
-            Assert.Less(Game.Boss.MaxHp, 4200, "일찍 부르면 약하게");
+            yield return WaitReal(0.3f);
+            Assert.IsTrue(Game.Hud.CardsShown);
+            Assert.IsTrue(Game.Offer.Count > 0 && Game.Offer.TrueForAll(o => o.Kind == SvItemKind.Core), "핵심 비급만 — 봉 1단계여도 나온다");
+            yield return Capture("survivor_core_window");
+            Game.ChooseCard(0);
+            Assert.AreEqual(1, Game.Progress.Count(SvItemKind.Core));
+            Assert.AreEqual(0, Game.Progress.CoreRewardsPending);
+            // 나머지 셋도 열리고, 그 뒤엔 더 안 열린다
+            for (int k = 1; k < 4; k++) Assert.IsTrue(Game.Spawner.OpenNextGate(Player.Position));
+            Assert.AreEqual(4, SvGates.OpenCount);
+            Assert.IsFalse(Game.Spawner.OpenNextGate(Player.Position), "모두 4개");
+            Assert.IsTrue(float.IsPositiveInfinity(Game.Spawner.NextGateAt));
+        }
+
+        [UnityTest]
+        public IEnumerator Gate_Opens_By_Itself_At_One_Minute()
+        {
+            Game.Weapons.enabled = false;
+            Player.MaxHp = 100000;
+            Player.Heal(100000);
+            Game.Progress.HoldLevelUps = true;
+            Game.SetElapsed(59.5f);
+            Assert.AreEqual(0, SvGates.OpenCount);
+            Game.Spawner.Running = true;
+            try
+            {
+                yield return Wait(1f);
+                Assert.AreEqual(1, SvGates.OpenCount, "1분에 첫 큰 귀문");
+                yield return Wait(1f);
+                Assert.IsTrue(Game.Hud.GateArrowShown, "화면 밖 큰 귀문을 화살표가 가리킨다");
+                yield return Capture("survivor_gate_open");
+            }
+            finally { Game.Spawner.Running = false; }
         }
 
         [UnityTest]
@@ -1739,6 +1771,7 @@ namespace ParryRL.Tests
             Player.MaxHp = 100000;
             Player.Heal(100000);
             int s = 0;
+            Assert.IsTrue(Game.Spawner.OpenNextGate(Player.Position));
             Vector2 at = SvGates.All[SvGates.Seals[s]];
             Teleport(at + new Vector2(0.4f, -2.6f));
             yield return null;
@@ -1856,51 +1889,45 @@ namespace ParryRL.Tests
         }
 
         [UnityTest]
-        public IEnumerator Core_Branches_Need_Lv2_At_Most_Four_And_Open_At_Lv4_Window()
+        public IEnumerator Core_Branches_Any_Stage_At_Most_Four()
         {
             Game.Weapons.enabled = false;
             Assert.AreEqual(20, SvItems.Cores.Count, "대상 10가지 × 두 갈래");
-            Assert.AreEqual(0, SvItems.EligibleCores(Game.Progress).Count, "봉 1단계에선 핵심 비급이 안 나온다");
-            Raise(SvItems.Staff, 2);
+            Assert.AreEqual(4, SvItems.MaxCores, "큰 귀문 수만큼");
             var el = SvItems.EligibleCores(Game.Progress);
-            Assert.AreEqual(2, el.Count, "봉 2단계 — 삼재격 · 회선봉 두 갈래");
+            Assert.AreEqual(2, el.Count, "봉 1단계여도 삼재격 · 회선봉 두 갈래 (단계 조건 없음)");
             // 하나를 고르면 다른 갈래는 사라진다
             Game.Progress.Take(SvItems.Get(SvItems.CoreStaff2), Player, Game.Weapons);
             Assert.AreEqual(0, SvItems.EligibleCores(Game.Progress).Count, "갈림길: 한쪽을 고르면 끝");
             Assert.AreEqual(360f, Game.Weapons.SwingAngle, "회선봉 = 한 바퀴");
-            // 기술도 대상 — 칸에 넣고 2단계면 나온다
-            Raise(SvSkills.Slam, 2); Raise(SvSkills.Ult, 2); Raise(SvItems.Talisman, 2); Raise(SvSkills.Leap, 2);
+            // 기술도 대상 — 칸에 넣으면 나온다
+            Raise(SvSkills.Slam, 1); Raise(SvSkills.Ult, 1); Raise(SvItems.Talisman, 1); Raise(SvSkills.Leap, 1);
             Assert.AreEqual(8, SvItems.EligibleCores(Game.Progress).Count, "네 대상 × 두 갈래");
             foreach (var id in new[] { SvItems.CoreSlam, SvItems.CoreUlt, SvItems.CoreTalisman2 })
                 Game.Progress.Take(SvItems.Get(id), Player, Game.Weapons);
             Assert.AreEqual(4, Game.Progress.Count(SvItemKind.Core));
             Assert.AreEqual(0, SvItems.EligibleCores(Game.Progress).Count, "한 판에 4개까지");
-            // 보통 레벨업 카드에는 더 이상 핵심 비급이 섞이지 않는다
+            // 보통 레벨업 카드에는 핵심 비급이 섞이지 않는다
             for (int k = 0; k < 100; k++)
                 foreach (var it in SvItems.Roll(Game.Progress, 3)) Assert.AreNotEqual(SvItemKind.Core, it.Kind);
             yield break;
         }
 
         [UnityTest]
-        public IEnumerator Core_Window_Opens_At_Level_4()
+        public IEnumerator Level_Ups_No_Longer_Open_A_Core_Window()
         {
             Game.Weapons.enabled = false;
             Raise(SvItems.Staff, 2);
-            Assert.IsFalse(Game.Progress.CoreWindowDue);
-            while (Game.Progress.Level < 4) Game.Progress.AddExp(Game.Progress.ExpToNext);
-            Assert.IsTrue(Game.Progress.CoreWindowDue, "레벨 4 — 핵심 비급 창 차례");
+            while (Game.Progress.Level < 9) Game.Progress.AddExp(Game.Progress.ExpToNext);
             yield return WaitReal(0.3f); // 카드 창이 뜨면 게임 시간이 멈추므로 실제 시간으로
-            // 레벨업 카드 창이 차례로 뜨다가 핵심 비급 창에서는 핵심 비급만
-            bool sawCore = false;
-            for (int guard = 0; guard < 6 && Game.Progress.LevelUpsPending > 0; guard++)
+            for (int guard = 0; guard < 12 && Game.Progress.LevelUpsPending > 0; guard++)
             {
                 yield return null;
-                if (Game.Hud.CardsShown && Game.Offer.Count > 0 && Game.Offer.TrueForAll(o => o.Kind == SvItemKind.Core)) { sawCore = true; yield return Capture("survivor_core_window"); }
+                if (Game.Hud.CardsShown) Assert.IsFalse(Game.Offer.Exists(o => o.Kind == SvItemKind.Core), "레벨 4 · 8에도 핵심 비급 창은 없다 — 귀문지기 보상으로만");
                 Game.ChooseCard(0);
                 yield return null;
             }
-            Assert.IsTrue(sawCore, "핵심 비급 전용 창이 떴다");
-            Assert.IsFalse(Game.Progress.CoreWindowDue);
+            Assert.AreEqual(0, Game.Progress.Count(SvItemKind.Core));
         }
 
         [UnityTest]

@@ -483,6 +483,59 @@ namespace ParryRL.Survivor
             a.Icon.color = off ? new Color(0.5f, 0.5f, 0.5f) : Color.white;
         }
 
+        /// <summary>"· 다음 3:00" — 아직 안 열린 큰 귀문이 남았으면 다음 시각.</summary>
+        private static string GateNextText(SvGame g)
+        {
+            float next = g.Spawner != null ? g.Spawner.NextGateAt : float.PositiveInfinity;
+            if (float.IsInfinity(next) || g.Spawner.BossSpawned) return "";
+            int s = Mathf.CeilToInt(next);
+            return $" · 다음 {s / 60}:{s % 60:00}";
+        }
+
+        // ---------- 화면 밖 큰 귀문 화살표 ----------
+
+        private Image _gateArrow;
+        public bool GateArrowShown => _gateArrow != null && _gateArrow.enabled;
+
+        /// <summary>깨어 있고 아직 안 무너진 큰 귀문 중 가장 가까운 것을 화면 가장자리에서 옥빛 화살표로 가리킨다.</summary>
+        private void UpdateGateArrow()
+        {
+            if (_gateArrow == null)
+            {
+                _gateArrow = UiKit.Image("GateArrow", _root, new Color(0.55f, 1f, 0.85f));
+                _gateArrow.sprite = MakeArrowSprite();
+                _gateArrow.preserveAspect = true;
+                _gateArrow.rectTransform.sizeDelta = new Vector2(54f, 54f);
+                _gateArrow.rectTransform.anchorMin = _gateArrow.rectTransform.anchorMax = Vector2.zero;
+            }
+            var cam = SvView.Instance != null ? SvView.Instance.Camera : null;
+            var p = SvPlayer.Instance;
+            int best = -1;
+            float bestD = float.MaxValue;
+            var spawner = SvSpawner.Instance;
+            if (p != null && (spawner == null || !spawner.BossSpawned))
+                foreach (int gate in SvGates.Seals)
+                {
+                    if (gate < 0 || SvGates.IsBroken(gate)) continue;
+                    float d = (SvGates.All[gate] - p.Position).sqrMagnitude;
+                    if (d < bestD) { bestD = d; best = gate; }
+                }
+            if (cam == null || best < 0) { _gateArrow.enabled = false; return; }
+            Vector2 at = SvGates.All[best];
+            Vector3 vp = cam.WorldToViewportPoint(SvVfx.P(at, SvGates.Height));
+            bool onScreen = vp.z > 0f && vp.x > 0.02f && vp.x < 0.98f && vp.y > 0.02f && vp.y < 0.98f;
+            _gateArrow.enabled = !onScreen;
+            if (onScreen) return;
+            if (vp.z < 0f) { vp.x = 1f - vp.x; vp.y = 1f - vp.y; }
+            Vector2 dir = new Vector2(vp.x - 0.5f, vp.y - 0.5f);
+            if (dir.sqrMagnitude < 0.0001f) dir = Vector2.up;
+            float k = Mathf.Min(0.44f / Mathf.Max(0.0001f, Mathf.Abs(dir.x)), 0.44f / Mathf.Max(0.0001f, Mathf.Abs(dir.y)));
+            float w = _root.rect.width, h = _root.rect.height;
+            _gateArrow.rectTransform.anchoredPosition = new Vector2((0.5f + dir.x * k) * w, (0.5f + dir.y * k) * h);
+            _gateArrow.rectTransform.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg);
+            _gateArrow.rectTransform.localScale = Vector3.one * (1f + 0.12f * Mathf.Sin(Time.unscaledTime * 6f));
+        }
+
         // ---------- 화면 밖 정예·보스 화살표 ----------
 
         private void BuildArrows()
@@ -526,6 +579,7 @@ namespace ParryRL.Survivor
         {
             _bigs.Clear();
             foreach (var e in SvEnemy.Active) if (e.IsBig && e.isActiveAndEnabled) _bigs.Add(e);
+            UpdateGateArrow();
             var cam = SvView.Instance != null ? SvView.Instance.Camera : null;
             float w = _root.rect.width, h = _root.rect.height;
             for (int i = 0; i < _arrows.Count; i++)
@@ -746,7 +800,7 @@ namespace ParryRL.Survivor
         private Text _cardTitle;
         private Image _coreBanner, _coreFork;
 
-        /// <summary>레벨업 카드를 띄운다. coreWindow = 핵심 비급 전용 창 (레벨 4 · 8 · 12 · 16).</summary>
+        /// <summary>레벨업 카드를 띄운다. coreWindow = 핵심 비급 전용 창 (귀문지기를 잡은 보상).</summary>
         public void ShowCards(List<SvItem> offer, SvProgress prog, bool coreWindow = false)
         {
             _cardRoot.gameObject.SetActive(true);
@@ -970,7 +1024,7 @@ namespace ParryRL.Survivor
             int t = Mathf.FloorToInt(SvGame.Elapsed);
             _timer.text = $"{t / 60:00}:{t % 60:00}";
             var watch = SvNight.Watches[Mathf.Clamp(SvNight.Phase, 0, SvNight.Watches.Length - 1)];
-            _watch.text = g.Boss != null && g.Boss.Hp > 0 ? "" : $"{watch.Name} {watch.Hanja}   <color=#b8fff0>귀문 {SvGates.BrokenCount}/{SvGates.SealCount}</color>";
+            _watch.text = g.Boss != null && g.Boss.Hp > 0 ? "" : $"{watch.Name} {watch.Hanja}   <color=#b8fff0>귀문 {SvGates.BrokenCount}/{SvGates.SealCount}{GateNextText(g)}</color>";
             _kills.text = $"처치 {g.Kills}";
             SetFill(_hpFill, p.Hp / (float)p.MaxHp);
             float hb = (Time.unscaledTime - _hurtAt) / HpBlinkTime;
