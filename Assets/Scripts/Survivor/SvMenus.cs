@@ -472,7 +472,7 @@ namespace ParryRL.Survivor
             var g = Game;
             _result.gameObject.SetActive(true);
             _resultList.Select(0);
-            _resultTitle.text = won ? "<color=#8fe8d0>불가살이를 물리쳤다!</color>" : "<color=#cccccc>쓰러졌다</color>";
+            _resultTitle.text = won ? "<color=#8fe8d0>염라대왕을 물리쳤다!</color>" : "<color=#cccccc>쓰러졌다</color>";
             var art = Game != null ? Game.Art : null;
             _resultEmblem.sprite = art == null ? null : won ? art.resultWin : art.resultLose;
             _resultEmblem.enabled = _resultEmblem.sprite != null;

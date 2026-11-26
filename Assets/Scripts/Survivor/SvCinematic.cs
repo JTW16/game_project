@@ -169,7 +169,12 @@ namespace ParryRL.Survivor
             game?.Shake(0.15f, 1.2f);
 
             // 1) 카메라가 보스 자리로 (조금 다가가며)
-            if (view != null) { view.Hold = boss.transform.position; view.HoldZoom = 0.82f; }
+            // 염라는 화면을 채우는 거인이라 멀리서, 몸 가운데를 비춘다
+            if (view != null)
+            {
+                view.Hold = boss.IsFinalBoss ? boss.transform.position + new Vector3(0f, 4.5f, 0f) : boss.transform.position;
+                view.HoldZoom = boss.IsFinalBoss ? 1.9f : 0.82f;
+            }
             yield return WaitRoutine(1.1f);
             if (_skipRequested) goto Done;
 
@@ -178,7 +183,8 @@ namespace ParryRL.Survivor
             Vector2 at = boss.Position;
             boss.Art.Renderer.enabled = true;
             var entrance = art != null && SurvivorArt.Ok(art.bossEntrance) ? art.bossEntrance : null;
-            var emerge = art != null && SurvivorArt.Ok(art.fxBossEmerge) ? art.fxBossEmerge : null;
+            // 쇳조각이 터지는 그림은 불가살이 것 — 염라는 땅이 갈라지는 쪽으로
+            var emerge = !boss.IsFinalBoss && art != null && SurvivorArt.Ok(art.fxBossEmerge) ? art.fxBossEmerge : null;
             if (emerge != null) SvFx.Anim(emerge, at, 3.25f, 6.5f, 1.0f, order: SvOrder.Overhead); // 아래 끝이 땅에 닿게 (높이 = 크기의 절반)
             else if (art != null)
             {
@@ -218,7 +224,8 @@ namespace ParryRL.Survivor
             var roar = art != null && SurvivorArt.Ok(art.fxBossRoar) ? art.fxBossRoar : null;
             // 포효 그림은 왼쪽 입에서 오른쪽으로 뿜는 모양 → 보스가 보는 쪽으로 몸 앞에 놓는다
             float side = boss.Art.FacingLeft ? -1f : 1f;
-            if (roar != null) SvFx.Anim(roar, at + new Vector2(side * 3.2f, 0f), 2.2f, 6.5f, 1.0f, boss.Art.FacingLeft);
+            // 입에서 뿜는 포효 그림은 불가살이 것 — 염라는 정면이라 쓰지 않는다
+            if (roar != null && !king) SvFx.Anim(roar, at + new Vector2(side * 3.2f, 0f), 2.2f, 6.5f, 1.0f, boss.Art.FacingLeft);
             SvFoeVfx.Roar(at, false);
             if (art != null && !SvVfx.Ready) SvFx.Anim(art.fxBossRoarRing, at, 2f, 7f, 0.9f);
             else if (art != null) SvFx.FlatAnim(art.fxCounter, at, 0f, 14f, 0.9f, new Color(1f, 0.6f, 0.25f, 0.85f));
