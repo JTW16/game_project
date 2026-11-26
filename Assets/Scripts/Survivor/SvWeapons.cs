@@ -185,13 +185,15 @@ namespace ParryRL.Survivor
         {
             SvEnemy best = null, gate = null;
             float bestD = maxDist, gateD = maxDist;
+            const float GateFirst = 4f; // 큰 귀문 앞(몸 가장자리에서 이 안)에 서 있으면 문을 먼저 친다 (2026-11-26 사용자 결정, 가안)
             foreach (var e in SvEnemy.Active)
             {
                 float d = (e.Position - from).magnitude - e.Radius - (e.IsBig ? 1.5f : 0f);
-                // 큰 귀문은 둘레에 몹이 없을 때만 노린다 (몹 떼를 두고 문만 때리지 않게 — 휩쓰는 공격엔 그대로 맞는다)
+                // 큰 귀문은 그 앞에 서 있을 때만 먼저, 아니면 둘레에 몹이 없을 때만 노린다 (몹 떼를 두고 멀리 있는 문을 때리지 않게)
                 if (e.IsGate) { if (d < gateD) { gateD = d; gate = e; } continue; }
                 if (d < bestD) { bestD = d; best = e; }
             }
+            if (gate != null && gateD <= GateFirst) return gate;
             return best != null ? best : gate;
         }
 

@@ -955,7 +955,7 @@ namespace ParryRL.Tests
         [UnityTest]
         public IEnumerator Early_Night_Starts_With_Few_Enemies()
         {
-            Assert.LessOrEqual(Game.Spawner.TargetAlive, 8, "시작은 적게");
+            Assert.LessOrEqual(Game.Spawner.TargetAlive, 12, "시작은 적게 (2026-11-26 초반 몹 수 12)");
             Game.SetElapsed(300f);
             Assert.Greater(Game.Spawner.TargetAlive, 60, "5분쯤엔 많이");
             yield break;
@@ -1219,7 +1219,11 @@ namespace ParryRL.Tests
         [Test]
         public void Exp_Requirement_Grows_Faster_At_High_Level()
         {
-            Assert.AreEqual(8, SvProgress.ExpFor(1));
+            Assert.AreEqual(5, SvProgress.ExpFor(1));
+            int sum4 = 0, sum18 = 0;
+            for (int l = 1; l < 18; l++) { if (l < 4) sum4 += SvProgress.ExpFor(l); sum18 += SvProgress.ExpFor(l); }
+            Assert.AreEqual(25, sum4, "Lv4까지 누적 25 (2026-11-26 기획)");
+            Assert.AreEqual(988, sum18, "Lv18까지 누적 988");
             int gainEarly = SvProgress.ExpFor(6) - SvProgress.ExpFor(5);
             int gainLate = SvProgress.ExpFor(16) - SvProgress.ExpFor(15);
             Assert.Greater(gainLate, gainEarly * 2, "고레벨일수록 한 레벨에 더 많이 필요");
@@ -1703,6 +1707,15 @@ namespace ParryRL.Tests
                 var body = Game.Spawner.GateBody(0);
                 Assert.IsNotNull(body, "가까이 가면 몸이 생겨 맞는다");
                 Assert.AreEqual(0, body.ContactDamage, "닿아도 피해 없음");
+                Assert.AreEqual(300, body.MaxHp, "첫 큰 귀문 체력 300 (귀문마다 고정값)");
+                var mob = SpawnAt(SvEnemyKind.Changgwi, Player.Position + new Vector2(1.5f, 0f));
+                Assert.AreSame(body, SvWeapons.Nearest(Player.Position, 6f), "문 앞이면 자동 무기가 몹보다 문을 먼저");
+                Teleport(at + new Vector2(0f, -9f));
+                mob.transform.position = Player.Position + new Vector2(1.5f, 0f);
+                mob.GetComponent<Rigidbody2D>().position = Player.Position + new Vector2(1.5f, 0f);
+                Assert.AreSame(mob, SvWeapons.Nearest(Player.Position, 12f), "문에서 떨어져 있으면 몹 먼저");
+                mob.Despawn();
+                Teleport(at + new Vector2(0f, -4f));
                 int max = body.Hp;
                 SvWeapons.Hit(body, 100, Vector2.zero, 0f, SvItems.Staff);
                 Assert.AreEqual(max - 100, body.Hp, "무기에 깎인다");
@@ -1721,7 +1734,7 @@ namespace ParryRL.Tests
                 var keeper = SvEnemy.Active.Find(e => e.IsGateKeeper);
                 Assert.IsNotNull(keeper, "무너진 자리에서 귀문지기가 나온다");
                 Assert.IsTrue(keeper.IsElite, "팀원이 중간 보스를 넣기 전엔 강한 정예");
-                Assert.Greater(keeper.MaxHp, 380 * 2, "보통 정예보다 단단하다");
+                Assert.Greater(keeper.MaxHp, 380, "보통 정예보다 단단하다 (×1.5)");
                 Assert.IsFalse(Game.Spawner.BossSpawned, "귀문을 부숴도 보스는 9분");
                 yield return WaitReal(1.8f); // 무너지는 연출이 가라앉은 뒤
                 yield return Capture("survivor_gate_keeper");
