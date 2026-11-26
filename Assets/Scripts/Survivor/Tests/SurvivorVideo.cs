@@ -277,6 +277,222 @@ namespace ParryRL.Tests
             Assert.Greater(_frames, Fps * 8);
         }
 
+        /// <summary>교수님께 보여 드릴 전체 소개 영상 (2026-11-26): 무기·이동·기술·카드·정예·귀문 부수기·보스 패턴·그로기·승리. 장면마다 왼쪽 위에 설명 한 줄.</summary>
+        [UnityTest, Explicit("시연 영상 — 이름으로 골라 돌린다")]
+        public IEnumerator Record_Overview()
+        {
+#if UNITY_EDITOR
+            string path = Path.Combine(Directory.GetCurrentDirectory(), "Captures", "overview.mp4");
+            if (File.Exists(path)) File.Delete(path);
+            _enc = new UnityEditor.Media.MediaEncoder(path, new UnityEditor.Media.VideoTrackAttributes
+            {
+                frameRate = new UnityEditor.Media.MediaRational(Fps), width = W, height = H, includeAlpha = false,
+                bitRateMode = UnityEditor.VideoBitrateMode.High,
+            });
+#endif
+            _rt = new RenderTexture(W, H, 24);
+            _tex = new Texture2D(W, H, TextureFormat.RGBA32, false);
+            UnityEngine.UI.Text cap = null;
+            UnityEngine.UI.Image capBg = null;
+            foreach (var canvas in Object.FindObjectsByType<Canvas>())
+            {
+                if (!canvas.isRootCanvas) continue;
+                canvas.renderMode = RenderMode.ScreenSpaceCamera;
+                canvas.worldCamera = Camera.main;
+                canvas.planeDistance = 1f;
+            }
+            {
+                // 자막은 따로 맨 위 층에 (게임 화면 층 순서와 상관없이 늘 보이게)
+                var go = new GameObject("CaptionCanvas", typeof(Canvas), typeof(UnityEngine.UI.CanvasScaler));
+                var cc = go.GetComponent<Canvas>();
+                cc.renderMode = RenderMode.ScreenSpaceCamera;
+                cc.worldCamera = Camera.main;
+                cc.planeDistance = 0.9f;
+                cc.sortingOrder = 32000;
+                var sc = go.GetComponent<UnityEngine.UI.CanvasScaler>();
+                sc.uiScaleMode = UnityEngine.UI.CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                sc.referenceResolution = new Vector2(1920f, 1080f);
+                sc.matchWidthOrHeight = 0.5f;
+                var bg = UiKit.Image("CaptionBg", (RectTransform)go.transform, new Color(0f, 0f, 0f, 0.55f));
+                UiKit.Place(bg.rectTransform, new Vector2(0.5f, 0f), new Vector2(0f, 200f), new Vector2(1780f, 60f));
+                cap = UiKit.Text("Caption", bg.rectTransform, 30, TextAnchor.MiddleCenter);
+                UiKit.Stretch(cap.rectTransform);
+                cap.color = new Color(1f, 0.95f, 0.8f);
+                SvFonts.Apply(cap);
+                capBg = bg;
+            }
+            void Say(string s) { cap.text = s; capBg.enabled = s.Length > 0; }
+            Time.captureFramerate = Fps;
+            _stills = Path.Combine(Directory.GetCurrentDirectory(), "Captures", "survivor", "overview");
+            if (Directory.Exists(_stills)) Directory.Delete(_stills, true);
+            Directory.CreateDirectory(_stills);
+
+            var prog = Game.Progress;
+            void Take(string id, int n) { for (int i = 0; i < n; i++) prog.Take(SvItems.Get(id), Player, Game.Weapons); }
+            Take(SvItems.Staff, 3);
+            Take(SvItems.Talisman, 2);
+            Take(SvItems.Orbit, 2);
+            Take(SvItems.Bell, 1);
+            prog.HoldLevelUps = true;
+            Game.SetElapsed(150f);
+            Game.Night.Snap();
+            Game.Spawner.Burst(40);
+            yield return Run(4f, Circle, record: false);
+
+            // 1) 자동 무기
+            Say("자동 무기 — 봉 · 부적 · 호신부 · 방울은 저절로 나간다 (이동만 해도 싸운다)");
+            yield return Run(5f, Circle);
+            // 2) 보법
+            Say("Shift 보법 — 언제든 미끄러지듯 대시, 무적은 2회 충전");
+            Player.TryDash();
+            yield return Run(1.2f, Circle);
+            Player.TryDash();
+            yield return Run(1.3f, Circle);
+            // 3) 경공 → 급강하
+            Say("Space 경공 — 2단 도약 (쿨 15초) → 공중에서 A = 급강하");
+            Player.TryJump();
+            yield return Run(0.3f, Circle);
+            Player.TryJump();
+            yield return Run(0.55f, Circle);
+            Player.TrySlam();
+            yield return Run(1.8f, () => Player.TryMove(Vector2.zero));
+            // 4) 기술
+            Say("A 내려찍기 — 땅에서는 살짝 뛰었다 내리꽂는다");
+            Player.TrySlam();
+            yield return Run(1.6f, () => Player.TryMove(Vector2.zero));
+            Say("S 긴 봉 내리찍기");
+            yield return Run(0.1f, () => Aim());
+            Game.Weapons.TryGiant();
+            yield return Run(1.6f, () => Player.TryMove(Vector2.zero));
+            Say("W 산군 (호랑이 조력자)");
+            yield return Run(0.1f, () => Aim());
+            Game.Helpers.TryTiger();
+            yield return Run(1.8f, Circle);
+            Say("E 무녀 — 결계 안의 요괴를 느리게, 퇴마사는 회복");
+            Game.Helpers.TryShaman();
+            yield return Run(2.2f, () => Player.TryMove(Vector2.zero));
+            Say("D 궁극기 귀문봉인 — 처치·정예·패링으로 도력을 채워 쓴다");
+            Game.Ultimate.Fill();
+            Game.Ultimate.TryUltimate();
+            yield return Run(3.2f, () => Player.TryMove(Vector2.zero));
+            // 5) 레벨업
+            Say("레벨업 — 무기 · 기술 · 비급 카드 셋 중 하나 (레벨 4·8·12·16엔 핵심 비급)");
+            yield return Cards();
+
+            // 6) 정예: 한 번 맞고, 한 번 패링
+            Say("정예 (3분부터) — 바닥에 빨간 부채꼴 + 느낌표로 예고하고 벤다");
+            var elite = Game.Spawner.Spawn(SvEnemyKind.Elite, Player.Position + new Vector2(3f, 0.5f));
+            elite.SetHealth(20000);
+            Game.OnEliteAppeared(elite);
+            var atk = elite.GetComponent<SvEliteAttack>();
+            atk.BeginWindup();
+            yield return Run(2.6f, () => Player.TryMove((elite.Position - Player.Position).normalized * 0.15f));
+            Say("Q 패링 — 느낌표가 빨개질 때 누르면 막고, 기절시키고, 둘레를 되받아친다");
+            yield return Run(0.8f, () => Player.TryMove((elite.Position - Player.Position).normalized * 0.15f));
+            atk.BeginWindup();
+            bool parried = false;
+            yield return Run(3f, () =>
+            {
+                Player.TryMove((elite.Position - Player.Position).normalized * 0.15f);
+                if (!parried && atk.CueRed) parried = Player.TryParry();
+            });
+            if (elite.Hp > 0) elite.TakeDamage(elite.Hp, Vector2.right, 0f);
+
+            // 7) 귀문 부수기
+            var seals = SvGates.Seals;
+            Vector2 g0 = SvGates.All[seals[0]];
+            for (int i = SvEnemy.Active.Count - 1; i >= 0; i--) if (!SvEnemy.Active[i].IsGate) SvEnemy.Active[i].Despawn();
+            Teleport(g0 + new Vector2(0.6f, -7f));
+            yield return Run(1.2f, () => Player.TryMove(Vector2.zero), record: false);
+            Say("큰 귀문 6곳 (미니맵 큰 마름모) — 무기로 때려 부순다. 맞는 동안 문에서 요괴가 쏟아진다");
+            yield return Run(4f, () => Walk(g0 + new Vector2(0.4f, -2.6f)));
+            Game.Weapons.TryGiant();
+            yield return Run(1.2f, () => Player.TryMove(Vector2.zero));
+            // 영상 길이를 줄이려고 남은 체력은 빨리 깎는다
+            yield return RunUntil(() => SvGates.SlotBroken(0), 4f, () =>
+            {
+                Player.TryMove(Vector2.zero);
+                var b = Game.Spawner.GateBody(0);
+                if (b != null) SvWeapons.Hit(b, Mathf.CeilToInt(b.MaxHp * 0.4f / Fps), Vector2.zero, 0f, SvItems.Staff);
+            });
+            Say("부술 때마다 남은 귀문의 요괴가 사나워진다 (체력 +15%, 짙은 변종 늘어남) — 위쪽 \"귀문 1/6\"");
+            yield return Run(3f, () => Player.TryMove(Vector2.zero));
+            for (int s = 1; s < seals.Count - 1; s++)
+            {
+                Teleport(SvGates.All[seals[s]] + new Vector2(0f, -4f));
+                Game.Spawner.UpdateGates(Player.Position);
+                var b = Game.Spawner.GateBody(s);
+                if (b != null) SvWeapons.Hit(b, b.Hp + 10, Vector2.zero, 0f, SvItems.Staff);
+                yield return Run(0.2f, null, record: false);
+            }
+            for (int i = SvEnemy.Active.Count - 1; i >= 0; i--) if (!SvEnemy.Active[i].IsGate) SvEnemy.Active[i].Despawn();
+            int last = seals.Count - 1;
+            Vector2 g5 = SvGates.All[seals[last]];
+            Teleport(g5 + new Vector2(0.4f, -3f));
+            yield return Run(1.0f, () => Player.TryMove(Vector2.zero), record: false);
+            Say("(가운데 넷은 건너뜀) 마지막 귀문 — 6곳을 다 부수면 보스가 끌려 나온다. 일찍 부술수록 약하게");
+            yield return RunUntil(() => SvGates.SlotBroken(last), 3f, () =>
+            {
+                Player.TryMove(Vector2.zero);
+                var b = Game.Spawner.GateBody(last);
+                if (b != null) SvWeapons.Hit(b, Mathf.CeilToInt(b.MaxHp * 0.5f / Fps), Vector2.zero, 0f, SvItems.Staff);
+            });
+            yield return Run(0.6f, () => Player.TryMove(Vector2.zero));
+            Say("");
+            var boss = Game.Boss;
+            yield return RunUntil(() => !Game.InCinematic, 12f, () => Player.TryMove(Vector2.zero));
+
+            // 8) 보스 패턴
+            var paw = boss.GetComponent<SvEliteAttack>();
+            var ai = boss.GetComponent<SvBoss>();
+            Say("보스 불가살이 — 앞발 내리치기 (빨간 예고, 패링 가능)");
+            parried = false;
+            yield return RunUntil(() => ai.Groggy, 10f, () =>
+            {
+                Vector2 to = boss.Position - Player.Position;
+                Player.TryMove(to.magnitude > 3.2f ? to.normalized : to.normalized * 0.15f);
+                if (!parried && paw.CueRed) parried = Player.TryParry();
+                if (parried && !paw.Busy && !ai.Groggy) parried = false;
+            });
+            Say("앞발을 패링하면 그로기 4초 — 받는 피해 2배, 직접 쓰는 기술(A · S · D)은 3배");
+            yield return Run(0.4f, () => Aim(boss));
+            Game.Weapons.TryGiant();
+            yield return Run(1.1f, () => Player.TryMove(Vector2.zero));
+            Player.TrySlam();
+            yield return Run(1.6f, () => Player.TryMove(Vector2.zero));
+            Say("쇠가시 사방 발사 — 패링 불가, 피한다 (한 발은 퇴마사를 노린다)");
+            ai.ForceSpines();
+            yield return Run(0.7f, () => Player.TryMove(Vector2.zero));
+            yield return Run(2.2f, () => Player.TryMove(new Vector2(-1f, -0.3f).normalized));
+            Say("체력 절반 → 변신, 2페이즈: 더 빠르고 더 넓은 앞발 + 돌진 (빨간 띠 예고, 보법으로 피한다)");
+            if (boss.Hp > boss.MaxHp / 2) boss.TakeDamage(boss.Hp - boss.MaxHp / 2 + 5, Vector2.zero, 0f);
+            yield return RunUntil(() => ai.Phase == 2, 4f, () => Player.TryMove(Vector2.zero));
+            ai.ForceCharge();
+            bool dashed = false;
+            yield return Run(3.2f, () =>
+            {
+                if (ai.State == SvBoss.Mode.ChargeWindup && !dashed) { Player.TryMove(new Vector2(0f, 1f)); dashed = Player.TryDash(); }
+                else Player.TryMove(Vector2.zero);
+            });
+            Say("보스를 쓰러뜨리면 승리");
+            yield return RunUntil(() => boss == null || boss.Hp <= 0, 4f, () =>
+            {
+                Player.TryMove(Vector2.zero);
+                if (boss != null && boss.Hp > 0) boss.TakeDamage(boss.Hp, Vector2.up, 0f);
+            });
+            Say("");
+            yield return RunUntil(() => Game.Hud.ResultShown, 10f, () => Player.TryMove(Vector2.zero));
+            yield return Run(2.5f, null);
+
+#if UNITY_EDITOR
+            _enc.Dispose();
+            _enc = null;
+#endif
+            Time.captureFramerate = 0;
+            Debug.Log($"[Video] {_frames} frames ({_frames / (float)Fps:0.0}s) → Captures/overview.mp4 · 패링 {Player.ParrySuccesses} · 그로기 {ai.Groggies}");
+            Assert.Greater(_frames, Fps * 30);
+        }
+
         private void Walk(Vector2 to)
         {
             Vector2 d = to - Player.Position;
