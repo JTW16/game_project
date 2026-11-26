@@ -205,7 +205,10 @@ namespace ParryRL.Survivor
             if (_skipRequested) goto Done;
 
             // 3) 포효 + 이름 카드
-            var roarPose = entrance != null ? entrance[Mathf.Min(2, entrance.Length - 1)]
+            bool king = boss.IsFinalBoss;
+            if (king) entrance = null; // 불가살이의 등장 그림은 쓰지 않는다
+            var roarPose = king ? (art != null ? art.yeomraRage : null)
+                : entrance != null ? entrance[Mathf.Min(2, entrance.Length - 1)]
                 : art != null && SurvivorArt.Ok(art.bossTransform) ? art.bossTransform[0] : null;
             if (roarPose != null) boss.Art.Renderer.sprite = roarPose;
             Sfx.Play(SfxId.BossRoar);
@@ -219,7 +222,8 @@ namespace ParryRL.Survivor
             SvFoeVfx.Roar(at, false);
             if (art != null && !SvVfx.Ready) SvFx.Anim(art.fxBossRoarRing, at, 2f, 7f, 0.9f);
             else if (art != null) SvFx.FlatAnim(art.fxCounter, at, 0f, 14f, 0.9f, new Color(1f, 0.6f, 0.25f, 0.85f));
-            ShowCard("불가살이  <size=56>不可殺伊</size>", "쇠를 먹고 자라는, 죽일 수 없는 짐승");
+            if (king) ShowCard("염라대왕  <size=56>閻羅大王</size>", "죽은 이를 심판하는 저승의 왕");
+            else ShowCard("불가살이  <size=56>不可殺伊</size>", "쇠를 먹고 자라는, 죽일 수 없는 짐승");
             yield return WaitRoutine(2.2f);
             if (entrance != null) boss.Art.Renderer.sprite = entrance[^1];
 
@@ -231,6 +235,7 @@ namespace ParryRL.Survivor
             boss.Scripted = false;
             boss.Art.Renderer.enabled = true;
             boss.Art.Squash = Vector2.one;
+            boss.PoseOverride = null;
             _barsGoal = 0f;
             SvMusic.Instance?.Play("boss", 0.8f);
             if (!_skipRequested)

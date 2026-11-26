@@ -56,6 +56,19 @@ MonoBehaviour:
   - {fileID: 21300000, guid: 13fb8004d66831741bec5ca1e93451ac, type: 3}
   - {fileID: 21300000, guid: 8bfbea9541c91ea4fa98c74a1f519745, type: 3}
   - {fileID: 21300000, guid: 6cdaea47378097e46bc7becc12926608, type: 3}
+  yeomra:
+    idle: {fileID: 21300000, guid: 1605a3361acd82a47a1d98f090293c29, type: 3}
+    move: []
+    attack: []
+    death: []
+    moveFps: 1
+    height: 12.5
+  yeomraStun: {fileID: 21300000, guid: f872d1e5dd6426f429486596ef0964c6, type: 3}
+  yeomraRage: {fileID: 21300000, guid: f5cf13cfa4aaa6949a77ddc666fdabfa, type: 3}
+  yeomraSkullRest: {fileID: 21300000, guid: 1113d16d651af034d99f0766516aaf3f, type: 3}
+  yeomraSkullRaise: {fileID: 21300000, guid: 10dfe1d176f1e2b41841e837d81d3e78, type: 3}
+  yeomraHumanRest: {fileID: 21300000, guid: 994090624b0d3a848b7e394db0a24f95, type: 3}
+  yeomraHumanRaise: {fileID: 21300000, guid: 18ec6bb6c8b1eda40b7c079c059d0231, type: 3}
   heroParry:
   - {fileID: 21300000, guid: b19231a4f82d6634092f460ca1ca2fe9, type: 3}
   - {fileID: 21300000, guid: 33de02dc6f0dd2648bb294f9f99a0952, type: 3}

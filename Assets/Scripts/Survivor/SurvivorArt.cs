@@ -25,6 +25,10 @@ namespace ParryRL.Survivor
         public Sprite heroIdle;
         public Sprite[] heroRun;
         public Sprite[] heroSwing, heroSlam, heroThrow, heroJump, heroDash, heroDown;
+        [Header("염라대왕 (S15, 2026-11-26) — 몸(기본·분노·그로기) · 손(해골/사람 × 짚음/치켜듦)")]
+        public SvMobArt yeomra;
+        public Sprite yeomraStun, yeomraRage;
+        public Sprite yeomraSkullRest, yeomraSkullRaise, yeomraHumanRest, yeomraHumanRaise;
         [Tooltip("S6·S7: 패링(막기·튕김·반격 준비·스미어·반격·회복) · 피격 · 승리")]
         public Sprite[] heroParry, heroHurt, heroVictory;
         [Header("퇴마사 뼈대 (부위 나누기 — 2026-11-25, 있으면 위 그림 장면 대신 이걸로 움직인다)")]

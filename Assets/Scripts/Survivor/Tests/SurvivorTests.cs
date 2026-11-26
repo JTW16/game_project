@@ -706,7 +706,8 @@ namespace ParryRL.Tests
         public IEnumerator Killing_Boss_Wins_The_Run()
         {
             Game.Weapons.enabled = false;
-            var boss = SpawnBoss(new Vector2(6f, 0f));
+            // 2026-11-26부터 이기는 건 마지막 보스 염라 (불가살이는 마지막 귀문지기)
+            var boss = Game.Spawner.SpawnBoss();
             yield return null;
             boss.TakeDamage(boss.MaxHp, Vector2.right, 0f);
             Assert.IsFalse(Game.Over, "쓰러지는 그림을 보여 준 뒤에 끝난다");
@@ -1351,8 +1352,8 @@ namespace ParryRL.Tests
             Assert.AreEqual(0f, Time.timeScale, "컷신 동안 게임이 멈춘다");
             Assert.IsTrue(SvGame.InputBlocked);
             float end = Time.realtimeSinceStartup + 3f;
-            while (Time.realtimeSinceStartup < end && !Game.Cinematic.TitleText.Contains("불가살이")) yield return null;
-            StringAssert.Contains("불가살이", Game.Cinematic.TitleText, "이름 카드");
+            while (Time.realtimeSinceStartup < end && !Game.Cinematic.TitleText.Contains("염라대왕")) yield return null;
+            StringAssert.Contains("염라대왕", Game.Cinematic.TitleText, "이름 카드 (9분 = 염라)");
             Assert.IsTrue(Game.Cinematic.BarsShown, "위아래 검은 띠");
             Assert.IsNotNull(SvView.Instance.Hold, "카메라가 보스를 비춘다");
             yield return WaitReal(0.6f); // 이름 카드가 다 나타난 뒤
@@ -1785,6 +1786,137 @@ namespace ParryRL.Tests
             SvWeapons.Hit(body, body.Hp + 10, Vector2.zero, 0f, SvItems.Staff);
             yield return WaitReal(0.5f);
             yield return Capture("survivor_gate_broken");
+        }
+
+        // ---------- 염라대왕 (2026-11-26) ----------
+
+        [UnityTest]
+        public IEnumerator Last_Gate_Keeper_Is_Bulgasari_Then_Yeomra_Rises_At_Center()
+        {
+            Game.Weapons.enabled = false;
+            Game.Progress.HoldLevelUps = true;
+            Player.MaxHp = 100000;
+            Player.Heal(100000);
+            SvEnemy keeper = null;
+            for (int k = 0; k < SvGates.SealCount; k++)
+            {
+                Assert.IsTrue(Game.Spawner.OpenNextGate(Player.Position));
+                Teleport(SvGates.All[SvGates.Seals[k]] + new Vector2(0f, -4f));
+                Game.Spawner.UpdateGates(Player.Position);
+                var body = Game.Spawner.GateBody(k);
+                Assert.IsNotNull(body);
+                int before = SvEnemy.Active.Count;
+                SvWeapons.Hit(body, body.Hp + 10, Vector2.zero, 0f, SvItems.Staff);
+                keeper = SvEnemy.Active.Find(e => e.IsGateKeeper && e.isActiveAndEnabled && e.Hp > 0 && (k < SvGates.SealCount - 1 ? e.IsElite : e.Kind == SvEnemyKind.Boss));
+                Assert.IsNotNull(keeper, $"{k + 1}번째 귀문지기");
+                if (k < SvGates.SealCount - 1) { keeper.Despawn(); yield return null; }
+            }
+            Assert.AreEqual(SvEnemyKind.Boss, keeper.Kind, "마지막 귀문지기는 불가살이");
+            Assert.AreEqual(keeper, Game.MidBoss);
+            yield return null; // 체력 바는 다음 프레임에 그린다
+            Assert.IsTrue(Game.Hud.BossBarShown);
+            keeper.TakeDamage(keeper.Hp + 1, Vector2.right, 0f);
+            yield return null;
+            Assert.IsFalse(Game.Over, "불가살이를 잡아도 판은 계속된다");
+            Assert.IsTrue(Game.Progress.CoreRewardsPending >= 1 || Game.Hud.CardsShown, "귀문지기라 핵심 비급 (창이 이미 떴으면 그걸로)");
+            if (Game.Hud.CardsShown) Game.ChooseCard(0);
+            Game.SetElapsed(Game.Spawner.BossAt + 0.1f);
+            Game.Spawner.Running = true;
+            yield return null;
+            Game.Spawner.Running = false;
+            var king = Game.Boss;
+            Assert.IsNotNull(king, "9분에 염라");
+            Assert.IsTrue(king.IsFinalBoss);
+            Assert.Less(king.Position.magnitude, 0.5f, "들판 한가운데");
+            Assert.GreaterOrEqual((Player.Position - king.Position).magnitude, 6f, "퇴마사가 겹쳐 있으면 밀려난다");
+            Vector2 at = king.Position;
+            yield return Wait(1f);
+            Assert.Less((king.Position - at).magnitude, 0.01f, "움직이지 않는다");
+            king.TakeDamage(king.Hp + 1, Vector2.right, 0f);
+            float end = Time.realtimeSinceStartup + 6f;
+            while (Time.realtimeSinceStartup < end && !Game.Over) yield return null;
+            Assert.IsTrue(Game.Over && Game.Won, "염라를 쓰러뜨리면 승리");
+        }
+
+        private SvYeomra SpawnYeomra()
+        {
+            Teleport(new Vector2(0f, -9f));
+            var king = Game.Spawner.SpawnBoss();
+            var ai = king.GetComponent<SvYeomra>();
+            ai.HoldAll(99f);
+            return ai;
+        }
+
+        [UnityTest]
+        public IEnumerator Yeomra_Human_Hand_Smash_Can_Be_Parried_Into_Groggy()
+        {
+            Game.Weapons.enabled = false;
+            var ai = SpawnYeomra();
+            yield return null;
+            ai.ForceSmash();
+            float until = Time.time + 4f;
+            while (Time.time < until && !ai.SmashHot) yield return null;
+            Assert.IsTrue(ai.SmashHot, "사람 손 예고가 빨개진다");
+            Assert.Less((ai.SmashAt - Player.Position).magnitude, 1f, "퇴마사 머리 위로 온다");
+            Assert.IsTrue(Player.TryParry());
+            while (Time.time < until && ai.Smashes == 0) yield return null;
+            Assert.AreEqual(1, Player.ParrySuccesses);
+            Assert.AreEqual(Player.MaxHp, Player.Hp);
+            Assert.IsTrue(ai.Groggy, "사람 손 패링 = 그로기");
+            try
+            {
+                SvWeapons.CritOverride = 0f;
+                var king = Game.Boss;
+                int hp = king.Hp;
+                SvWeapons.Hit(king, 100, Vector2.zero, 0f, "slam");
+                Assert.AreEqual(hp - 300, king.Hp, "그로기 중 직접 기술 3배");
+            }
+            finally { SvWeapons.CritOverride = null; }
+        }
+
+        [UnityTest]
+        public IEnumerator Yeomra_Smash_Hits_Without_Parry_And_Skull_Sweep_Hits_A_Standing_Player()
+        {
+            Game.Weapons.enabled = false;
+            Player.MaxHp = 1000;
+            Player.Heal(1000);
+            var ai = SpawnYeomra();
+            yield return null;
+            ai.ForceSmash();
+            float until = Time.time + 4f;
+            while (Time.time < until && ai.Smashes == 0) yield return null;
+            Assert.Less(Player.Hp, Player.MaxHp, "패링 안 하면 사람 손에 맞는다");
+            int hp = Player.Hp;
+            yield return Wait(1.2f); // 맞은 뒤 무적이 풀리게
+            ai.HoldAll(99f);
+            ai.ForceSweep();
+            until = Time.time + 4f;
+            while (Time.time < until && (ai.Sweeps == 0 || ai.State == SvYeomra.Mode.Sweep)) yield return null;
+            Assert.AreEqual(1, ai.Sweeps);
+            Assert.Less(Player.Hp, hp, "해골 손 할퀴기 — 가만히 서 있으면 맞는다 (패링 불가)");
+        }
+
+        [UnityTest]
+        public IEnumerator Capture_Yeomra()
+        {
+            Player.MaxHp = 100000;
+            Player.Heal(100000);
+            var ai = SpawnYeomra();
+            yield return WaitReal(3f); // 카메라가 보스전 구도로 물러날 때까지
+            yield return Capture("survivor_yeomra");
+            ai.ForceSmash();
+            float until = Time.time + 3f;
+            while (Time.time < until && !ai.SmashHot) yield return null;
+            yield return Capture("survivor_yeomra_smash");
+            while (Time.time < until && ai.Smashes == 0) yield return null;
+            ai.HoldAll(99f);
+            ai.ForceSweep();
+            yield return Wait(0.9f);
+            yield return Capture("survivor_yeomra_sweep");
+            yield return Wait(1.2f);
+            ai.OnParried();
+            yield return Wait(0.4f);
+            yield return Capture("survivor_yeomra_groggy");
         }
 
         private void Teleport(Vector2 at)

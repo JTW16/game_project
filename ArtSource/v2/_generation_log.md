@@ -599,3 +599,18 @@ No ground cast shadows, no mist, no atmospheric gradient, no horizon, no additio
 | ArtSource/v2/fx14/marks.png | 성공 | 0 | 문양 8칸 (부적 방패 · 금 간 혼 · 작두날 · 귀문 기둥 · 소용돌이 · 부적 별 · 깃털 · 제비), 검정 위 흰색 |
 | ArtSource/v2/fx14/crack.png | 성공 | 0 | 위에서 본 둥근 금, 검정 위 흰색 |
 | ArtSource/v2/fx14/leaves.png | 성공 | 0 | 잎 4 · 꽃잎 4, 투명 (꽃잎은 낙화연격용 예비) |
+
+## S15 생성 — 염라대왕 (Claude가 Codex CLI를 불러, 2026-11-26)
+
+후보 12장(옆모습 A~E · 정면 거인 F~I · 반쪽 해골 J~L)을 뽑아 사용자가 K를 골랐다. 고른 K를 참고 그림으로 몸 셋·손 넷을 뽑았다.
+
+| 파일 경로 | 성공/실패 | 다시 만든 횟수 | 문제점 한 줄 |
+|---|---|---:|---|
+| ArtSource/v2/boss/yeomra/split_k.png | 성공 | 0 | 머리가 몸에 비해 작고 손끝이 아래 끝에 닿음 (손은 따로 뽑아 해결) |
+| ArtSource/v2/boss/yeomra/body.png | 성공 | 0 | K보다 소매 폭이 좁다 |
+| ArtSource/v2/boss/yeomra/rage.png | 성공 | 0 | 불길이 왼쪽으로 넘쳐 크기를 맞추느라 배율 1.08 |
+| ArtSource/v2/boss/yeomra/stun.png | 성공 | 0 | — |
+| ArtSource/v2/boss/yeomra/skull_rest.png | 성공 | 0 | — |
+| ArtSource/v2/boss/yeomra/skull_raise.png | 성공 | 0 | 손이 위를 향해 세로로 길다 (배율 1.25) |
+| ArtSource/v2/boss/yeomra/human_rest.png | 성공 | 0 | — |
+| ArtSource/v2/boss/yeomra/human_raise.png | 성공 | 0 | 빨간 경고 테두리가 가늘다 |

@@ -1030,16 +1030,16 @@ namespace ParryRL.Survivor
             float hb = (Time.unscaledTime - _hurtAt) / HpBlinkTime;
             _hpFill.color = hb < 1f ? Color.Lerp(Color.white, HpGreen, hb * hb) : HpGreen;
             _hp.text = $"체력 {p.Hp} / {p.MaxHp}";
-            var boss = g.Boss;
-            bool bossOn = boss != null && boss.isActiveAndEnabled && boss.Hp > 0 && !g.Over;
+            var boss = g.ActiveBoss;
+            bool bossOn = boss != null && !g.Over;
             if (_bossRoot.gameObject.activeSelf != bossOn) _bossRoot.gameObject.SetActive(bossOn);
             if (bossOn)
             {
                 SetFill(_bossFill, boss.Hp / (float)boss.MaxHp);
                 // 그로기 동안은 이름 옆에 남은 시간, 체력 바가 옥빛으로 맥박친다 (지금 몰아칠 때라는 걸 알게)
-                var ai = boss.TryGetComponent(out SvBoss b) ? b : null;
+                var ai = boss.TryGetComponent(out ISvGroggy b) ? b : null;
                 bool groggy = ai != null && ai.Groggy;
-                _bossName.text = groggy ? $"불가살이 <color=#b8fff0>· 그로기 {ai.GroggyLeft:0.0}</color>" : "불가살이";
+                _bossName.text = groggy ? $"{boss.BossName} <color=#b8fff0>· 그로기 {ai.GroggyLeft:0.0}</color>" : boss.BossName;
                 float pulse = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 12f);
                 _bossFill.color = groggy ? Color.Lerp(_bossFillColor, new Color(0.6f, 1f, 0.92f), 0.35f + 0.4f * pulse) : _bossFillColor;
             }

@@ -486,7 +486,7 @@ namespace ParryRL.Survivor
             sb.AppendLine($"패링   <b>{g.Player.ParrySuccesses}</b>");
             sb.AppendLine($"받은 피해   <b>{g.Player.DamageTaken}</b>");
             if (!won && g.Boss != null && g.Boss.Hp > 0)
-                sb.AppendLine($"\n<color=#ffb070>불가살이 남은 체력 {Mathf.CeilToInt(100f * g.Boss.Hp / g.Boss.MaxHp)}%</color>");
+                sb.AppendLine($"\n<color=#ffb070>{g.Boss.BossName} 남은 체력 {Mathf.CeilToInt(100f * g.Boss.Hp / g.Boss.MaxHp)}%</color>");
             _resultStats.text = sb.ToString();
 
             // 무기별 준 피해 (많은 순, 막대로)

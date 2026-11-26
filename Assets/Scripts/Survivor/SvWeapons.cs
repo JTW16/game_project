@@ -776,7 +776,7 @@ namespace ParryRL.Survivor
             float chance = CritOverride ?? CritChance;
             bool crit = source != "ultimate" && Random.value < chance;
             if (crit) damage = Mathf.RoundToInt(damage * CritMul);
-            if (e.IsBoss && e.TryGetComponent(out SvBoss boss) && boss.Groggy) damage = Mathf.RoundToInt(damage * boss.GroggyDamageMul(source));
+            if (e.IsBoss && e.TryGetComponent(out ISvGroggy boss) && boss.Groggy) damage = Mathf.RoundToInt(damage * boss.GroggyDamageMul(source));
             // 묵직한 한 방은 아주 짧게 멈춘다 (정예·보스 치명타, 내려찍기·반격)
             if ((crit && e.IsBig) || source == "slam" || source == "counter") SvGame.Instance?.MicroStop(source == "slam" ? 0.06f : 0.045f);
             // 큰 한 방(내려찍기·반격·궁극기)이나 정예·보스는 굵은 타격 불꽃

@@ -24,10 +24,15 @@ namespace ParryRL.Survivor
         [SerializeField] private float firstElite = 180f;
         [SerializeField] private float eliteInterval = 60f;
 
-        [Header("보스 불가살이 (가안)")]
-        [Tooltip("이 시간(초)에 보스가 나온다. 이후 정예는 안 나오고 잡몹 동시 수를 줄인다")]
-        [SerializeField] private float bossAt = 540f;
+        [Header("불가살이 — 마지막(4번째) 귀문지기 (2026-11-26 사용자 결정, 가안)")]
         [SerializeField] private int bossHp = 4200;
+        [Tooltip("귀문지기가 된 불가살이의 체력 배율")]
+        [SerializeField] private float midBossHpMul = 0.6f;
+
+        [Header("마지막 보스 염라대왕 (가안)")]
+        [Tooltip("이 시간(초)에 염라가 들판 한가운데에서 솟는다. 이후 정예는 안 나오고 잡몹 동시 수를 줄인다")]
+        [SerializeField] private float bossAt = 540f;
+        [SerializeField] private int yeomraHp = 9000;
         [SerializeField] private int aliveDuringBoss = 90;
 
         [Header("큰 귀문 (2026-11-26 사용자 결정 \"귀문 부수기\" 개편, 수치는 가안)")]
@@ -119,6 +124,8 @@ namespace ParryRL.Survivor
         }
         public bool BossSpawned { get; private set; }
         public float BossAt => bossAt;
+        public int YeomraHp => yeomraHp;
+        public SvEnemy MidBoss { get; private set; }
         public float FirstElite => firstElite;
         public float FirstPack => firstPack;
         public SvEnemy Boss { get; private set; }
@@ -227,27 +234,37 @@ namespace ParryRL.Survivor
         /// </summary>
         public SvEnemy SpawnGateKeeper(Vector2 at)
         {
+            // 마지막(4번째) 귀문의 귀문지기는 불가살이 (2026-11-26 사용자 결정 — 나머지 귀문지기는 사흉수 같은 중간 보스로 늘릴 예정)
+            if (SvGates.BrokenCount >= SvGates.SealCount)
+            {
+                var b = Spawn(SvEnemyKind.Boss, at);
+                b.MakeGateKeeper(1f);
+                MidBoss = b;
+                SvGame.Instance?.OnBossAppeared(b);
+                return b;
+            }
             var e = Spawn(SvEnemyKind.Elite, at);
             e.SetHealth(Mathf.RoundToInt(e.MaxHp * keeperHpMul));
             e.MakeGateKeeper(keeperScale);
             return e;
         }
 
-        /// <summary>보스를 화면 밖에서 불러낸다 (한 판에 한 번).</summary>
+        /// <summary>마지막 보스 염라를 들판 한가운데에 세운다 (한 판에 한 번). 퇴마사가 그 자리에 있으면 밀어낸다.</summary>
         public SvEnemy SpawnBoss()
         {
             var p = SvPlayer.Instance;
             if (p == null || (Boss != null && Boss.isActiveAndEnabled)) return Boss;
             BossSpawned = true;
-            // 가장 가까운 귀문에서 나온다 (등장 컷신의 카메라가 비출 수 있는 거리 안이면). 멀면 예전처럼 화면 가장자리쯤
-            int gi = NearestGate(p.Position, 6f, 18f);
-            Vector2 at = p.Position + SvGeom.FromAngle(Random.Range(20f, 160f)) * 8.5f;
-            if (gi >= 0)
+            Vector2 at = Vector2.zero;
+            Vector2 off = p.Position - at;
+            if (off.magnitude < 8f)
             {
-                at = SvGates.All[gi] + new Vector2(0f, -2.2f);
-                SvGates.MarkSpawn(gi);
+                Vector2 to = at + (off.sqrMagnitude > 0.01f ? off.normalized : Vector2.down) * 8f;
+                var rb = p.GetComponent<Rigidbody2D>();
+                rb.position = to;
+                p.transform.position = to;
             }
-            Boss = Spawn(SvEnemyKind.Boss, at);
+            Boss = Spawn(SvEnemyKind.Yeomra, at);
             SvGame.Instance?.OnBossAppeared(Boss);
             return Boss;
         }
@@ -339,7 +356,8 @@ namespace ParryRL.Survivor
             {
                 case SvEnemyKind.Dokkaebibul: e.Spawn(at, Mathf.RoundToInt(7 * scale), 3.2f, 6, Xp(2)); break;
                 case SvEnemyKind.Elite: e.Spawn(at, Mathf.RoundToInt(380 * eliteScale), 2.1f, 18, 15); break;
-                case SvEnemyKind.Boss: e.Spawn(at, bossHp, 1.6f, 18, 0); break;
+                case SvEnemyKind.Boss: e.Spawn(at, Mathf.RoundToInt(bossHp * midBossHpMul), 1.6f, 18, 0); break;
+                case SvEnemyKind.Yeomra: e.Spawn(at, yeomraHp, 0f, 20, 0); break;
                 case SvEnemyKind.Dalgyal: e.Spawn(at, Mathf.RoundToInt(40 * scale), 1.6f, 12, Xp(4)); break;
                 case SvEnemyKind.SmallDokkaebi: e.Spawn(at, Mathf.RoundToInt(6 * scale), 3.7f, 5, Xp(1)); break;
                 default: e.Spawn(at, Mathf.RoundToInt(10 * scale), 2.3f, 8, Xp(1)); break;

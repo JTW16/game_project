@@ -100,6 +100,18 @@ CHARS = [
         ('death', 'boss/bulgasari/death.png', 4, 1.0),
         ('entrance', 'boss/bulgasari/entrance.png', 4, 1.0),
     ]),
+    # S15 염라대왕 (2026-11-26): 손 없는 몸 셋(정면, 아래 끝이 땅에 잘림) · 손 넷은 따로 움직인다
+    ('yeomra', 'Yeomra', 760, [
+        ('body', 'boss/yeomra/body.png', 1, 1.0, 'magenta'),
+        ('rage', 'boss/yeomra/rage.png', 1, 1.08, 'magenta'),
+        ('stun', 'boss/yeomra/stun.png', 1, 1.0, 'magenta'),
+    ]),
+    ('yeomrahand', 'Yeomra', 380, [
+        ('skullrest', 'boss/yeomra/skull_rest.png', 1, 1.0, 'magenta'),
+        ('skullraise', 'boss/yeomra/skull_raise.png', 1, 1.25, 'magenta'),
+        ('humanrest', 'boss/yeomra/human_rest.png', 1, 1.0, 'magenta'),
+        ('humanraise', 'boss/yeomra/human_raise.png', 1, 1.0, 'magenta'),
+    ]),
     # S8 조력자 — 산군(범)은 옆으로 긴 몸이라 몸 높이를 낮게, 무녀는 퇴마사와 같은 기준
     ('tiger', 'Helpers', 300, [
         ('run', 'helpers/tiger_run.png', 4, 1.0),

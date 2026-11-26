@@ -40,6 +40,11 @@ namespace ParryRL.Survivor
         /// <summary>컷신 확대 (1 = 그대로, 0.8 = 20% 가까이).</summary>
         public float HoldZoom { get; set; } = 1f;
         public float HoldSharpness { get; set; } = 3.5f;
+        /// <summary>보스전 구도: 퇴마사와 이 지점 사이를 비춘다 (null이면 퇴마사만). 염라가 정한다.</summary>
+        public Vector3? Frame { get; set; }
+        public float FrameWeight { get; set; }
+        /// <summary>보스전 동안 더 멀리서 (1 = 그대로).</summary>
+        public float FrameZoom { get; set; } = 1f;
 
         public float Tilt => tilt;
         /// <summary>높이 떠서 카메라가 물러난 정도 (0~1).</summary>
@@ -84,7 +89,7 @@ namespace ParryRL.Survivor
             Camera.fieldOfView = fieldOfView * (1f - punch);
             // 적이 많아지면 조금 멀리서 본다
             float crowd = Mathf.Clamp01(SvEnemy.Active.Count / (float)Mathf.Max(1, crowdFull));
-            float zoomGoal = (1f + crowdZoomOut * crowd) * HoldZoom;
+            float zoomGoal = (1f + crowdZoomOut * crowd) * HoldZoom * (Hold.HasValue ? 1f : FrameZoom);
             _zoom = Mathf.Lerp(_zoom, zoomGoal, 1f - Mathf.Exp(-(Hold.HasValue ? 3f : 1.5f) * Time.unscaledDeltaTime));
             // 경공: 1단 점프는 살짝, 2단은 확 물러나 멀리까지 보인다. 오를 때 빠르고 내릴 때는 조금 늦게 돌아온다
             var hero = SvPlayer.Instance;
@@ -93,6 +98,7 @@ namespace ParryRL.Survivor
             Lift = Mathf.Lerp(Lift, liftGoal, 1f - Mathf.Exp(-(liftGoal > Lift ? 7f : 4.5f) * Time.deltaTime));
             _rise = Mathf.Lerp(_rise, h * leapFollow, 1f - Mathf.Exp(-9f * Time.deltaTime));
             Vector3 goal = Target != null ? Target.position : _focus;
+            if (Frame.HasValue && !Hold.HasValue) goal = Vector3.Lerp(goal, Frame.Value, FrameWeight);
             if (Hold.HasValue)
                 _focus = Vector3.Lerp(_focus, Hold.Value, 1f - Mathf.Exp(-HoldSharpness * Time.unscaledDeltaTime));
             else if (Looking)

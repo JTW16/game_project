@@ -240,7 +240,8 @@ namespace ParryRL.Survivor
         private static string NameOf(SvEnemyKind k, bool phase2) => k switch
         {
             SvEnemyKind.Dokkaebibul => "dokkaebibul", SvEnemyKind.Dalgyal => "dalgyal", SvEnemyKind.SmallDokkaebi => "smalldokkaebi",
-            SvEnemyKind.Elite => "elite", SvEnemyKind.Boss => phase2 ? "boss2" : "boss1", _ => "changgwi",
+            SvEnemyKind.Elite => "elite", SvEnemyKind.Boss => phase2 ? "boss2" : "boss1",
+            SvEnemyKind.Gate => "gate", SvEnemyKind.Yeomra => "yeomra", _ => "changgwi",
         };
 
         private void Wear(string name, bool dark)

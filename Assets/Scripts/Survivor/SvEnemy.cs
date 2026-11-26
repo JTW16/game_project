@@ -4,7 +4,8 @@ using UnityEngine;
 namespace ParryRL.Survivor
 {
     /// <summary>Gate = 큰 귀문의 몸 (움직이지 않고 닿아도 피해 없음 — 무기가 그대로 때리게 적으로 둔다).</summary>
-    public enum SvEnemyKind { Changgwi, Dokkaebibul, Elite, Dalgyal, SmallDokkaebi, Boss, Gate }
+    /// <summary>Boss = 불가살이 (2026-11-26부터 중간 보스), Yeomra = 마지막 보스 염라대왕.</summary>
+    public enum SvEnemyKind { Changgwi, Dokkaebibul, Elite, Dalgyal, SmallDokkaebi, Boss, Gate, Yeomra }
 
     /// <summary>
     /// 가벼운 잡몹: 플레이어 쪽으로 걷고 닿으면 피해. 수백 마리를 쓰므로 머리 위 체력바·매 프레임 찾기 없이 재사용한다.
@@ -24,7 +25,12 @@ namespace ParryRL.Survivor
         public int Exp { get; private set; }
         public float Speed { get; set; }
         public bool IsElite => Kind == SvEnemyKind.Elite;
-        public bool IsBoss => Kind == SvEnemyKind.Boss;
+        /// <summary>보스 체력 바·느린 넉백 등 보스 대접을 받는 적 (불가살이 · 염라).</summary>
+        public bool IsBoss => Kind is SvEnemyKind.Boss or SvEnemyKind.Yeomra;
+        /// <summary>쓰러뜨리면 이기는 마지막 보스 (염라).</summary>
+        public bool IsFinalBoss => Kind == SvEnemyKind.Yeomra;
+        /// <summary>보스 이름 (체력 바 · 결과 화면).</summary>
+        public string BossName => Kind == SvEnemyKind.Yeomra ? "염라대왕" : "불가살이";
         public bool IsGate => Kind == SvEnemyKind.Gate;
         /// <summary>큰 귀문이면 그 귀문 번호 (<see cref="SvGates.All"/>).</summary>
         public int GateIndex { get; set; } = -1;
@@ -189,8 +195,9 @@ namespace ParryRL.Survivor
             go.transform.SetParent(parent, false);
             var e = go.AddComponent<SvEnemy>();
             e.Setup(kind);
-            if (kind == SvEnemyKind.Elite || kind == SvEnemyKind.Boss) go.AddComponent<SvEliteAttack>();
+            if (kind is SvEnemyKind.Elite or SvEnemyKind.Boss) go.AddComponent<SvEliteAttack>();
             if (kind == SvEnemyKind.Boss) go.AddComponent<SvBoss>();
+            if (kind == SvEnemyKind.Yeomra) go.AddComponent<SvYeomra>();
             return e;
         }
 
@@ -222,6 +229,11 @@ namespace ParryRL.Survivor
                     Radius = 1.6f; size = new Vector2(4f, 3f); _tint = new Color(0.5f, 0.38f, 0.3f); _hover = 0f;
                     _rb.mass = 200f;
                     break;
+                case SvEnemyKind.Yeomra:
+                    // 들판 한가운데 박힌 거대한 몸 — 밀리지 않는다 (판정 원은 왕좌 밑동)
+                    Radius = 4f; size = new Vector2(9f, 10f); _tint = new Color(0.3f, 0.28f, 0.42f); _hover = 0f;
+                    _rb.bodyType = RigidbodyType2D.Kinematic;
+                    break;
                 case SvEnemyKind.Gate:
                     // 그림은 들판에 선 귀문(SvScenery)이 맡는다 — 몸은 판정 원만. 밀리지 않고 다른 적과 부딪치지도 않는다
                     Radius = 1.7f; size = new Vector2(3f, SvGates.Height * SvGates.SealScale * 0.85f); _tint = Color.white; _hover = 0f;
@@ -250,6 +262,7 @@ namespace ParryRL.Survivor
                 SvEnemyKind.SmallDokkaebi => art.smallDokkaebi,
                 SvEnemyKind.Boss => art.bossP1,
                 SvEnemyKind.Gate => null,
+                SvEnemyKind.Yeomra => art.yeomra,
                 _ => art.changgwi,
             };
             if (_mob != null && _mob.Has)
@@ -258,7 +271,8 @@ namespace ParryRL.Survivor
                 // 그림이 있으면 네모 대신 그림 (스프라이트가 이미 몸 높이에 맞춰 들어옴)
                 Art = SvBillboard.Create(transform, "Art", _mob.idle, Vector2.zero);
                 size = new Vector2(size.x, _mob.height);
-                _tint = Color.white;
+                // 염라는 들판 소품처럼 밤 색에 눌러 둔다 (혼자 밝으면 붙여 놓은 그림처럼 뜬다)
+                _tint = kind == SvEnemyKind.Yeomra ? SvYeomra.NightTint : Color.white;
             }
             else
             {
@@ -276,8 +290,9 @@ namespace ParryRL.Survivor
             if (kind == SvEnemyKind.Dokkaebibul) SvBillboard.CreateGlow(transform, 2.2f, new Color(0.6f, 1f, 1f, 0.34f));
             else if (kind == SvEnemyKind.Elite) SvBillboard.CreateGlow(transform, 4.5f, new Color(0.7f, 0.45f, 1f, 0.28f));
             else if (kind == SvEnemyKind.Boss) SvBillboard.CreateGlow(transform, 9f, new Color(1f, 0.55f, 0.25f, 0.28f));
+            else if (kind == SvEnemyKind.Yeomra) SvBillboard.CreateGlow(transform, 16f, new Color(0.6f, 0.95f, 0.85f, 0.22f));
             _hitDisc = SvBillboard.CreateHitDisc(transform, Radius, new Color(1f, 0.6f, 0.2f, 0.45f));
-            if (kind == SvEnemyKind.Elite || kind == SvEnemyKind.Boss)
+            if (kind is SvEnemyKind.Elite or SvEnemyKind.Boss)
                 if (Rig == null || SvFoePresence.Create(this) == null) MakeAura(kind == SvEnemyKind.Boss);
             ByCollider[_col] = this;
         }
@@ -315,6 +330,7 @@ namespace ParryRL.Survivor
             Active.Add(this);
             GetComponent<SvEliteAttack>()?.ResetState();
             GetComponent<SvBoss>()?.ResetState();
+            GetComponent<SvYeomra>()?.ResetState();
         }
 
         /// <summary>실제로 깎인 체력을 돌려준다 (무적·이미 쓰러짐이면 0).</summary>
@@ -394,7 +410,7 @@ namespace ParryRL.Survivor
         {
             var player = SvPlayer.Instance;
             Vector2 v = Vector2.zero;
-            if (IsGate) { _rb.linearVelocity = Vector2.zero; return; }
+            if (IsGate || IsFinalBoss) { _rb.linearVelocity = Vector2.zero; return; }
             if (ForcedVelocity.HasValue)
             {
                 _rb.linearVelocity = ForcedVelocity.Value;
@@ -467,7 +483,8 @@ namespace ParryRL.Survivor
             if (IsGate) { _hitDisc.enabled = SvGame.ShowHitboxes; return; }
             // 공격 자세 중엔 돌아서지 않는다 (예고한 방향 그대로)
             // 겹쳐 있을 때 좌우로 파르르 떨지 않게, 조금이라도 벌어졌을 때만 돌아선다
-            if (player != null && PoseOverride == null && Mathf.Abs(player.Position.x - _rb.position.x) > 0.2f) Art.FacingLeft = player.Position.x < _rb.position.x;
+            // 염라는 정면을 본다 (뒤집으면 해골 쪽과 사람 쪽이 바뀐다)
+            if (player != null && PoseOverride == null && !IsFinalBoss && Mathf.Abs(player.Position.x - _rb.position.x) > 0.2f) Art.FacingLeft = player.Position.x < _rb.position.x;
             bool flash = Time.time < _flashUntil;
             Color c = flash ? Color.white : _tint;
             if (Stunned) c = Color.Lerp(_tint, new Color(0.5f, 0.7f, 1f), 0.6f);

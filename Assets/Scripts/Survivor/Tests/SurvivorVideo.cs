@@ -448,38 +448,56 @@ namespace ParryRL.Tests
             var boss = Game.Boss;
             yield return RunUntil(() => !Game.InCinematic, 12f, () => Player.TryMove(Vector2.zero));
 
-            // 8) 보스 패턴
-            var paw = boss.GetComponent<SvEliteAttack>();
-            var ai = boss.GetComponent<SvBoss>();
-            Say("보스 불가살이 — 앞발 내리치기 (빨간 예고, 패링 가능)");
+            // 8) 염라대왕 패턴 (2026-11-26): 사람 손 = 심판(패링 → 그로기), 해골 손 = 죽음(피함)
+            var ai = boss.GetComponent<SvYeomra>();
+            ai.HoldAll(99f);
+            for (int i = SvEnemy.Active.Count - 1; i >= 0; i--) if (!SvEnemy.Active[i].IsBig) SvEnemy.Active[i].Despawn();
+            Say("마지막 보스 염라대왕 — 들판 한가운데에서 솟아 움직이지 않는다. 반은 해골(죽음), 반은 사람(심판)");
+            yield return Run(2.5f, () => Walk(boss.Position + new Vector2(0f, -8f)));
+            Say("사람 손 내리치기 — 머리 위로 손이 오고 빨간 원 예고. 빨개질 때 Q 패링하면 그로기");
+            ai.ForceSmash();
             parried = false;
-            yield return RunUntil(() => ai.Groggy, 10f, () =>
+            yield return RunUntil(() => ai.Groggy || ai.Smashes > 0, 4f, () =>
             {
-                Vector2 to = boss.Position - Player.Position;
-                Player.TryMove(to.magnitude > 3.2f ? to.normalized : to.normalized * 0.15f);
-                if (!parried && paw.CueRed) parried = Player.TryParry();
-                if (parried && !paw.Busy && !ai.Groggy) parried = false;
+                Player.TryMove(Vector2.zero);
+                if (!parried && ai.SmashHot) parried = Player.TryParry();
             });
-            Say("앞발을 패링하면 그로기 4초 — 받는 피해 2배, 직접 쓰는 기술(A · S · D)은 3배");
-            yield return Run(0.4f, () => Aim(boss));
+            Say("그로기 4초 — 받는 피해 2배, 직접 쓰는 기술(A · S · D)은 3배");
+            yield return Run(0.3f, () => Walk(boss.Position + new Vector2(0f, -5.5f)));
             Game.Weapons.TryGiant();
             yield return Run(1.1f, () => Player.TryMove(Vector2.zero));
             Player.TrySlam();
+            yield return Run(1.8f, () => Player.TryMove(Vector2.zero));
+            Say("해골 손 할퀴기 — 옆에서 땅을 긁으며 쓸고 간다. 패링 불가, 뛰어넘거나 보법 무적으로");
+            yield return RunUntil(() => !ai.Groggy, 3f, () => Walk(boss.Position + new Vector2(0f, -8f)));
+            ai.HoldAll(99f);
+            ai.ForceSweep();
+            // 손이 긁기 시작하면 경공 2단으로 뛰어넘는다
+            yield return RunUntil(() => ai.Sweeps > 0, 3f, () => Player.TryMove(Vector2.zero));
+            Player.TryJump();
+            yield return Run(0.12f, () => Player.TryMove(Vector2.zero));
+            Player.TryJump();
             yield return Run(1.6f, () => Player.TryMove(Vector2.zero));
-            Say("쇠가시 사방 발사 — 패링 불가, 피한다 (한 발은 퇴마사를 노린다)");
-            ai.ForceSpines();
-            yield return Run(0.7f, () => Player.TryMove(Vector2.zero));
-            yield return Run(2.2f, () => Player.TryMove(new Vector2(-1f, -0.3f).normalized));
-            Say("체력 절반 → 변신, 2페이즈: 더 빠르고 더 넓은 앞발 + 돌진 (빨간 띠 예고, 보법으로 피한다)");
+            Say("해골 손 저승사자 — 손을 땅에 박으면 짙은 창귀가 기어 나온다");
+            ai.HoldAll(99f);
+            ai.ForceSummon();
+            yield return Run(2.4f, Circle);
+            Say("가슴의 업경 광선 — 빨간 띠를 피한다");
+            ai.HoldAll(99f);
+            ai.ForceBeam();
+            yield return Run(0.6f, () => Player.TryMove(Vector2.zero));
+            yield return Run(1.2f, () => Player.TryMove(Vector2.right));
+            Say("체력 절반 → 분노 (2페이즈): 더 빠르고, 가운데에서 지옥불 고리가 퍼진다 (뛰어넘는다)");
+            for (int i = SvEnemy.Active.Count - 1; i >= 0; i--) if (!SvEnemy.Active[i].IsBig) SvEnemy.Active[i].Despawn();
             if (boss.Hp > boss.MaxHp / 2) boss.TakeDamage(boss.Hp - boss.MaxHp / 2 + 5, Vector2.zero, 0f);
             yield return RunUntil(() => ai.Phase == 2, 4f, () => Player.TryMove(Vector2.zero));
-            ai.ForceCharge();
-            bool dashed = false;
-            yield return Run(3.2f, () =>
-            {
-                if (ai.State == SvBoss.Mode.ChargeWindup && !dashed) { Player.TryMove(new Vector2(0f, 1f)); dashed = Player.TryDash(); }
-                else Player.TryMove(Vector2.zero);
-            });
+            ai.HoldAll(99f);
+            ai.ForceRing();
+            yield return RunUntil(() => ai.RingRadius > 0f && (Player.Position - boss.Position).magnitude - ai.RingRadius < 2.2f, 5f, () => Player.TryMove(Vector2.zero));
+            Player.TryJump();
+            yield return Run(0.3f, () => Player.TryMove(Vector2.zero));
+            Player.TryJump();
+            yield return Run(2.2f, () => Player.TryMove(Vector2.zero));
             Say("보스를 쓰러뜨리면 승리");
             yield return RunUntil(() => boss == null || boss.Hp <= 0, 4f, () =>
             {
@@ -495,7 +513,7 @@ namespace ParryRL.Tests
             _enc = null;
 #endif
             Time.captureFramerate = 0;
-            Debug.Log($"[Video] {_frames} frames ({_frames / (float)Fps:0.0}s) → Captures/overview.mp4 · 패링 {Player.ParrySuccesses} · 그로기 {ai.Groggies}");
+            Debug.Log($"[Video] {_frames} frames ({_frames / (float)Fps:0.0}s) → Captures/overview.mp4 · 패링 {Player.ParrySuccesses}");
             Assert.Greater(_frames, Fps * 30);
         }
 

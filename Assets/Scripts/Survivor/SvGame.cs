@@ -55,7 +55,13 @@ namespace ParryRL.Survivor
         public List<SvItem> Offer { get; private set; } = new();
         public bool Paused { get; private set; }
         public bool OnTitle { get; private set; }
+        /// <summary>마지막 보스 (염라). 쓰러뜨리면 이긴다.</summary>
         public SvEnemy Boss { get; private set; }
+        /// <summary>중간 보스 (불가살이).</summary>
+        public SvEnemy MidBoss { get; private set; }
+        /// <summary>지금 살아 있는 보스 (마지막 보스가 먼저).</summary>
+        public SvEnemy ActiveBoss => Boss != null && Boss.isActiveAndEnabled && Boss.Hp > 0 ? Boss
+            : MidBoss != null && MidBoss.isActiveAndEnabled && MidBoss.Hp > 0 ? MidBoss : null;
         public float CounterRadius { get => counterRadius; set => counterRadius = value; }
         public int CounterDamage { get => counterDamage; set => counterDamage = value; }
 
@@ -301,12 +307,13 @@ namespace ParryRL.Survivor
 
         public void OnBossAppeared(SvEnemy boss)
         {
-            Boss = boss;
+            if (boss != null && boss.IsFinalBoss) Boss = boss;
+            else MidBoss = boss;
             ScatterSmallFry(40);
             if (boss == null) return;
             if (SkipCinematics || IsBench)
             {
-                Hud.Popup("불가살이가 깨어났다!", new Color(1f, 0.7f, 0.3f), 2f);
+                Hud.Popup(boss.IsFinalBoss ? "염라대왕이 깨어났다!" : "불가살이가 깨어났다!", new Color(1f, 0.7f, 0.3f), 2f);
                 Sfx.Play(SfxId.BossRoar);
                 Music.Play("boss", 0.8f);
                 return;
@@ -349,12 +356,28 @@ namespace ParryRL.Survivor
             Player?.Momentum?.OnKill();
             // 궁극기로 잡은 적은 도력을 채우지 않는다 (채우면 후반에 궁극기를 끝없이 이어 쓴다 — 2026-11-18 사용자 요청)
             if (SvWeapons.KillSource != SvUltimate.Source) Ultimate.AddKill(e);
+            if (e.IsBoss && !e.IsFinalBoss)
+            {
+                // 불가살이(마지막 귀문지기): 보석 한 무더기 + 아이템 + 핵심 비급 창, 판은 계속된다 (가안)
+                if (e.IsGateKeeper) OnGateKeeperDown(e);
+                SvGem.DropBig(e.Position, 120, boss: true);
+                SvPickup.Drop(e.Position + new Vector2(0.8f, -0.4f), SvPickup.RandomKind());
+                SvEnemyShot.ClearAll();
+                Hud.Popup("불가살이를 물리쳤다! — 염라대왕이 기다린다", new Color(1f, 0.8f, 0.4f), 2.4f);
+                Hud.Flash(new Color(1f, 0.9f, 0.7f), 0.4f, 0.6f);
+                Shake(0.45f, 0.6f);
+                SvView.Instance?.Punch(0.07f, 0.6f);
+                HitStop(0.2f);
+                Sfx.Play(SfxId.EnemyDie);
+                Music.Play("field", 1.5f);
+                return;
+            }
             if (e.IsBoss)
             {
                 SvGem.DropBig(e.Position, 200, boss: true);
                 Player?.PlayVictory();
                 SvEnemyShot.ClearAll();
-                Hud.Popup("불가살이를 물리쳤다!", new Color(1f, 0.8f, 0.4f), 2.5f);
+                Hud.Popup("염라대왕을 물리쳤다!", new Color(1f, 0.8f, 0.4f), 2.5f);
                 Hud.Flash(new Color(1f, 0.9f, 0.7f), 0.5f, 0.8f);
                 Shake(0.5f, 0.8f);
                 SvView.Instance?.Punch(0.08f, 0.8f);
@@ -444,7 +467,7 @@ namespace ParryRL.Survivor
             Hud.Flash(new Color(0.75f, 1f, 1f), 0.35f, 0.25f);
             Sfx.Play(SfxId.Parry);
             Hud.Popup("패링!", new Color(0.7f, 1f, 0.95f));
-            if (elite != null && elite.IsBoss && elite.TryGetComponent(out SvBoss boss)) boss.OnParried();
+            if (elite != null && elite.IsBoss && elite.TryGetComponent(out ISvGroggy boss)) boss.OnParried();
         }
 
         /// <summary>퇴마사가 맞았다: 맞은 걸 바로 알게 화면 테두리·체력 바·흔들림 (히트스탑은 쓰지 않는다 — 4장).</summary>

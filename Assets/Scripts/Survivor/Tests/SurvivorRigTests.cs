@@ -460,7 +460,7 @@ namespace ParryRL.Tests
             Game.Weapons.enabled = false;
             foreach (SvEnemyKind k in System.Enum.GetValues(typeof(SvEnemyKind)))
             {
-                if (k == SvEnemyKind.Gate) continue; // 큰 귀문의 몸은 그림 없이 판정만 (그림은 들판의 귀문)
+                if (k is SvEnemyKind.Gate or SvEnemyKind.Yeomra) continue; // 큰 귀문의 몸은 판정만, 염라는 뼈대 대신 몸·손 그림
                 var m = Game.Spawner.Spawn(k, Player.Position + new Vector2(9f, 0f));
                 Assert.IsNotNull(m.Rig, $"{k} 부위 뼈대");
                 m.Despawn();

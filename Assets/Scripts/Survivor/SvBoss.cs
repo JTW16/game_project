@@ -10,7 +10,7 @@ namespace ParryRL.Survivor
     /// 앞발을 패링하면 그로기: 잠깐 멈추고 받는 피해가 커진다 — 직접 쓰는 기술(A·S·D·반격)은 더 (2026-11-26 사용자 결정 "패링의 쓸모를 살림").
     /// </summary>
     [RequireComponent(typeof(SvEnemy), typeof(SvEliteAttack))]
-    public class SvBoss : MonoBehaviour
+    public class SvBoss : MonoBehaviour, ISvGroggy
     {
         [Header("앞발 (패링 가능)")]
         [SerializeField] private float pawRange = 5f;

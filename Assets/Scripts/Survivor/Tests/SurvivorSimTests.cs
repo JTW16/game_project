@@ -65,7 +65,7 @@ namespace ParryRL.Tests
                 if (SvGame.Elapsed >= nextLog)
                 {
                     nextLog += 30f;
-                    string boss = game.Boss != null ? $" · 보스 {game.Boss.Hp}/{game.Boss.MaxHp} 페이즈 {game.Boss.GetComponent<SvBoss>().Phase}" : "";
+                    string boss = game.Boss != null ? $" · 보스 {game.Boss.Hp}/{game.Boss.MaxHp} 페이즈 {(game.Boss.TryGetComponent(out SvYeomra y) ? y.Phase : 1)}" : "";
                     log.AppendLine($"{SvGame.Elapsed / 60f:0.0}분 · 체력 {p.Hp}/{p.MaxHp} · Lv {game.Progress.Level} · 처치 {game.Kills} · 적 {SvEnemy.Active.Count} · 패링 {p.ParrySuccesses}{boss}");
                 }
                 yield return null;
@@ -121,9 +121,11 @@ namespace ParryRL.Tests
                 Vector2 to = boss.Position - p.Position;
                 float d = to.magnitude;
                 var ai = boss.GetComponent<SvBoss>();
+                var king = boss.GetComponent<SvYeomra>();
+                if (king != null && king.SmashHot && (king.SmashAt - p.Position).magnitude < 3.5f) p.TryParry();
                 Vector2 keep = d > 3.2f ? to.normalized : d < 2.2f ? -to.normalized : Vector2.Perpendicular(to).normalized * 0.5f;
                 move = keep * 1.5f + (away.sqrMagnitude > 0.0001f ? away.normalized * 0.4f : Vector2.zero);
-                if (ai.State == SvBoss.Mode.ChargeWindup || ai.State == SvBoss.Mode.Charging)
+                if (ai != null && (ai.State == SvBoss.Mode.ChargeWindup || ai.State == SvBoss.Mode.Charging))
                 {
                     move = Vector2.Perpendicular(to).normalized;
                     p.TryMove(move);

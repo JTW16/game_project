@@ -105,7 +105,7 @@ namespace ParryRL.Survivor
             SvEnemy boss = null;
             foreach (var e in SvEnemy.Active)
             {
-                if (e.IsBoss) { boss = e; continue; }
+                if (e.IsBoss) { if (boss == null || e.IsFinalBoss) boss = e; continue; }
                 if (!e.IsElite) continue;
                 if (n >= _elites.Count) _elites.Add(Icon(_art != null ? _art.miniElite : null, new Color(0.75f, 0.55f, 1f), 22f));
                 _elites[n].gameObject.SetActive(true);

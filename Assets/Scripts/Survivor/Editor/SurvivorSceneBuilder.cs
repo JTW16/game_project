@@ -42,6 +42,8 @@ namespace ParryRL.EditorTools
 
         private const string ArtRoot = "Assets/Art/Survivor";
         private const float BossHeight = 3.9f;
+        /// <summary>염라 몸 높이 (퇴마사의 약 7배 — 상반신만 솟은 거인, 가안) · 손 높이.</summary>
+        private const float YeomraHeight = 12.5f, YeomraHandHeight = 6.4f;
         private const string FloorPath = "Assets/Art/Survivor/Ground/floor_a.png";
         // 바닥 타일 한 장의 크기 (유닛) — 풀 한 포기가 퇴마사 무릎 높이쯤 되게
         private const float FloorTileSize = 6.5f;
@@ -99,6 +101,16 @@ namespace ParryRL.EditorTools
             art.bossTransform = Frames(boss, "boss_transform_");
             art.bossCharge = Frames(boss, "boss_p2charge_");
             art.bossEntrance = Frames(boss, "boss_entrance_");
+            // 염라대왕 (S15): 몸 셋 · 손 넷
+            var yeom = ImportCharacter($"{ArtRoot}/Yeomra", "yeomra", YeomraHeight);
+            art.yeomra = new SvMobArt { idle = Frames(yeom, "yeomra_body_").FirstOrDefault(), moveFps = 1f, height = YeomraHeight };
+            art.yeomraRage = Frames(yeom, "yeomra_rage_").FirstOrDefault();
+            art.yeomraStun = Frames(yeom, "yeomra_stun_").FirstOrDefault();
+            var yhand = ImportCharacter($"{ArtRoot}/Yeomra", "yeomrahand", YeomraHandHeight);
+            art.yeomraSkullRest = Frames(yhand, "yeomrahand_skullrest_").FirstOrDefault();
+            art.yeomraSkullRaise = Frames(yhand, "yeomrahand_skullraise_").FirstOrDefault();
+            art.yeomraHumanRest = Frames(yhand, "yeomrahand_humanrest_").FirstOrDefault();
+            art.yeomraHumanRaise = Frames(yhand, "yeomrahand_humanraise_").FirstOrDefault();
             art.heroUltimate = Frames(hero, "hero_ultimate_");
 
             art.fxSlash = Frames(fx, "slash_");
