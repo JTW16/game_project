@@ -7,6 +7,7 @@ namespace ParryRL.Survivor
     /// 1페이즈: 앞발 내리치기(예고 부채꼴 · 패링 가능) + 쇠가시 사방 발사(패링 불가, 피함).
     /// 체력 절반에서 변신(무적) → 2페이즈: 더 빠르고, 양 앞발 내리치기(더 넓음) + 가시 더 많이 + 일직선 돌진(바닥에 예고 띠, 패링 불가).
     /// 앞발 공격은 <see cref="SvEliteAttack"/>을 수치만 바꿔 쓴다. 모든 수치는 가안.
+    /// 앞발을 패링하면 그로기: 잠깐 멈추고 받는 피해가 커진다 — 직접 쓰는 기술(A·S·D·반격)은 더 (2026-11-26 사용자 결정 "패링의 쓸모를 살림").
     /// </summary>
     [RequireComponent(typeof(SvEnemy), typeof(SvEliteAttack))]
     public class SvBoss : MonoBehaviour
@@ -17,7 +18,13 @@ namespace ParryRL.Survivor
         [SerializeField] private float pawRadius = 4.4f, pawRadius2 = 5.2f;
         [SerializeField] private float pawAngle = 120f, pawAngle2 = 150f;
         [SerializeField] private int pawDamage = 38, pawDamage2 = 46;
-        [SerializeField] private float parryStun = 1.4f;
+        [Header("그로기 (앞발 패링 성공)")]
+        [Tooltip("멈춰 있는 시간 (가안, 전에는 1.4초 기절)")]
+        [SerializeField] private float groggyTime = 4f;
+        [Tooltip("그로기 동안 받는 모든 피해 배율 (가안)")]
+        [SerializeField] private float groggyMul = 2f;
+        [Tooltip("직접 쓰는 기술(내려찍기·긴 봉·궁극기·패링 반격)에 한 번 더 곱하는 배율 (가안)")]
+        [SerializeField] private float groggyManualMul = 1.5f;
 
         [Header("쇠가시")]
         [SerializeField] private float spineEvery = 7f, spineEvery2 = 5.5f;
@@ -45,11 +52,15 @@ namespace ParryRL.Survivor
         public int SpineVolleys { get; private set; }
         public int Charges { get; private set; }
         public float NextSpineAt => _nextSpine;
+        public bool Groggy => Time.time < _groggyUntil;
+        public float GroggyLeft => Mathf.Max(0f, _groggyUntil - Time.time);
+        public float GroggyTime => groggyTime;
+        public int Groggies { get; private set; }
 
         private SvEnemy _enemy;
         private SvEliteAttack _paw;
         private SurvivorArt _art;
-        private float _until, _nextSpine, _nextCharge, _spinePoseUntil;
+        private float _until, _nextSpine, _nextCharge, _spinePoseUntil, _groggyUntil;
         private Vector2 _chargeDir, _chargeFrom;
         private bool _chargeHit;
         private MeshRenderer _lane, _laneFill;
@@ -73,11 +84,12 @@ namespace ParryRL.Survivor
         {
             Phase = 1;
             State = Mode.Walk;
-            SpineVolleys = Charges = 0;
+            SpineVolleys = Charges = Groggies = 0;
+            _groggyUntil = 0f;
             _nextSpine = Time.time + 3f;
             _nextCharge = Time.time + chargeEvery;
             _paw.enabled = true;
-            _paw.Configure(pawRange, pawWindup, pawRadius, pawAngle, pawDamage, parryStun, new Vector2(2.2f, 3.4f));
+            _paw.Configure(pawRange, pawWindup, pawRadius, pawAngle, pawDamage, groggyTime, new Vector2(2.2f, 3.4f));
             _paw.StrikeFx = _art != null && SurvivorArt.Ok(_art.fxCrack) ? _art.fxCrack : null;
             _paw.StrikeStanding = _art != null && SurvivorArt.Ok(_art.fxBossCrash) ? _art.fxBossCrash : null;
             if (_art != null) _enemy.SetMob(_art.bossP1);
@@ -230,6 +242,9 @@ namespace ParryRL.Survivor
 
         private void BeginTransform()
         {
+            // 그로기 중에 절반을 넘기면 변신이 그로기를 끊는다 (변신 뒤 남은 기절로 서 있지 않게)
+            _groggyUntil = 0f;
+            _enemy.ClearStun();
             _paw.Cancel();
             HideLane();
             Hold(Mode.Transform, transformTime);
@@ -256,7 +271,7 @@ namespace ParryRL.Survivor
             if (_art != null) _enemy.SetMob(_art.bossP2);
             _enemy.Speed = speed2;
             _enemy.Invulnerable = false;
-            _paw.Configure(pawRange + 0.6f, pawWindup2, pawRadius2, pawAngle2, pawDamage2, parryStun, new Vector2(1.8f, 2.8f));
+            _paw.Configure(pawRange + 0.6f, pawWindup2, pawRadius2, pawAngle2, pawDamage2, groggyTime, new Vector2(1.8f, 2.8f));
             _nextCharge = Time.time + 2f;
             _nextSpine = Time.time + 4f;
             _enemy.PoseOverride = null;
@@ -336,6 +351,29 @@ namespace ParryRL.Survivor
             _warn?.Show(SvWarnShape.Lane, _enemy.Position, _chargeDir, len, 0f, chargeWidth, t, t > 0.72f, 1);
             SvFoeVfx.ChargeWindup(_enemy, _chargeDir, t, Time.deltaTime);
             _lane.enabled = _laneFill.enabled = _warn == null;
+        }
+
+        // ---------- 그로기 ----------
+
+        /// <summary>앞발을 패링당했다 (<see cref="SvGame.OnParry"/>가 부른다). 변신 중엔 무시.</summary>
+        public void OnParried()
+        {
+            if (State == Mode.Transform || _enemy.Hp <= 0) return;
+            Groggies++;
+            _groggyUntil = Time.time + groggyTime;
+            _enemy.Stun(groggyTime);
+            _enemy.ForcedVelocity = null;
+            SvSkillVfx.Stun(_enemy, groggyTime);
+            SvGame.Instance?.Hud.Popup("그로기! 지금 몰아쳐라", new Color(0.7f, 1f, 0.95f), 1.4f);
+            Sfx.Play(SfxId.BossLand, 0.7f);
+        }
+
+        /// <summary>그로기 동안 이 출처의 피해에 곱할 배율 (그로기가 아니면 1).</summary>
+        public float GroggyDamageMul(string source)
+        {
+            if (!Groggy) return 1f;
+            bool manual = source == "slam" || source == "counter" || source == "ultimate" || source == SvItems.Giant;
+            return groggyMul * (manual ? groggyManualMul : 1f);
         }
 
         /// <summary>테스트용: 바로 다음 기술을 부른다.</summary>

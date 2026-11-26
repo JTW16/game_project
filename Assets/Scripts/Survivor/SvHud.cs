@@ -30,6 +30,8 @@ namespace ParryRL.Survivor
         private Image _expFill, _hpFill, _bossFill, _flash;
         private Text _level, _timer, _watch, _kills, _hp, _debug, _help, _popup, _bannerTitle, _bannerSub;
         private RectTransform _cardRoot, _bossRoot;
+        private Text _bossName;
+        private Color _bossFillColor;
         private readonly List<Card> _cards = new();
         private float _popupUntil, _fps, _bannerAt = -99f, _flashAt, _flashLen, _flashAlpha;
         // 피격: 화면 가장자리 보랏빛 + 체력 바 하얗게 (빨강은 적 공격 경고 전용이라 쓰지 않는다 — 설계서 5장)
@@ -583,6 +585,8 @@ namespace ParryRL.Survivor
             name.rectTransform.offsetMin = name.rectTransform.offsetMax = Vector2.zero;
             name.text = "불가살이";
             name.color = new Color(1f, 0.85f, 0.6f);
+            _bossName = name;
+            _bossFillColor = _bossFill.color;
             _bossRoot.gameObject.SetActive(false);
         }
 
@@ -975,7 +979,16 @@ namespace ParryRL.Survivor
             var boss = g.Boss;
             bool bossOn = boss != null && boss.isActiveAndEnabled && boss.Hp > 0 && !g.Over;
             if (_bossRoot.gameObject.activeSelf != bossOn) _bossRoot.gameObject.SetActive(bossOn);
-            if (bossOn) SetFill(_bossFill, boss.Hp / (float)boss.MaxHp);
+            if (bossOn)
+            {
+                SetFill(_bossFill, boss.Hp / (float)boss.MaxHp);
+                // 그로기 동안은 이름 옆에 남은 시간, 체력 바가 옥빛으로 맥박친다 (지금 몰아칠 때라는 걸 알게)
+                var ai = boss.TryGetComponent(out SvBoss b) ? b : null;
+                bool groggy = ai != null && ai.Groggy;
+                _bossName.text = groggy ? $"불가살이 <color=#b8fff0>· 그로기 {ai.GroggyLeft:0.0}</color>" : "불가살이";
+                float pulse = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 12f);
+                _bossFill.color = groggy ? Color.Lerp(_bossFillColor, new Color(0.6f, 1f, 0.92f), 0.35f + 0.4f * pulse) : _bossFillColor;
+            }
 
             UpdateSlots(prog);
             SetAbility(_slam, p.SlamCooldownLeft, p.SlamCooldown, p.SlamCooldownLeft > 0f ? $"{p.SlamCooldownLeft:0.0}" : "");
