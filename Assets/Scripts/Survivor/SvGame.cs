@@ -334,6 +334,7 @@ namespace ParryRL.Survivor
 
         public void OnEnemyKilled(SvEnemy e)
         {
+            if (e.IsGate) { OnGateBroken(e); return; }
             Kills++;
             Player?.Momentum?.OnKill();
             // 궁극기로 잡은 적은 도력을 채우지 않는다 (채우면 후반에 궁극기를 끝없이 이어 쓴다 — 2026-11-18 사용자 요청)
@@ -376,6 +377,32 @@ namespace ParryRL.Survivor
         }
 
         /// <summary>정예·보스 공격을 받아쳤다: 둘레 반격 + 히트스탑 + 흔들림 + 확대 + 번쩍임.</summary>
+        /// <summary>
+        /// 큰 귀문이 무너졌다 (2026-11-26 사용자 결정 "귀문 부수기"): 보석 한 무더기 + 정예 아이템 하나 (보상, 가안),
+        /// 남은 귀문이 사나워지고, 다 부수면 보스가 끌려 나온다.
+        /// </summary>
+        public void OnGateBroken(SvEnemy gate)
+        {
+            SvGates.Break(gate.GateIndex);
+            Vector2 at = gate.Position;
+            SvGem.DropBig(at + new Vector2(0f, -2.2f), 40, boss: false);
+            SvPickup.Drop(at + new Vector2(0f, -2.4f), SvPickup.RandomKind());
+            if (SvVfx.Ready) SvSkillVfx.SlamLand(at, 4.5f, 1f);
+            SvFx.Ring(at, 1f, 7f, new Color(0.6f, 1f, 0.9f, 0.7f), 0.7f);
+            Shake(0.45f, 0.5f);
+            SvView.Instance?.Punch(0.06f, 0.5f);
+            Hud.Flash(new Color(0.75f, 1f, 0.95f), 0.4f, 0.4f);
+            HitStop(0.12f);
+            Sfx.Play(SfxId.BossLand);
+            int broken = SvGates.BrokenCount;
+            if (SvGates.AllBroken && !Spawner.BossSpawned)
+            {
+                Hud.Popup("귀문이 모두 무너졌다 — 불가살이가 끌려 나온다", new Color(1f, 0.8f, 0.45f), 2.4f);
+                Spawner.SummonBossByGates();
+            }
+            else Hud.Popup($"귀문을 부쉈다 {broken}/{SvGates.SealCount} — 남은 귀문이 사나워진다", new Color(0.7f, 1f, 0.95f), 2f);
+        }
+
         public void OnParry(SvPlayer player, SvEnemy elite)
         {
             player.OnParrySuccess();

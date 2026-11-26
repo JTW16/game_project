@@ -3,7 +3,8 @@ using UnityEngine;
 
 namespace ParryRL.Survivor
 {
-    public enum SvEnemyKind { Changgwi, Dokkaebibul, Elite, Dalgyal, SmallDokkaebi, Boss }
+    /// <summary>Gate = 큰 귀문의 몸 (움직이지 않고 닿아도 피해 없음 — 무기가 그대로 때리게 적으로 둔다).</summary>
+    public enum SvEnemyKind { Changgwi, Dokkaebibul, Elite, Dalgyal, SmallDokkaebi, Boss, Gate }
 
     /// <summary>
     /// 가벼운 잡몹: 플레이어 쪽으로 걷고 닿으면 피해. 수백 마리를 쓰므로 머리 위 체력바·매 프레임 찾기 없이 재사용한다.
@@ -24,6 +25,9 @@ namespace ParryRL.Survivor
         public float Speed { get; set; }
         public bool IsElite => Kind == SvEnemyKind.Elite;
         public bool IsBoss => Kind == SvEnemyKind.Boss;
+        public bool IsGate => Kind == SvEnemyKind.Gate;
+        /// <summary>큰 귀문이면 그 귀문 번호 (<see cref="SvGates.All"/>).</summary>
+        public int GateIndex { get; set; } = -1;
         /// <summary>정예·보스처럼 화면 밖으로 재배치하지 않고 넉백이 약한 큰 적.</summary>
         public bool IsBig => IsElite || IsBoss;
         /// <summary>보스 변신 중처럼 피해를 받지 않는 때.</summary>
@@ -85,7 +89,7 @@ namespace ParryRL.Survivor
 
         public void MakeFierce()
         {
-            if (Fierce || IsBig) return;
+            if (Fierce || IsBig || IsGate) return;
             Fierce = true;
             MaxHp = Hp = Mathf.RoundToInt(Hp * 2.2f);
             Speed *= 1.12f;
@@ -208,6 +212,12 @@ namespace ParryRL.Survivor
                     Radius = 1.6f; size = new Vector2(4f, 3f); _tint = new Color(0.5f, 0.38f, 0.3f); _hover = 0f;
                     _rb.mass = 200f;
                     break;
+                case SvEnemyKind.Gate:
+                    // 그림은 들판에 선 귀문(SvScenery)이 맡는다 — 몸은 판정 원만. 밀리지 않고 다른 적과 부딪치지도 않는다
+                    Radius = 1.7f; size = new Vector2(3f, SvGates.Height * SvGates.SealScale * 0.85f); _tint = Color.white; _hover = 0f;
+                    _rb.bodyType = RigidbodyType2D.Kinematic;
+                    _col.isTrigger = true;
+                    break;
                 case SvEnemyKind.SmallDokkaebi:
                     Radius = 0.3f; size = new Vector2(0.6f, 1.0f); _tint = new Color(0.55f, 0.6f, 0.4f); _hover = 0f;
                     _rb.mass = 0.6f;
@@ -229,6 +239,7 @@ namespace ParryRL.Survivor
                 SvEnemyKind.Dalgyal => art.dalgyal,
                 SvEnemyKind.SmallDokkaebi => art.smallDokkaebi,
                 SvEnemyKind.Boss => art.bossP1,
+                SvEnemyKind.Gate => null,
                 _ => art.changgwi,
             };
             if (_mob != null && _mob.Has)
@@ -249,7 +260,8 @@ namespace ParryRL.Survivor
             Motion = new SvMobMotion(this, Art);
             if (_mob != null) Rig = SvMobRig.Create(this, Art);
             Art.Renderer.color = _tint;
-            SvBillboard.CreateShadow(transform, Radius * (IsBig ? 3.4f : 2.6f));
+            if (kind == SvEnemyKind.Gate) Art.Renderer.enabled = false;
+            if (kind != SvEnemyKind.Gate) SvBillboard.CreateShadow(transform, Radius * (IsBig ? 3.4f : 2.6f));
             // 빛 나는 적은 어두운 바닥에 제 빛을 드리운다 (설계서 2장)
             if (kind == SvEnemyKind.Dokkaebibul) SvBillboard.CreateGlow(transform, 2.2f, new Color(0.6f, 1f, 1f, 0.34f));
             else if (kind == SvEnemyKind.Elite) SvBillboard.CreateGlow(transform, 4.5f, new Color(0.7f, 0.45f, 1f, 0.28f));
@@ -314,6 +326,12 @@ namespace ParryRL.Survivor
             int dealt = Mathf.Min(amount, Hp);
             Hp -= amount;
             _flashUntil = Time.time + 0.08f;
+            if (IsGate)
+            {
+                SvGates.MarkHit(GateIndex, Hp);
+                if (Hp <= 0) Die();
+                return dealt;
+            }
             Motion?.Hurt(knockDir, knock);
             if (knock > 0f) _knock += knockDir.normalized * knock / (IsBoss ? 30f : IsElite ? 4f : 1f);
             if (Hp <= 0) Die();
@@ -322,6 +340,9 @@ namespace ParryRL.Survivor
 
         /// <summary>테스트·연출용: 체력을 바로 정한다.</summary>
         public void SetHealth(int hp) => MaxHp = Hp = Mathf.Max(1, hp);
+
+        /// <summary>최대는 그대로 두고 남은 체력만 (잠들었다 깨어난 큰 귀문).</summary>
+        public void RestoreHp(int hp) => Hp = Mathf.Clamp(hp, 1, MaxHp);
 
         public void ClearStun() => _stunUntil = _boundUntil = 0f;
 
@@ -336,6 +357,7 @@ namespace ParryRL.Survivor
         private void Die()
         {
             SvGame.Instance?.OnEnemyKilled(this);
+            if (IsGate) { Despawn(); return; } // 무너지는 연출은 SvGame.OnGateBroken
             // 쓰러지는 그림은 적 대신 이펙트가 재생한다 (적은 바로 풀로 돌아감)
             bool drawn = Rig != null;
             if (Rig != null) Rig.Corpse(SvWeapons.KillDir);
@@ -361,6 +383,7 @@ namespace ParryRL.Survivor
         {
             var player = SvPlayer.Instance;
             Vector2 v = Vector2.zero;
+            if (IsGate) { _rb.linearVelocity = Vector2.zero; return; }
             if (ForcedVelocity.HasValue)
             {
                 _rb.linearVelocity = ForcedVelocity.Value;
@@ -430,6 +453,7 @@ namespace ParryRL.Survivor
                 _aura.SetPropertyBlock(_auraBlock);
             }
             if (Scripted) { _hitDisc.enabled = false; return; }
+            if (IsGate) { _hitDisc.enabled = SvGame.ShowHitboxes; return; }
             // 공격 자세 중엔 돌아서지 않는다 (예고한 방향 그대로)
             // 겹쳐 있을 때 좌우로 파르르 떨지 않게, 조금이라도 벌어졌을 때만 돌아선다
             if (player != null && PoseOverride == null && Mathf.Abs(player.Position.x - _rb.position.x) > 0.2f) Art.FacingLeft = player.Position.x < _rb.position.x;

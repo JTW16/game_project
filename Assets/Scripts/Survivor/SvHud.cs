@@ -124,7 +124,7 @@ namespace ParryRL.Survivor
             _timer = UiKit.Text("Timer", _root, 38, TextAnchor.UpperCenter);
             UiKit.Place(_timer.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -18f), new Vector2(300f, 48f));
             _watch = UiKit.Text("Watch", _root, 22, TextAnchor.UpperCenter);
-            UiKit.Place(_watch.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -62f), new Vector2(400f, 30f));
+            UiKit.Place(_watch.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -62f), new Vector2(560f, 30f));
             _watch.color = new Color(0.75f, 0.82f, 1f, 0.85f);
 
             _kills = UiKit.Text("Kills", _root, 28, TextAnchor.UpperRight);
@@ -970,7 +970,7 @@ namespace ParryRL.Survivor
             int t = Mathf.FloorToInt(SvGame.Elapsed);
             _timer.text = $"{t / 60:00}:{t % 60:00}";
             var watch = SvNight.Watches[Mathf.Clamp(SvNight.Phase, 0, SvNight.Watches.Length - 1)];
-            _watch.text = g.Boss != null && g.Boss.Hp > 0 ? "" : $"{watch.Name} {watch.Hanja}";
+            _watch.text = g.Boss != null && g.Boss.Hp > 0 ? "" : $"{watch.Name} {watch.Hanja}   <color=#b8fff0>귀문 {SvGates.BrokenCount}/{SvGates.SealCount}</color>";
             _kills.text = $"처치 {g.Kills}";
             SetFill(_hpFill, p.Hp / (float)p.MaxHp);
             float hb = (Time.unscaledTime - _hurtAt) / HpBlinkTime;

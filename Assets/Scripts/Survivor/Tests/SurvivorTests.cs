@@ -1678,6 +1678,82 @@ namespace ParryRL.Tests
             yield return Capture("survivor_edge_left");
         }
 
+        // ---------- 귀문 부수기 (2026-11-26) ----------
+
+        [UnityTest]
+        public IEnumerator Gates_Break_Strengthen_Others_And_Summon_A_Weaker_Boss()
+        {
+            Game.Weapons.enabled = false;
+            var seals = SvGates.Seals;
+            Assert.AreEqual(SvGates.SealCount, seals.Count);
+            var seen = new System.Collections.Generic.HashSet<int>();
+            foreach (int g in seals) Assert.IsTrue(g >= 0 && seen.Add(g), "방향마다 서로 다른 큰 귀문");
+            float mul0 = Game.Spawner.BrokenHpMul;
+            try
+            {
+                SvWeapons.CritOverride = 0f;
+                for (int s = 0; s < seals.Count; s++)
+                {
+                    Vector2 at = SvGates.All[seals[s]];
+                    Teleport(at + new Vector2(0f, -4f));
+                    Game.Spawner.UpdateGates(Player.Position);
+                    var body = Game.Spawner.GateBody(s);
+                    Assert.IsNotNull(body, "가까이 가면 큰 귀문이 깨어난다");
+                    Assert.IsTrue(body.IsGate);
+                    Assert.AreEqual(0, body.ContactDamage, "닿아도 피해 없음");
+                    if (s == 0)
+                    {
+                        int max = body.Hp;
+                        SvWeapons.Hit(body, 100, Vector2.zero, 0f, SvItems.Staff);
+                        Assert.AreEqual(max - 100, body.Hp, "무기에 깎인다");
+                        Teleport(Vector2.zero);
+                        Game.Spawner.UpdateGates(Player.Position);
+                        Assert.IsNull(Game.Spawner.GateBody(s), "멀어지면 잠든다");
+                        Teleport(at + new Vector2(0f, -4f));
+                        Game.Spawner.UpdateGates(Player.Position);
+                        body = Game.Spawner.GateBody(s);
+                        Assert.AreEqual(max - 100, body.Hp, "다시 깨어나도 깎인 체력 그대로");
+                    }
+                    SvWeapons.Hit(body, body.Hp + 10, Vector2.zero, 0f, SvItems.Staff);
+                    Assert.IsTrue(SvGates.SlotBroken(s), "체력이 다하면 무너진다");
+                    if (s == 0)
+                    {
+                        Assert.Greater(Game.Spawner.BrokenHpMul, mul0, "남은 귀문이 사나워진다");
+                        Assert.AreEqual(0, Game.Kills, "귀문은 처치 수에 안 든다");
+                        for (int i = 0; i < 100; i++) Assert.IsFalse(SvGates.IsBroken(SvGates.Pick(at, 16f)), "무너진 귀문에서는 몹이 안 나온다");
+                        Assert.IsFalse(Game.Spawner.BossSpawned);
+                    }
+                    yield return null;
+                }
+            }
+            finally { SvWeapons.CritOverride = null; }
+            Assert.IsTrue(Game.Spawner.BossSpawned, "다 부수면 보스");
+            Assert.IsTrue(Game.Spawner.BossByGates);
+            Assert.Less(Game.Boss.MaxHp, 4200, "일찍 부르면 약하게");
+        }
+
+        [UnityTest]
+        public IEnumerator Auto_Weapons_Wear_Down_A_Gate()
+        {
+            Game.Progress.HoldLevelUps = true; // 무너질 때 떨군 보석으로 카드 창이 화면을 가리지 않게
+            Player.MaxHp = 100000;
+            Player.Heal(100000);
+            int s = 0;
+            Vector2 at = SvGates.All[SvGates.Seals[s]];
+            Teleport(at + new Vector2(0.4f, -2.6f));
+            yield return null;
+            Game.Spawner.UpdateGates(Player.Position);
+            var body = Game.Spawner.GateBody(s);
+            Assert.IsNotNull(body);
+            int max = body.Hp;
+            yield return Wait(3f);
+            Assert.Less(body.Hp, max, "자동 무기(봉)가 귀문을 깎는다 — 몹이 없으면 문을 노린다");
+            yield return Capture("survivor_gate_seal");
+            SvWeapons.Hit(body, body.Hp + 10, Vector2.zero, 0f, SvItems.Staff);
+            yield return WaitReal(0.5f);
+            yield return Capture("survivor_gate_broken");
+        }
+
         private void Teleport(Vector2 at)
         {
             var rb = Player.GetComponent<Rigidbody2D>();

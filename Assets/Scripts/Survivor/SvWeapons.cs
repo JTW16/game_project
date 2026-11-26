@@ -183,14 +183,16 @@ namespace ParryRL.Survivor
         /// </summary>
         public static SvEnemy Nearest(Vector2 from, float maxDist)
         {
-            SvEnemy best = null;
-            float bestD = maxDist;
+            SvEnemy best = null, gate = null;
+            float bestD = maxDist, gateD = maxDist;
             foreach (var e in SvEnemy.Active)
             {
                 float d = (e.Position - from).magnitude - e.Radius - (e.IsBig ? 1.5f : 0f);
+                // 큰 귀문은 둘레에 몹이 없을 때만 노린다 (몹 떼를 두고 문만 때리지 않게 — 휩쓰는 공격엔 그대로 맞는다)
+                if (e.IsGate) { if (d < gateD) { gateD = d; gate = e; } continue; }
                 if (d < bestD) { bestD = d; best = e; }
             }
-            return best;
+            return best != null ? best : gate;
         }
 
         private static SurvivorArt Art => SvGame.Instance != null ? SvGame.Instance.Art : null;
