@@ -51,11 +51,10 @@ namespace ParryRL.Survivor
             for (int gi = 0; gi < SvGates.All.Count; gi++)
             {
                 var g = SvGates.All[gi];
-                bool seal = SvGates.IsSeal(gi);
-                var dot = UiKit.Image("Gate", _map, seal ? SealColor : new Color(0.55f, 1f, 0.85f, 0.75f));
+                var dot = UiKit.Image("Gate", _map, GateColor);
                 dot.sprite = SvSprites.White;
-                UiKit.Place(dot.rectTransform, new Vector2(0.5f, 0.5f), ToMap(g), seal ? new Vector2(10f, 10f) : new Vector2(4f, 4f));
-                if (seal) _sealDots.Add((gi, dot));
+                UiKit.Place(dot.rectTransform, new Vector2(0.5f, 0.5f), ToMap(g), new Vector2(4f, 4f));
+                _sealDots.Add((gi, dot));
                 dot.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 45f);
                 GateDots++;
             }
@@ -87,7 +86,7 @@ namespace ParryRL.Survivor
 
         public int EliteDots { get; private set; }
         public int GateDots { get; private set; }
-        private static readonly Color SealColor = new(0.85f, 1f, 0.95f, 1f);
+        private static readonly Color SealColor = new(0.85f, 1f, 0.95f, 1f), GateColor = new(0.55f, 1f, 0.85f, 0.75f);
         private readonly System.Collections.Generic.List<(int gate, Image dot)> _sealDots = new();
         /// <summary>미니맵에 보이는 주먹밥 수 (멀리 두고 온 것도 찾을 수 있게).</summary>
         public int RiceDots { get; private set; }
@@ -128,10 +127,15 @@ namespace ParryRL.Survivor
             RiceDots = r;
             _boss.gameObject.SetActive(boss != null && boss.Hp > 0);
             if (boss != null) _boss.anchoredPosition = ToMap(boss.Position);
-            // 큰 귀문: 무너지면 잿빛, 남은 것은 천천히 숨 쉰다
-            foreach (var (gate, dot) in _sealDots)
+            // 큰 귀문(깨어난 것만): 큰 마름모 — 무너지면 잿빛, 남은 것은 숨 쉰다
+            foreach (int gate in SvGates.Seals)
+            {
+                if (gate < 0 || gate >= _sealDots.Count) continue;
+                var dot = _sealDots[gate].dot;
+                dot.rectTransform.sizeDelta = new Vector2(10f, 10f);
                 dot.color = SvGates.IsBroken(gate) ? new Color(0.45f, 0.45f, 0.48f, 0.6f)
-                    : Color.Lerp(SealColor, new Color(0.55f, 1f, 0.85f, 0.8f), 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 3f));
+                    : Color.Lerp(SealColor, GateColor, 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 3f));
+            }
             // 퇴마사는 맨 위에
             _player.SetAsLastSibling();
         }

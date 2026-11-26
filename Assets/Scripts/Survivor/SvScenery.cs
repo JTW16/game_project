@@ -283,7 +283,7 @@ namespace ParryRL.Survivor
         {
             var sprite = _art.gateDormant != null ? _art.gateDormant : _art.titleEmblem;
             if (sprite == null) return;
-            float h = SvGates.Height * (SvGates.IsSeal(index) ? SvGates.SealScale : 1f);
+            float h = SvGates.Height; // 큰 귀문은 깨어날 때 SvGateView가 키운다
             float w = Width(sprite, h);
             var anchor = Stand(sprite, at, h, false, w * 0.75f, flatShadow: true, block: Box(at + new Vector2(0f, 0.3f), w * 0.55f, 0.7f));
             var bb = anchor.GetComponentInChildren<SvBillboard>();

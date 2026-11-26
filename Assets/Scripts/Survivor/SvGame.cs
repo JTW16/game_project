@@ -201,7 +201,8 @@ namespace ParryRL.Survivor
             // 보스가 쓰러지는 그림을 잠깐 보여 준 뒤 승리 화면
             if (_winAt > 0f && Time.unscaledTime >= _winAt) { End(true); return; }
 
-            if (!_menu && Progress.LevelUpsPending > 0) ShowCards();
+            if (!_menu && Progress.CoreRewardsPending > 0) ShowCoreReward();
+            else if (!_menu && Progress.LevelUpsPending > 0) ShowCards();
             if (_menu) HandleCardKeys();
         }
 
@@ -239,13 +240,22 @@ namespace ParryRL.Survivor
             if (art != null && !SvFx.Anim(art.fxLevelBurst, Player.Position, 1.4f, 2.8f, 0.9f)) SvFx.Anim(art.fxLevelUp, Player.Position, 1.3f, 2.6f, 0.8f);
             Hud.Flash(new Color(0.6f, 1f, 0.95f), 0.25f, 0.35f);
             SvView.Instance?.Punch(0.05f, 0.35f);
-            // 레벨 4 · 8 · 12 · 16: 핵심 비급 전용 창 (낼 후보가 없으면 보통 카드, 다음 레벨업에 다시 — 2026-11-25)
-            var cores = Progress.CoreWindowDue ? SvItems.RollCores(Progress, 3) : null;
-            bool coreWindow = cores != null && cores.Count > 0;
-            if (coreWindow) Progress.ConsumeCoreWindow();
-            Offer = coreWindow ? cores : SvItems.Roll(Progress, 3);
+            Offer = SvItems.Roll(Progress, 3);
             _menu = true;
-            Hud.ShowCards(Offer, Progress, coreWindow);
+            Hud.ShowCards(Offer, Progress);
+        }
+
+        /// <summary>귀문지기를 잡은 보상: 핵심 비급 전용 창 (가진 무기 · 기술 중 핵심이 없는 것에서 3장 — 2026-11-26 사용자 결정).</summary>
+        private void ShowCoreReward()
+        {
+            Progress.ConsumeCoreReward();
+            var cores = SvItems.RollCores(Progress, 3);
+            if (cores.Count == 0) return; // 낼 것이 없다 (핵심 4개를 다 받았거나 대상이 없음)
+            if (art != null && !SvFx.Anim(art.fxLevelBurst, Player.Position, 1.4f, 2.8f, 0.9f)) SvFx.Anim(art.fxLevelUp, Player.Position, 1.3f, 2.6f, 0.8f);
+            Hud.Flash(new Color(1f, 0.8f, 0.96f), 0.25f, 0.35f);
+            Offer = cores;
+            _menu = true;
+            Hud.ShowCards(Offer, Progress, coreWindow: true);
         }
 
         public void ChooseCard(int i)
@@ -356,6 +366,7 @@ namespace ParryRL.Survivor
                 Sfx.Play(SfxId.EnemyDie);
                 return;
             }
+            if (e.IsGateKeeper) OnGateKeeperDown(e);
             if (e.IsElite)
             {
                 SvGem.DropBig(e.Position, 50, boss: false);
@@ -377,9 +388,21 @@ namespace ParryRL.Survivor
         }
 
         /// <summary>정예·보스 공격을 받아쳤다: 둘레 반격 + 히트스탑 + 흔들림 + 확대 + 번쩍임.</summary>
+        /// <summary>큰 귀문이 깨어났다 (1 · 3 · 5 · 7분): 알림 + 솟는 연출. 화면 밖이면 HUD 화살표 · 미니맵이 가리킨다.</summary>
+        public void OnGateOpened(int gate)
+        {
+            Vector2 at = SvGates.All[gate];
+            Hud.Popup($"큰 귀문이 열렸다 ({SvGates.OpenCount}/{SvGates.SealCount}) — 부수면 귀문지기가 나온다", new Color(0.7f, 1f, 0.95f), 2.4f);
+            Sfx.Play(SfxId.HeavyCue, 0.8f);
+            Shake(0.15f, 0.4f);
+            SvGates.MarkSpawn(gate);
+            if (SvVfx.Ready) SvSkillVfx.SlamLand(at, 3.5f, 0.6f);
+            SvFx.Ring(at, 1f, 6f, new Color(0.6f, 1f, 0.9f, 0.6f), 0.8f);
+        }
+
         /// <summary>
-        /// 큰 귀문이 무너졌다 (2026-11-26 사용자 결정 "귀문 부수기"): 보석 한 무더기 + 정예 아이템 하나 (보상, 가안),
-        /// 남은 귀문이 사나워지고, 다 부수면 보스가 끌려 나온다.
+        /// 큰 귀문이 무너졌다 (2026-11-26 사용자 결정 "귀문 부수기" 개편): 보석 한 무더기 + 정예 아이템 하나,
+        /// 그리고 무너진 자리에서 귀문지기(중간 보스)가 나온다 — 잡으면 핵심 비급 창.
         /// </summary>
         public void OnGateBroken(SvEnemy gate)
         {
@@ -394,13 +417,17 @@ namespace ParryRL.Survivor
             Hud.Flash(new Color(0.75f, 1f, 0.95f), 0.4f, 0.4f);
             HitStop(0.12f);
             Sfx.Play(SfxId.BossLand);
-            int broken = SvGates.BrokenCount;
-            if (SvGates.AllBroken && !Spawner.BossSpawned)
-            {
-                Hud.Popup("귀문이 모두 무너졌다 — 불가살이가 끌려 나온다", new Color(1f, 0.8f, 0.45f), 2.4f);
-                Spawner.SummonBossByGates();
-            }
-            else Hud.Popup($"귀문을 부쉈다 {broken}/{SvGates.SealCount} — 남은 귀문이 사나워진다", new Color(0.7f, 1f, 0.95f), 2f);
+            if (Spawner.BossSpawned) return;
+            var keeper = Spawner.SpawnGateKeeper(at + new Vector2(0f, -2.6f));
+            SvFoeVfx.EliteArrive(keeper.Position);
+            Hud.Popup($"귀문을 부쉈다 {SvGates.BrokenCount}/{SvGates.SealCount} — 귀문지기가 나온다", new Color(0.8f, 0.65f, 1f), 2.2f);
+        }
+
+        /// <summary>귀문지기를 잡았다: 핵심 비급 창 하나 (카드 창이 비면 바로 뜬다).</summary>
+        private void OnGateKeeperDown(SvEnemy keeper)
+        {
+            Progress.AddCoreReward();
+            Hud.Popup("귀문지기를 쓰러뜨렸다 — 핵심 비급", new Color(1f, 0.8f, 0.96f), 2f);
         }
 
         public void OnParry(SvPlayer player, SvEnemy elite)

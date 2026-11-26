@@ -204,6 +204,7 @@ namespace ParryRL.Tests
             Game.SetElapsed(240f);
             Game.Night.Snap();
 
+            while (Game.Spawner.OpenNextGate(Player.Position)) { } // 개편 뒤 큰 귀문은 시각마다 열린다 — 영상에선 한꺼번에
             var seals = SvGates.Seals;
             // 1) 첫 큰 귀문: 걸어가 때린다 → 체력 바가 깎이고 문에서 몹이 쏟아진다 → 무너짐
             Vector2 g0 = SvGates.All[seals[0]];
@@ -224,7 +225,7 @@ namespace ParryRL.Tests
             });
             yield return Run(2.4f, () => Player.TryMove(Vector2.zero));
 
-            // 2) 가운데 넷은 건너뛰고(녹화 안 함), 마지막 귀문을 부수면 보스가 끌려 나온다
+            // 2) 가운데 둘은 건너뛰고(녹화 안 함), 마지막 귀문을 부순 뒤 보스를 부른다
             for (int s = 1; s < seals.Count - 1; s++)
             {
                 Teleport(SvGates.All[seals[s]] + new Vector2(0f, -4f));
@@ -245,6 +246,8 @@ namespace ParryRL.Tests
                 if (b != null) SvWeapons.Hit(b, Mathf.CeilToInt(b.MaxHp * 0.6f / Fps), Vector2.zero, 0f, SvItems.Staff);
             });
             yield return Run(0.6f, () => Player.TryMove(Vector2.zero));
+            for (int i = SvEnemy.Active.Count - 1; i >= 0; i--) if (SvEnemy.Active[i].IsGateKeeper) SvEnemy.Active[i].Despawn();
+            Game.Spawner.SpawnBoss(); // 개편 뒤 보스는 귀문과 상관없이 9분 — 영상에선 바로 부른다
             var boss = Game.Boss;
             yield return RunUntil(() => !Game.InCinematic, 12f, () => Player.TryMove(Vector2.zero));
 
@@ -399,12 +402,13 @@ namespace ParryRL.Tests
             if (elite.Hp > 0) elite.TakeDamage(elite.Hp, Vector2.right, 0f);
 
             // 7) 귀문 부수기
+            while (Game.Spawner.OpenNextGate(Player.Position)) { } // 개편 뒤 큰 귀문은 시각마다 열린다 — 영상에선 한꺼번에
             var seals = SvGates.Seals;
             Vector2 g0 = SvGates.All[seals[0]];
             for (int i = SvEnemy.Active.Count - 1; i >= 0; i--) if (!SvEnemy.Active[i].IsGate) SvEnemy.Active[i].Despawn();
             Teleport(g0 + new Vector2(0.6f, -7f));
             yield return Run(1.2f, () => Player.TryMove(Vector2.zero), record: false);
-            Say("큰 귀문 6곳 (미니맵 큰 마름모) — 무기로 때려 부순다. 맞는 동안 문에서 요괴가 쏟아진다");
+            Say("큰 귀문 — 1 · 3 · 5 · 7분에 하나씩 화면 밖에서 솟는다 (미니맵 큰 마름모, 옥빛 화살표). 무기로 때려 부순다");
             yield return Run(4f, () => Walk(g0 + new Vector2(0.4f, -2.6f)));
             Game.Weapons.TryGiant();
             yield return Run(1.2f, () => Player.TryMove(Vector2.zero));
@@ -415,7 +419,7 @@ namespace ParryRL.Tests
                 var b = Game.Spawner.GateBody(0);
                 if (b != null) SvWeapons.Hit(b, Mathf.CeilToInt(b.MaxHp * 0.4f / Fps), Vector2.zero, 0f, SvItems.Staff);
             });
-            Say("부술 때마다 남은 귀문의 요괴가 사나워진다 (체력 +15%, 짙은 변종 늘어남) — 위쪽 \"귀문 1/6\"");
+            Say("부수면 귀문지기가 나오고, 잡으면 핵심 비급 창 — 위쪽 \"귀문 1/4\"");
             yield return Run(3f, () => Player.TryMove(Vector2.zero));
             for (int s = 1; s < seals.Count - 1; s++)
             {
@@ -430,7 +434,7 @@ namespace ParryRL.Tests
             Vector2 g5 = SvGates.All[seals[last]];
             Teleport(g5 + new Vector2(0.4f, -3f));
             yield return Run(1.0f, () => Player.TryMove(Vector2.zero), record: false);
-            Say("(가운데 넷은 건너뜀) 마지막 귀문 — 6곳을 다 부수면 보스가 끌려 나온다. 일찍 부술수록 약하게");
+            Say("(가운데 둘은 건너뜀) 마지막 귀문 — 보스는 귀문과 상관없이 9분에 나온다");
             yield return RunUntil(() => SvGates.SlotBroken(last), 3f, () =>
             {
                 Player.TryMove(Vector2.zero);
@@ -439,6 +443,8 @@ namespace ParryRL.Tests
             });
             yield return Run(0.6f, () => Player.TryMove(Vector2.zero));
             Say("");
+            for (int i = SvEnemy.Active.Count - 1; i >= 0; i--) if (SvEnemy.Active[i].IsGateKeeper) SvEnemy.Active[i].Despawn();
+            Game.Spawner.SpawnBoss(); // 개편 뒤 보스는 귀문과 상관없이 9분 — 영상에선 바로 부른다
             var boss = Game.Boss;
             yield return RunUntil(() => !Game.InCinematic, 12f, () => Player.TryMove(Vector2.zero));
 

@@ -87,6 +87,16 @@ namespace ParryRL.Survivor
         public bool Fierce { get; private set; }
         private Color _baseTint;
 
+        /// <summary>큰 귀문을 부수면 나오는 귀문지기 (중간 보스 자리, 잡으면 핵심 비급 창 — 2026-11-26 사용자 결정).</summary>
+        public bool IsGateKeeper { get; private set; }
+
+        /// <summary>귀문지기로 만든다 (지금은 크게 키운 정예 — 팀원이 중간 보스를 넣기 전 임시).</summary>
+        public void MakeGateKeeper(float scale)
+        {
+            IsGateKeeper = true;
+            Art.Scale = scale;
+        }
+
         public void MakeFierce()
         {
             if (Fierce || IsBig || IsGate) return;
@@ -295,6 +305,7 @@ namespace ParryRL.Survivor
             if (_baseTint.a <= 0f) _baseTint = _tint;
             _tint = _baseTint;
             Fierce = false;
+            IsGateKeeper = false;
             Art.Scale = 1f;
             Motion?.Born();
             Rig?.Born();

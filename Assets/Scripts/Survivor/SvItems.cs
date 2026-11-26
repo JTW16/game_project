@@ -47,8 +47,8 @@ namespace ParryRL.Survivor
         /// 핵심 비급: 한 판에 최대 4개 · 그 대상이 이 단계 이상이어야 나옴 · 전용 창이 뜨는 퇴마사 레벨 (2026-11-25 사용자 결정, 가안).
         /// 전에는 한 판 2장 · 레벨업 카드에 25% 확률로 섞임 · 레벨 6 · 12 보장.
         /// </summary>
-        public const int MaxCores = 4, CoreFrom = 2;
-        public static readonly int[] CoreWindowLevels = { 4, 8, 12, 16 };
+        /// <summary>한 판에 받는 핵심 비급 수 = 큰 귀문 수 (귀문지기를 잡을 때마다 하나).</summary>
+        public const int MaxCores = SvGates.SealCount;
         /// <summary>체력이 이 비율 아래일 때 레벨업 카드에 주먹밥이 섞일 확률 (가안).</summary>
         public const float LowHpLine = 0.5f, LowHpHealChance = 0.5f;
         /// <summary>테스트용 (null = 원래대로).</summary>
@@ -147,12 +147,11 @@ namespace ParryRL.Survivor
 
         public static SvItem Get(string id) => id == Heal ? HealItem : All.Find(u => u.Id == id) ?? Cores.Find(u => u.Id == id);
 
-        /// <summary>지금 카드에 나올 수 있는 핵심 비급 (그 무기 3단계 이상, 아직 안 가짐, 2장 미만).</summary>
+        /// <summary>핵심 비급 창에 나올 수 있는 것: 가진 대상(봉 + 공용 칸)이 아직 핵심을 받지 않았으면 두 갈래 모두 — 단계 조건 없음 (2026-11-26 사용자 결정).</summary>
         public static List<SvItem> EligibleCores(SvProgress prog)
         {
             if (prog.Count(SvItemKind.Core) >= MaxCores) return new List<SvItem>();
-            // 가진 대상(봉 + 공용 칸)이 2단계 이상이고, 그 대상이 아직 핵심을 받지 않았을 때 두 갈래 모두
-            return Cores.FindAll(c => prog.LevelOf(c.For) > 0 && StageOf(prog, c.For) >= CoreFrom && CoreTaken(prog, c.For) == null);
+            return Cores.FindAll(c => prog.LevelOf(c.For) > 0 && CoreTaken(prog, c.For) == null);
         }
 
         /// <summary>단계: 무기 · 비급은 받은 단계, 기술 수련은 기본 1단계 + 받은 장수 (첫 카드 = 2단계).</summary>

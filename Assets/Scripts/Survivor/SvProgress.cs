@@ -65,16 +65,17 @@ namespace ParryRL.Survivor
 
         public int LevelOf(string id) => _levels.TryGetValue(id, out int v) ? v : 0;
 
-        private int _coreWindow;
         /// <summary>
-        /// 핵심 비급 전용 창이 뜰 차례인가 (레벨 4 · 8 · 12 · 16에 닿았는데 아직 안 열렸다).
-        /// 낼 후보가 없으면 열지 않고 다음 레벨업에 다시 본다.
+        /// 받을 핵심 비급 창 수: 귀문지기(중간 보스)를 잡을 때마다 하나 (2026-11-26 사용자 결정 — 전에는 레벨 4 · 8 · 12 · 16).
+        /// 카드 창이 비면 게임이 바로 띄운다.
         /// </summary>
-        public bool CoreWindowDue => _coreWindow < SvItems.CoreWindowLevels.Length && Level >= SvItems.CoreWindowLevels[_coreWindow];
+        public int CoreRewardsPending { get; private set; }
 
-        public void ConsumeCoreWindow()
+        public void AddCoreReward() => CoreRewardsPending++;
+
+        public void ConsumeCoreReward()
         {
-            if (_coreWindow < SvItems.CoreWindowLevels.Length) _coreWindow++;
+            if (CoreRewardsPending > 0) CoreRewardsPending--;
         }
 
         /// <summary>그 무기의 핵심 비급을 가졌는가.</summary>
