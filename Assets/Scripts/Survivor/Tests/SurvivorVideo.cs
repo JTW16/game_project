@@ -29,6 +29,7 @@ namespace ParryRL.Tests
         private int _frames;
         private float _orbit;
         private bool _scriptedCards;
+        private string _stills;
         // 실제 시간도 1/30초씩 흐르게 맞춘다 — 경 이름 띠·컷신·승리 화면 전환은 실제 시간(unscaled)으로 돌아서,
         // 녹화가 빠르거나 느리면 영상 속 길이가 들쭉날쭉해진다
         private readonly System.Diagnostics.Stopwatch _clock = new();
@@ -167,6 +168,129 @@ namespace ParryRL.Tests
             Assert.Greater(_frames, Fps * 20);
         }
 
+        /// <summary>귀문 부수기 → 마지막 귀문으로 보스 소환 → 앞발 패링 → 그로기에 몰아치기 (짧은 영상, 2026-11-26).</summary>
+        [UnityTest, Explicit("시연 영상 — 이름으로 골라 돌린다")]
+        public IEnumerator Record_Gates_And_Groggy()
+        {
+#if UNITY_EDITOR
+            string path = Path.Combine(Directory.GetCurrentDirectory(), "Captures", "gates_groggy.mp4");
+            if (File.Exists(path)) File.Delete(path);
+            _enc = new UnityEditor.Media.MediaEncoder(path, new UnityEditor.Media.VideoTrackAttributes
+            {
+                frameRate = new UnityEditor.Media.MediaRational(Fps), width = W, height = H, includeAlpha = false,
+                bitRateMode = UnityEditor.VideoBitrateMode.High,
+            });
+#endif
+            _rt = new RenderTexture(W, H, 24);
+            _tex = new Texture2D(W, H, TextureFormat.RGBA32, false);
+            foreach (var canvas in Object.FindObjectsByType<Canvas>())
+            {
+                if (!canvas.isRootCanvas) continue;
+                canvas.renderMode = RenderMode.ScreenSpaceCamera;
+                canvas.worldCamera = Camera.main;
+                canvas.planeDistance = 1f;
+            }
+            Time.captureFramerate = Fps;
+            _stills = Path.Combine(Directory.GetCurrentDirectory(), "Captures", "survivor", "gates_groggy");
+            if (Directory.Exists(_stills)) Directory.Delete(_stills, true);
+            Directory.CreateDirectory(_stills);
+            var prog = Game.Progress;
+            void Take(string id, int n) { for (int i = 0; i < n; i++) prog.Take(SvItems.Get(id), Player, Game.Weapons); }
+            Take(SvItems.Staff, 4);
+            Take(SvItems.Talisman, 3);
+            Take(SvItems.Orbit, 2);
+            Take(SvItems.Bell, 2);
+            prog.HoldLevelUps = true;
+            Game.SetElapsed(240f);
+            Game.Night.Snap();
+
+            var seals = SvGates.Seals;
+            // 1) 첫 큰 귀문: 걸어가 때린다 → 체력 바가 깎이고 문에서 몹이 쏟아진다 → 무너짐
+            Vector2 g0 = SvGates.All[seals[0]];
+            Teleport(g0 + new Vector2(0.6f, -7f));
+            yield return Run(1.5f, () => Player.TryMove(Vector2.zero), record: false);
+            yield return Run(1.6f, () => Walk(g0 + new Vector2(0.4f, -2.6f)));
+            yield return Run(2.5f, () => Walk(g0 + new Vector2(0.4f, -2.6f)));
+            Game.Weapons.TryGiant();
+            yield return Run(1.2f, () => Player.TryMove(Vector2.zero));
+            Player.TrySlam();
+            yield return Run(1.0f, () => Player.TryMove(Vector2.zero));
+            // 영상 길이를 줄이려고 남은 체력은 빨리 깎는다 (1초에 최대 체력의 40%)
+            yield return RunUntil(() => SvGates.SlotBroken(0), 4f, () =>
+            {
+                Player.TryMove(Vector2.zero);
+                var b = Game.Spawner.GateBody(0);
+                if (b != null) SvWeapons.Hit(b, Mathf.CeilToInt(b.MaxHp * 0.4f / Fps), Vector2.zero, 0f, SvItems.Staff);
+            });
+            yield return Run(2.4f, () => Player.TryMove(Vector2.zero));
+
+            // 2) 가운데 넷은 건너뛰고(녹화 안 함), 마지막 귀문을 부수면 보스가 끌려 나온다
+            for (int s = 1; s < seals.Count - 1; s++)
+            {
+                Teleport(SvGates.All[seals[s]] + new Vector2(0f, -4f));
+                Game.Spawner.UpdateGates(Player.Position);
+                var b = Game.Spawner.GateBody(s);
+                if (b != null) SvWeapons.Hit(b, b.Hp + 10, Vector2.zero, 0f, SvItems.Staff);
+                yield return Run(0.2f, null, record: false);
+            }
+            for (int i = SvEnemy.Active.Count - 1; i >= 0; i--) if (!SvEnemy.Active[i].IsGate) SvEnemy.Active[i].Despawn();
+            int last = seals.Count - 1;
+            Vector2 g5 = SvGates.All[seals[last]];
+            Teleport(g5 + new Vector2(0.4f, -3f));
+            yield return Run(1.0f, () => Player.TryMove(Vector2.zero), record: false);
+            yield return RunUntil(() => SvGates.SlotBroken(last), 3f, () =>
+            {
+                Player.TryMove(Vector2.zero);
+                var b = Game.Spawner.GateBody(last);
+                if (b != null) SvWeapons.Hit(b, Mathf.CeilToInt(b.MaxHp * 0.6f / Fps), Vector2.zero, 0f, SvItems.Staff);
+            });
+            yield return Run(0.6f, () => Player.TryMove(Vector2.zero));
+            var boss = Game.Boss;
+            yield return RunUntil(() => !Game.InCinematic, 12f, () => Player.TryMove(Vector2.zero));
+
+            // 3) 앞발 예고가 빨개질 때 패링 → 그로기 → 긴 봉 · 내려찍기 · 궁극기
+            var paw = boss != null ? boss.GetComponent<SvEliteAttack>() : null;
+            var ai = boss != null ? boss.GetComponent<SvBoss>() : null;
+            bool parried = false;
+            yield return RunUntil(() => ai == null || ai.Groggy, 10f, () =>
+            {
+                Vector2 to = boss.Position - Player.Position;
+                Player.TryMove(to.magnitude > 3.2f ? to.normalized : to.normalized * 0.15f);
+                if (!parried && paw != null && paw.CueRed) parried = Player.TryParry();
+                if (parried && !paw.Busy && !ai.Groggy) parried = false;
+            });
+            yield return Run(0.5f, () => Aim(boss));
+            Game.Weapons.TryGiant();
+            yield return Run(1.1f, () => Player.TryMove(Vector2.zero));
+            Player.TrySlam();
+            yield return Run(0.9f, () => Player.TryMove(Vector2.zero));
+            Game.Ultimate.Fill();
+            Game.Ultimate.TryUltimate();
+            yield return Run(3f, () => Player.TryMove(Vector2.zero));
+
+#if UNITY_EDITOR
+            _enc.Dispose();
+            _enc = null;
+#endif
+            Time.captureFramerate = 0;
+            Debug.Log($"[Video] {_frames} frames ({_frames / (float)Fps:0.0}s) → Captures/gates_groggy.mp4 · 그로기 {(ai != null ? ai.Groggies : 0)}번");
+            Assert.Greater(_frames, Fps * 8);
+        }
+
+        private void Walk(Vector2 to)
+        {
+            Vector2 d = to - Player.Position;
+            Player.TryMove(d.magnitude > 0.3f ? d.normalized : Vector2.zero);
+        }
+
+        private void Teleport(Vector2 at)
+        {
+            var rb = Player.GetComponent<Rigidbody2D>();
+            rb.position = at;
+            Player.transform.position = at;
+            Object.FindAnyObjectByType<SvView>().SnapToTarget();
+        }
+
         // ---------- 대본 도우미 ----------
 
         /// <summary>seconds 동안 매 프레임 act를 하고 화면을 한 장씩 영상에 넣는다. 체력은 계속 채워 둔다 (시연이라 쓰러지지 않게).</summary>
@@ -218,6 +342,9 @@ namespace ParryRL.Tests
 #if UNITY_EDITOR
             _enc.AddFrame(_tex);
 #endif
+            // 영상을 열어 보지 않고도 확인할 수 있게 2초마다 한 장씩 PNG로도 남긴다
+            if (_stills != null && _frames % (Fps * 2) == 0)
+                File.WriteAllBytes(Path.Combine(_stills, $"{_frames / Fps:00}s.png"), _tex.EncodeToPNG());
             _frames++;
         }
 
