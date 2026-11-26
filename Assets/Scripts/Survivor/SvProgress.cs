@@ -29,10 +29,11 @@ namespace ParryRL.Survivor
         private bool _captured;
 
         /// <summary>
-        /// 다음 레벨까지 필요한 경험치 (가안). 보석 값이 밤마다 ×3까지 오르므로 제곱 항을 키워 레벨이 높을수록 확실히 더디게 한다
-        /// (2026-11-18 사용자 요청 "고렙인데 경험치 차는 게 같다" — 전에는 8 + 4(L−1) + (L−1)²/5).
+        /// 다음 레벨까지 필요한 경험치 (가안). 보석 값이 밤마다 ×3까지 오르므로 제곱 항으로 레벨이 높을수록 더디게 한다.
+        /// 2026-11-26 사용자 결정 "레벨업이 느림" → 목표 1분 Lv4 · 3분 Lv8 · 5분 Lv12 · 9분 Lv18 (누적 약 60~65%로, 기획 docs/2026-11-26_난이도_성장_기획.md).
+        /// 전에는 8 + 5(L−1) + (L−1)²/2 (2026-11-18), 그 전엔 8 + 4(L−1) + (L−1)²/5.
         /// </summary>
-        public static int ExpFor(int level) => 8 + (level - 1) * 5 + (level - 1) * (level - 1) / 2;
+        public static int ExpFor(int level) => 5 + (level - 1) * 3 + (level - 1) * (level - 1) / 3;
 
         private void Awake()
         {

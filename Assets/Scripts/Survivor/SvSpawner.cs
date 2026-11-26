@@ -11,7 +11,7 @@ namespace ParryRL.Survivor
         [Header("동시 수 (시간(초), 목표 마릿수) — 사이는 직선으로 잇는다. 2026-11-10 플레이 피드백 \"시작부터 너무 많음\" 반영 가안")]
         [SerializeField] private Vector2[] aliveCurve =
         {
-            new(0f, 5f), new(120f, 25f), new(240f, 60f), new(360f, 110f), new(480f, 170f), new(540f, 200f),
+            new(0f, 12f), new(60f, 22f), new(120f, 35f), new(240f, 60f), new(360f, 110f), new(480f, 170f), new(540f, 200f),
         };
         [SerializeField] private int maxAlive = 220;
         [Tooltip("경이 바뀔 때 한꺼번에 둘러싸는 파도: 기본 + 경마다 더함")]
@@ -33,14 +33,14 @@ namespace ParryRL.Survivor
         [Header("큰 귀문 (2026-11-26 사용자 결정 \"귀문 부수기\" 개편, 수치는 가안)")]
         [Tooltip("큰 귀문이 하나씩 깨어나는 시각(초) — 4개 (사용자 결정 1 · 3 · 5 · 7분)")]
         [SerializeField] private float[] gateTimes = { 60f, 180f, 300f, 420f };
-        [Tooltip("큰 귀문 체력 (정예처럼 시간이 갈수록 늘어난다 — 깨어날 때 정해짐)")]
-        [SerializeField] private int gateHp = 900;
+        [Tooltip("큰 귀문 체력 — 깨어나는 순서대로 하나씩 (2026-11-26 사용자 결정 \"귀문마다 고정값\", 그때 화력으로 15~25초, 가안)")]
+        [SerializeField] private int[] gateHps = { 300, 800, 1500, 2400 };
         [Tooltip("큰 귀문이 솟는 거리 = 화면 밖 반경 + 이 값 (퇴마사 근처 화면 밖)")]
         [SerializeField] private float gateOffscreenExtra = 4f;
         [Tooltip("퇴마사가 이 거리 안에 오면 큰 귀문의 몸이 생겨 맞을 수 있다 (멀면 잠들어 계산하지 않음)")]
         [SerializeField] private float gateWakeRange = 32f;
         [Tooltip("귀문지기(중간 보스 자리 — 팀원이 넣기 전 임시로 강한 정예): 정예 체력에 곱함 · 그림 배율")]
-        [SerializeField] private float keeperHpMul = 3f, keeperScale = 1.3f;
+        [SerializeField] private float keeperHpMul = 1.5f, keeperScale = 1.3f;
 
         [Header("꼬마 도깨비 떼 (가안)")]
         [SerializeField] private float firstPack = 150f;
@@ -184,7 +184,7 @@ namespace ParryRL.Survivor
             float r = SvView.Instance != null ? SvView.Instance.OffscreenRadius : 16f;
             int gi = SvGates.PickSealSpot(center, r + gateOffscreenExtra);
             if (gi < 0) return false;
-            int hp = Mathf.RoundToInt(gateHp * (1f + SvGame.Elapsed / hpDoubleTime));
+            int hp = gateHps != null && gateHps.Length > 0 ? gateHps[Mathf.Min(_gatesOpened, gateHps.Length - 1)] : 900;
             SvGates.Open(_gatesOpened, gi, hp);
             _gatesOpened++;
             SvGame.Instance?.OnGateOpened(gi);

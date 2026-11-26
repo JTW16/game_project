@@ -888,7 +888,7 @@ namespace ParryRL.Tests
             float end = Time.time + 2f;
             while (Game.Weapons.SlamCount == c && Time.time < end) yield return null;
             int low = Slam(near);
-            end = Time.time + 4f;
+            end = Time.time + Player.SlamCooldown + 1f; // 쿨타임(1단계 5초)이 다 돌 때까지
             while (Player.SlamCooldownLeft > 0f && Time.time < end) yield return null;
             Player.TryMove(Vector2.right);
             Player.TryMove(Vector2.zero);
