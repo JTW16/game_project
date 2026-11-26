@@ -30,6 +30,18 @@ namespace ParryRL.Survivor
         [SerializeField] private int bossHp = 4200;
         [SerializeField] private int aliveDuringBoss = 90;
 
+        [Header("큰 귀문 (2026-11-26 사용자 결정 \"귀문 부수기\", 수치는 가안)")]
+        [Tooltip("큰 귀문 체력 (정예처럼 시간이 갈수록 늘어난다 — 처음 깨어날 때 정해짐)")]
+        [SerializeField] private int gateHp = 900;
+        [Tooltip("퇴마사가 이 거리 안에 오면 큰 귀문이 깨어나 맞을 수 있다 (멀면 잠들어 계산하지 않음)")]
+        [SerializeField] private float gateWakeRange = 32f;
+        [Tooltip("큰 귀문을 하나 부술 때마다: 몹 체력 배율에 더함 · 짙은 변종 확률에 더함")]
+        [SerializeField] private float hpPerBroken = 0.15f, fiercePerBroken = 0.08f;
+        [Tooltip("맞고 있는 큰 귀문이 1초에 더 내보내는 몹")]
+        [SerializeField] private float gatePressure = 4f;
+        [Tooltip("귀문을 다 부숴 보스를 일찍 불렀을 때 보스 체력: 0분이면 x, 보스 시각이면 1 (사이는 직선)")]
+        [SerializeField] private float earlyBossMin = 0.7f;
+
         [Header("꼬마 도깨비 떼 (가안)")]
         [SerializeField] private float firstPack = 150f;
         [SerializeField] private float packInterval = 15f;
@@ -50,6 +62,28 @@ namespace ParryRL.Survivor
         public static SvSpawner Instance { get; private set; }
         public bool Running { get; set; } = true;
         public int SpawnedTotal { get; private set; }
+        /// <summary>귀문을 부순 만큼 더 센 몹 (체력 배율).</summary>
+        public float BrokenHpMul => 1f + hpPerBroken * SvGates.BrokenCount;
+        /// <summary>보스 체력 배율 (귀문을 다 부숴 일찍 부르면 1보다 작다).</summary>
+        public float BossHpMul { get; private set; } = 1f;
+        /// <summary>귀문을 다 부숴서 보스가 나왔는가.</summary>
+        public bool BossByGates { get; private set; }
+        private readonly SvEnemy[] _gateBody = new SvEnemy[SvGates.SealCount];
+        private float _gateBudget;
+        /// <summary>지금 깨어 있는 큰 귀문의 몸 수 (몹 수 셈에서 뺀다).</summary>
+        public int LiveGates
+        {
+            get
+            {
+                int n = 0;
+                for (int s = 0; s < _gateBody.Length; s++) if (GateAlive(s)) n++;
+                return n;
+            }
+        }
+        private bool GateAlive(int s) => _gateBody[s] != null && _gateBody[s].isActiveAndEnabled && _gateBody[s].IsGate && _gateBody[s].Hp > 0;
+        /// <summary>그 큰 귀문의 몸 (깨어 있지 않으면 null).</summary>
+        public SvEnemy GateBody(int slot) => GateAlive(slot) ? _gateBody[slot] : null;
+
         public int TargetAlive => Mathf.Min(BossSpawned ? aliveDuringBoss : maxAlive, Mathf.RoundToInt(Curve(SvGame.Elapsed)));
 
         private float Curve(float t) => aliveCurve == null || aliveCurve.Length == 0 ? 20f : Sample(aliveCurve, t);
@@ -106,7 +140,8 @@ namespace ParryRL.Survivor
             Vector2 going = p.MoveInput * Mathf.Clamp01(p.SpeedNow / 6f);
             _ahead = Vector2.Lerp(_ahead, going, 1f - Mathf.Exp(-1.2f * Time.deltaTime));
             _budget = Mathf.Min(_budget + spawnPerSecond * Time.deltaTime, 30f);
-            int regular = SvEnemy.Active.Count;
+            UpdateGates(p.Position);
+            int regular = SvEnemy.Active.Count - LiveGates;
             while (_budget >= 1f && regular < TargetAlive)
             {
                 _budget -= 1f;
@@ -126,6 +161,66 @@ namespace ParryRL.Survivor
                 if (SvEnemy.Active.Count < maxAlive) SpawnPack(GatePoint(p.Position));
             }
             RecycleFar(p.Position);
+        }
+
+        // ---------- 큰 귀문 ----------
+
+        /// <summary>가까운 큰 귀문을 깨우고 먼 것은 재운다 · 맞고 있는 큰 귀문은 몹을 토해 낸다.</summary>
+        public void UpdateGates(Vector2 center)
+        {
+            var seals = SvGates.Seals;
+            float wake2 = gateWakeRange * gateWakeRange, sleep2 = (gateWakeRange + 8f) * (gateWakeRange + 8f);
+            bool hitAny = false;
+            for (int s = 0; s < seals.Count; s++)
+            {
+                if (seals[s] < 0) continue;
+                bool alive = GateAlive(s);
+                if (SvGates.SlotBroken(s) || BossSpawned)
+                {
+                    if (alive) _gateBody[s].Despawn();
+                    continue;
+                }
+                Vector2 at = SvGates.All[seals[s]];
+                float d2 = (at - center).sqrMagnitude;
+                if (!alive && d2 < wake2) WakeGate(s);
+                else if (alive && d2 > sleep2) _gateBody[s].Despawn(); // 남은 체력은 SvGates가 기억한다
+                if (GateAlive(s) && SvGates.SlotSinceHit(s) < 1.5f)
+                {
+                    hitAny = true;
+                    _gateBudget = Mathf.Min(_gateBudget + gatePressure * Time.deltaTime, 6f);
+                    while (_gateBudget >= 1f && SvEnemy.Active.Count < maxAlive)
+                    {
+                        _gateBudget -= 1f;
+                        SvGates.MarkSpawn(seals[s]);
+                        Spawn(PickKind(), SvGates.Front(seals[s]));
+                    }
+                }
+            }
+            if (!hitAny) _gateBudget = 0f;
+        }
+
+        private void WakeGate(int s)
+        {
+            int gate = SvGates.Seals[s];
+            if (SvGates.SealHp(s) < 0)
+            {
+                int max = Mathf.RoundToInt(gateHp * (1f + SvGame.Elapsed / hpDoubleTime));
+                SvGates.SetSealHp(s, max, max);
+            }
+            var e = Spawn(SvEnemyKind.Gate, SvGates.All[gate]);
+            e.GateIndex = gate;
+            e.SetHealth(SvGates.SealMaxHp(s));
+            e.RestoreHp(SvGates.SealHp(s));
+            _gateBody[s] = e;
+        }
+
+        /// <summary>큰 귀문을 다 부쉈다: 보스를 바로 끌어낸다 — 일찍일수록 약하게 (가안).</summary>
+        public SvEnemy SummonBossByGates()
+        {
+            if (BossSpawned) return Boss;
+            BossByGates = true;
+            BossHpMul = Mathf.Lerp(earlyBossMin, 1f, Mathf.Clamp01(SvGame.Elapsed / bossAt));
+            return SpawnBoss();
         }
 
         /// <summary>보스를 화면 밖에서 불러낸다 (한 판에 한 번).</summary>
@@ -208,7 +303,7 @@ namespace ParryRL.Survivor
             for (int i = SvEnemy.Active.Count - 1; i >= 0; i--)
             {
                 var e = SvEnemy.Active[i];
-                if (e.IsBig || (e.Position - center).sqrMagnitude < r2) continue;
+                if (e.IsBig || e.IsGate || (e.Position - center).sqrMagnitude < r2) continue;
                 e.transform.position = GatePoint(center);
                 e.GetComponent<Rigidbody2D>().position = e.transform.position;
             }
@@ -219,8 +314,14 @@ namespace ParryRL.Survivor
             if (!_free.TryGetValue(kind, out var stack)) _free[kind] = stack = new Stack<SvEnemy>();
             var e = stack.Count > 0 ? stack.Pop() : SvEnemy.Create(kind, _root);
             at = SvBounds.Clamp(at, 1f);
-            float eliteScale = 1f + SvGame.Elapsed / hpDoubleTime;
-            float scale = MobHpMul(SvGame.Elapsed);
+            if (kind == SvEnemyKind.Gate)
+            {
+                e.Spawn(at, 1, 0f, 0, 0);
+                return e;
+            }
+            // 큰 귀문을 부술수록 남은 귀문에서 더 센 몹이 나온다
+            float eliteScale = (1f + SvGame.Elapsed / hpDoubleTime) * BrokenHpMul;
+            float scale = MobHpMul(SvGame.Elapsed) * BrokenHpMul;
             // 밤이 깊을수록 보석 값이 오른다 (초반 레벨업은 느리게, 후반은 따라잡게 — 가안)
             float xpMul = 1f + 0.5f * SvNight.Phase;
             int Xp(int b) => Mathf.RoundToInt(b * xpMul);
@@ -228,7 +329,7 @@ namespace ParryRL.Survivor
             {
                 case SvEnemyKind.Dokkaebibul: e.Spawn(at, Mathf.RoundToInt(7 * scale), 3.2f, 6, Xp(2)); break;
                 case SvEnemyKind.Elite: e.Spawn(at, Mathf.RoundToInt(380 * eliteScale), 2.1f, 18, 15); break;
-                case SvEnemyKind.Boss: e.Spawn(at, bossHp, 1.6f, 18, 0); break;
+                case SvEnemyKind.Boss: e.Spawn(at, Mathf.RoundToInt(bossHp * BossHpMul), 1.6f, 18, 0); break;
                 case SvEnemyKind.Dalgyal: e.Spawn(at, Mathf.RoundToInt(40 * scale), 1.6f, 12, Xp(4)); break;
                 case SvEnemyKind.SmallDokkaebi: e.Spawn(at, Mathf.RoundToInt(6 * scale), 3.7f, 5, Xp(1)); break;
                 default: e.Spawn(at, Mathf.RoundToInt(10 * scale), 2.3f, 8, Xp(1)); break;
@@ -236,7 +337,8 @@ namespace ParryRL.Survivor
             if (!e.IsBig) { e.Speed *= mobSpeedMul; SvFoeVfx.MobArrive(at, false); }
             SpawnedTotal++;
             int phase = SvNight.Phase;
-            if (!e.IsBig && fierceChance != null && phase < fierceChance.Length && Random.value < fierceChance[phase]) e.MakeFierce();
+            float fierce = (fierceChance != null && phase < fierceChance.Length ? fierceChance[phase] : 0f) + fiercePerBroken * SvGates.BrokenCount;
+            if (!e.IsBig && Random.value < fierce) e.MakeFierce();
             return e;
         }
 

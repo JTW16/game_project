@@ -67,7 +67,7 @@ namespace ParryRL.Survivor
                 b.Enemy = e;
                 b.LagAmount = 1f;
                 b.Root.gameObject.SetActive(true);
-                b.Root.sizeDelta = e.IsElite ? new Vector2(120f, 14f) : new Vector2(64f, 11f);
+                b.Root.sizeDelta = e.IsGate ? new Vector2(180f, 16f) : e.IsElite ? new Vector2(120f, 14f) : new Vector2(64f, 11f);
                 _by[e] = b;
                 _live.Add(b);
             }
@@ -117,7 +117,8 @@ namespace ParryRL.Survivor
                 // 깎인 만큼 흰 띠가 조금 늦게 따라 줄어든다
                 b.LagAmount = Mathf.Max(hp, Mathf.MoveTowards(b.LagAmount, hp, Time.unscaledDeltaTime * 1.5f));
                 b.Lag.fillAmount = b.LagAmount;
-                Vector3 sp = cam.WorldToScreenPoint(new Vector3(e.Position.x, e.Position.y, 0f));
+                // 큰 귀문은 문짝 가운데에 (발밑이면 문 앞에 선 퇴마사 머리 위로, 지붕 위면 시계와 겹친다)
+                Vector3 sp = cam.WorldToScreenPoint(e.IsGate ? SvVfx.P(e.Position, e.VisualHeight * 0.5f) : new Vector3(e.Position.x, e.Position.y, 0f));
                 if (sp.z < 0f) { b.Root.gameObject.SetActive(false); continue; }
                 b.Root.gameObject.SetActive(true);
                 b.Root.anchoredPosition = new Vector2(sp.x * k, sp.y * k - 14f);
