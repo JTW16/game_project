@@ -390,6 +390,7 @@ namespace ParryRL.Survivor
             Hud.Flash(new Color(0.75f, 1f, 1f), 0.35f, 0.25f);
             Sfx.Play(SfxId.Parry);
             Hud.Popup("패링!", new Color(0.7f, 1f, 0.95f));
+            if (elite != null && elite.IsBoss && elite.TryGetComponent(out SvBoss boss)) boss.OnParried();
         }
 
         /// <summary>퇴마사가 맞았다: 맞은 걸 바로 알게 화면 테두리·체력 바·흔들림 (히트스탑은 쓰지 않는다 — 4장).</summary>

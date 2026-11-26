@@ -323,6 +323,8 @@ namespace ParryRL.Survivor
         /// <summary>테스트·연출용: 체력을 바로 정한다.</summary>
         public void SetHealth(int hp) => MaxHp = Hp = Mathf.Max(1, hp);
 
+        public void ClearStun() => _stunUntil = _boundUntil = 0f;
+
         /// <summary>bind = 진혼령처럼 묶어 둔 기절 (발밑에 금줄 그림).</summary>
         public void Stun(float seconds, bool bind = false)
         {

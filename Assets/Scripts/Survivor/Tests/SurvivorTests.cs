@@ -647,6 +647,35 @@ namespace ParryRL.Tests
             Assert.AreEqual(1, Player.ParrySuccesses);
             Assert.AreEqual(Player.MaxHp, Player.Hp);
             Assert.IsTrue(boss.Stunned, "패링하면 보스도 잠깐 멈춘다");
+            Assert.IsTrue(boss.GetComponent<SvBoss>().Groggy, "앞발 패링 = 그로기");
+        }
+
+        [UnityTest]
+        public IEnumerator Boss_Groggy_Takes_More_Damage_And_Manual_Skills_More()
+        {
+            Game.Weapons.enabled = false;
+            var boss = SpawnBoss(new Vector2(6f, 0f));
+            var ai = boss.GetComponent<SvBoss>();
+            yield return null;
+            try
+            {
+                SvWeapons.CritOverride = 0f;
+                int hp = boss.Hp;
+                SvWeapons.Hit(boss, 100, Vector2.right, 0f, SvItems.Staff);
+                Assert.AreEqual(hp - 100, boss.Hp, "평소엔 그대로");
+                Game.OnParry(Player, boss);
+                Assert.IsTrue(ai.Groggy);
+                Assert.IsTrue(boss.Stunned, "그로기 동안 멈춘다");
+                Assert.Greater(ai.GroggyLeft, 3f);
+                hp = boss.Hp;
+                SvWeapons.Hit(boss, 100, Vector2.right, 0f, SvItems.Staff);
+                Assert.AreEqual(hp - 200, boss.Hp, "자동 무기 = 2배");
+                hp = boss.Hp;
+                SvWeapons.Hit(boss, 100, Vector2.right, 0f, "slam");
+                Assert.AreEqual(hp - 300, boss.Hp, "직접 쓰는 기술 = 3배");
+                Assert.AreEqual(1f, ai.GroggyDamageMul(SvItems.Staff) / 2f, 0.001f);
+            }
+            finally { SvWeapons.CritOverride = null; }
         }
 
         [UnityTest]
@@ -725,6 +754,14 @@ namespace ParryRL.Tests
             while (ai.SpineVolleys == 0) yield return null;
             yield return WaitReal(0.35f);
             yield return Capture("survivor_boss_spines");
+
+            // 그로기: 머리 위 부적 별 · 옥빛 체력 바 · 남은 시간
+            Game.Weapons.enabled = true;
+            Game.OnParry(Player, boss);
+            yield return WaitReal(0.6f);
+            yield return Capture("survivor_boss_groggy");
+            Game.Weapons.enabled = false;
+            yield return Wait(ai.GroggyLeft + 0.1f);
 
             boss.TakeDamage(boss.MaxHp / 2 + 1, Vector2.right, 0f);
             float until = Time.time + 4f;
